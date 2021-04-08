@@ -1,0 +1,72 @@
+<template>
+  <view wx:if="{{maskSteps}}" :class="{'mask_two':stepsNo==1,'mask_threen':stepsNo==2,'mask_one':stepsNo==3,'mask_null':!stepsNo}">
+    <view class="mask" @tap="steps"></view>
+    <image class="portrait" src="{{imgSrc}}" @tap="steps"></image>
+  </view>
+</template>
+<script>
+  import wepy from 'wepy';
+  export default class Confirm extends wepy.page {
+    def = {
+      stepsNo: 2,
+      maskSteps: true,
+      imgSrc: '/images/guide/No.3.png'
+    };
+    data = {...this.def};
+    async onLoad () {
+      console.log(wepy.getStorageSync('maskSteps'))
+      if(wepy.getStorageSync('maskSteps')) {
+        this.maskSteps = false;
+        this.$apply();
+      }
+    }
+    methods = {
+      steps() {
+        let self = this;
+        /*if(self.stepsNo == 1){
+          self.stepsNo = '';
+          self.imgSrc = '/images/guide/No.3.png';
+          setTimeout(function(){
+            self.stepsNo = 2;
+            self.$apply();
+            return;
+          },100);
+        }*/
+        if(this.stepsNo == 2){
+          self.stepsNo = '';
+          self.imgSrc = '/images/guide/No.1.png';
+          setTimeout(function(){
+            self.stepsNo = 3;
+            self.$apply();
+            return;
+          },100);
+        }else if(this.stepsNo == 3){
+          this.maskSteps = false;
+          wepy.setStorageSync('maskSteps',true);
+          return;
+        }
+      }
+    }
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .mask{width:100%;height:100%;background-color:#000;position: fixed;z-index:10;opacity: 0.5;}
+  .portrait{width:750rpx;position: fixed;opacity:1;z-index:10;}
+  .mask_one{
+    image{top:0;height:321rpx;}
+    .mask{top:321rpx;}
+  }
+  .mask_two{
+    image{top:0;height:491rpx;}
+    .mask{top:491rpx;}
+  }
+  .mask_threen{
+    image{top:0;height:434rpx;}
+    .mask{top:434rpx;}
+  }
+  .mask_null{
+    .mask{top:0rpx;}
+  }
+</style>

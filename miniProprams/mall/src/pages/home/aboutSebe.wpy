@@ -1,0 +1,19 @@
+<template>
+<web-view src="{{wechatUrl}}"></web-view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import baseApi from '../../api/base';
+  export default class orderList extends wepy.page {
+    def = {
+    	wechatUrl : ''
+    };
+    async onLoad() {
+    	this.wechatUrl = baseApi.wxUrl + '/wechat.html';
+    	this.$apply();
+    }
+    data = {...this.def};
+    methods = {
+    };
+  }
+</script>

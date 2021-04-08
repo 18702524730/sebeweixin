@@ -1,0 +1,215 @@
+<template>
+	<Tips />
+	<view class="add_tit_wrap" wx:if="{{init}}">
+		<form @submit="goCustomer">
+		<view class="add_tit">
+			<view class="add_tab weui-flex">
+				<view class="weui-flex__item" @tap="tabType">
+					<view :class="{'tab_click':!typeTab,'mr10':!typeTab}" class="fr">企业客户</view>
+				</view>
+				<view class="weui-flex__item" @tap="tabType">
+					<view :class="{'tab_click':typeTab,'ml10':typeTab}">个人客户</view>
+				</view>
+			</view>
+			<view class="add_lists {{!typeTab ? 'higher' : ''}}">
+				<view class="lists_tit" wx:if="{{!typeTab}}">企业名称</view>
+				<view class="lists_input mb40 mt20" wx:if="{{!typeTab}}">
+					<input placeholder-class="placeholder" value="{{input.companyName}}" id="companyName" placeholder="请输入申请企业名称" maxlength="60"  @input="myInput" @confirm="goCustomer"/>
+				</view>
+
+				<view class="lists_tit">联系人</view>
+				<view class="lists_input mb40 mt20">
+					<input placeholder-class="placeholder" value="{{input.applyName}}" id="applyName" placeholder="请输入联系人姓名" maxlength="20" @input="myInput" @confirm="goCustomer" />
+				</view>
+
+				<view class="lists_tit">手机号</view>
+				<view class="lists_input mb40 mt20">
+					<input type="number" placeholder-class="placeholder" value="{{input.applyPhone}}" id="applyPhone" placeholder="请输入联系人手机号码" maxlength="11" @input="myInput" @blur="phoneBlur" @confirm="goCustomer" cursor-spacing="60"/>
+				</view>
+				<view class="lists_tit">订单备注<text>（选填）</text><view class="txt_num">{{input.remarks.length || 0}}/200</view></view>
+				<view class="lists_input mt20">
+					<textarea wx:if="{{!platType}}" auto-height="true" placeholder-class="placeholder" value="{{input.remarks}}" id="remarks" placeholder="请输入备注信息" maxlength="200" @input="myInput" @confirm="goCustomer" cursor-spacing="120" />
+					<textarea wx:else style="margin-left:-5rpx;" auto-height="true" placeholder-class="placeholder" value="{{input.remarks}}" id="remarks" placeholder="请输入备注信息" maxlength="200" @input="myInput" @confirm="goCustomer" cursor-spacing="120" />
+				</view>
+
+			</view>
+			<view class="btn" @tap="goCustomer">下一步</view>
+			<view class="go_old" @tap="goOld">选择老客户</view>
+		</view>
+		</form>
+	</view>
+</template>
+<script>
+	import wepy from 'wepy';
+	import qs from 'qs';
+	import base from '../../mixins/base';
+	import input from '../../mixins/input';
+	import FormTips from '../../components/weui/tips';
+
+	export default class orderList extends wepy.page {
+		components = {
+			Tips: FormTips,
+		};
+		def = {
+			init: false,
+			typeTab: false,
+			userData: {},
+			createOrderData: '',
+			platType: false
+		};
+		data = {...this.def};
+		async onShow (options) {
+			this.loaded();
+			var phone=wx.getSystemInfoSync();  //调用方法获取机型
+			if (phone.platform=='ios'){
+				this.platType = true;
+			} else if (phone.platform == 'android'){
+				this.platType = false;
+			}
+			let customerData = wepy.getStorageSync('customerData') || {};
+			let createOrderData = wepy.getStorageSync('createOrderData');
+			this.createOrderData = createOrderData ? {...createOrderData} : customerData;
+			this.input = {...this.createOrderData};
+			this.typeTab = this.createOrderData.customerType === undefined ? false : (this.createOrderData.customerType == 2)
+			let userData = wepy.getStorageSync('auth') || {};
+			this.userData = userData;
+			this.$apply()
+		}
+		inputHandle(){
+			let customerData = wepy.getStorageSync('customerData');
+			let createOrderData = wepy.getStorageSync('createOrderData');
+			if (createOrderData) {
+				createOrderData = {...createOrderData, ...this.input};
+				wepy.setStorageSync('createOrderData', createOrderData);
+			}else if(customerData){
+				customerData = {...customerData, ...this.input};
+				wepy.setStorageSync('customerData', customerData);
+			}
+		}
+		methods = {
+			myInput(e) {
+				const fieldName = e.currentTarget.id;
+				this.input[fieldName] = e.detail.value;
+				this.$apply();
+				this.inputHandle();
+			},
+			goOld(){
+				wepy.navigateTo(
+					{
+						url: '/pages/oldCustomer/oldCustomer?typeTab=' + this.typeTab
+					}
+				)
+			},
+			goCustomer() {
+				if (this.isValid()) {
+					let ret = {
+						customerType: this.typeTab ? 2 : 1
+					}
+					let data = {...this.input, ...ret};
+					if (this.typeTab) {
+						data.companyName = '';
+					}
+					wepy.setStorageSync('createOrderData', data);
+					try {
+						wepy.removeStorageSync('customerData');
+					} catch (e) {
+					}
+					wepy.navigateTo(
+						{
+							url: '/pages/createOrder/chooseBusiness'
+						}
+					)
+				}
+			},
+			tabType() {
+				this.typeTab = !this.typeTab;
+				this.input.customerType = this.typeTab ? 2 : 1;
+				this.inputHandle();
+				// 为了交互体验，不清空公司名称
+				// if (this.typeTab) {
+					// this.input.companyName = '';
+				// }
+			},
+			phoneBlur(){
+				console.log(this.isPhoneValid)
+				this.isPhoneValid();
+			}
+		};
+		isPhoneValid(){
+			if (this.isEmpty(this.input.applyPhone)) {
+				this.tips('请输入手机号码');
+				return false;
+			}
+			const reg = /^1\d{10}$/;
+			if (!reg.test(this.input.applyPhone)) {
+				this.tips('手机号码格式错误');
+				return false;
+			}
+			if (this.userData.phone && this.input.applyPhone == this.userData.phone) {
+				this.tips('不可以邀请自己哦，请换一个客户再试一下');
+				return false;
+			}
+			return true;
+		}
+		/**
+		 * 校验
+		 */
+		isValid() {
+			console.log(this.input)
+			if (this.typeTab) {
+				if (this.isEmpty(this.input.applyName)) {
+					this.tips('请输入联系人姓名');
+					return false;
+				}
+			}else{
+				if (this.isEmpty(this.input.companyName)) {
+					this.tips('请输入申请企业名称');
+					return false;
+				}
+				if (this.isEmpty(this.input.applyName)) {
+					this.tips('请输入联系人姓名');
+					return false;
+				}
+			}
+
+			if (!this.isPhoneValid()) {
+				return false;
+			}
+
+			return true;
+		}
+		config = {
+			navigationBarTitleText: '创建订单'
+		};
+		mixins = [base, input];
+	}
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.add_tit_wrap{background: #F5F5F5; min-height: 100%;}
+.add_tit{width:100%;height:370rpx;background-image: linear-gradient(178deg, #2F80F6 0%, #43A0FF 100%);padding-top: 100rpx;box-sizing:border-box;
+	.add_tab{width:690rpx;box-sizing:border-box;margin:0 auto;height:80rpx;
+		.weui-flex__item{
+			.fr{float: right;}
+			view{width:330rpx;height:80rpx;background-color:#fff;border-radius: 6rpx 6rpx 0 0;line-height:80rpx;color: #2F80F6;opacity: 0.5;text-align: center;font-size:$text-nm;}
+			.tab_click{height:88rpx;opacity: 1;width:340rpx;transition: opacity 0.2s;}
+		}
+	}
+
+	.add_lists{background-color:#fff;width:690rpx;padding:60rpx 30rpx 40rpx;box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.09);border-radius:8rpx;margin:0 auto 40rpx;box-sizing:border-box;min-height: 566rpx; transition: min-height 0.3s;
+		.lists_tit{
+			color: #515F71;font-size:$text-nm;line-height: 40rpx;position: relative;
+			.txt_num{text-align: right;color: #B3BFD0;font-size:$text-xs; position: absolute;right:0;top: 0;}
+			text{color: #B3BFD0;}
+		}
+		.lists_input{border-bottom:1rpx solid #e5e5e5;padding-bottom: 20rpx;line-height:40rpx;font-size:$text-nm;
+			.placeholder{color: #B3BFD0;text-align: left;}
+			textarea{color:#515F71;text-align: left;padding:0;text-overflow:clip;overflow:hidden;white-space:nowrap;width:630rpx;}
+			input{color:#515f71;}
+		}
+	}
+	.higher{min-height: 740rpx;}
+	.go_old{text-align: center;width:168rpx;margin:40rpx auto 0;color: #8795A8;font-size:$text-nm;}
+}
+.btn{width:690rpx;height:96rpx;background-image: linear-gradient(147deg, #0096FF 0%, #2F80F6 100%);box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.30);border-radius: 8rpx;color:#fff;margin:0 auto;border:0rpx;font-size: $text-xxl;text-align: center;line-height:94rpx;}
+</style>

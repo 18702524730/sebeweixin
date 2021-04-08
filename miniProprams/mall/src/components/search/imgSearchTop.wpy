@@ -1,0 +1,64 @@
+<template>
+  <view class="img_serach_top" id="searchbox">
+    <view class="row searchbox">
+      <view class="s_img" @tap="reUpload">
+        <image src="{{img}}">
+        <view>重新上传</view>
+      </view>
+      <view wx:if="{{numFound>0}}" class="resultNum">为您查询到<text>{{numFound}}</text>条相似</view>
+    </view>
+  </view>
+</template>
+
+<script>
+	import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import qs from 'qs'
+	export default class imgSerachTop extends wepy.component {
+    props = {
+      img: {
+        type: String,
+        default: 'https://hzsebetest.oss-cn-hangzhou.aliyuncs.com/ACED304C7C4436473D95835ED1FAA4C5.png'
+      },
+      numFound: {
+      	type: Number,
+        default: 0
+      }
+    };
+    data = {
+    };
+		methods = {
+			reUpload (e) {
+        wepy.navigateBack({
+				  delta: 1
+				})
+      },
+      reset() {
+      	this.$emit('setValue', '');
+      },
+    };
+    watch = {
+    	content(){}
+    }
+    mixins = [base];
+	}
+</script>
+
+<style lang='scss'>
+  @import "../../styles/variable";
+  .img_serach_top{
+    background: #FFF;
+    .searchbox{
+    	border-bottom:1rpx solid #f5f5f5;height: 101rpx;padding:8rpx 30rpx;box-sizing: border-box;
+			.s_img{
+				position: relative;height: 84rpx;
+				image{width: 84rpx;height: 84rpx;border-radius: 6rpx;border:1px solid #f5f5f5;box-sizing: border-box;}
+				view{position: absolute;left: 0;bottom: 0;width: 84rpx;height: 32rpx;background-color: rgba(0, 0, 0, 0.5);line-height: 32rpx;text-align: center;font-size: 18rpx;color: #FFFFFF;border-bottom-right-radius: 6rpx;border-bottom-left-radius: 6rpx;}
+			}
+      .resultNum{
+      	margin-left: 30rpx;height: 42rpx;line-height: 42rpx;font-size: 30rpx;color:#999;
+      	text{color: #10AEFF;}
+      }
+    }
+  }
+</style>

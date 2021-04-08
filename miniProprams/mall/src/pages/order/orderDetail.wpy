@@ -1,0 +1,302 @@
+<template>
+	<Tips />
+	<view class="orderDetails" wx:if="{{init}}">
+	  <view class="orderDetail" wx:if="{{!noPermisson}}">
+	    <view class="detail_list">
+	      <text wx:if="{{detailData.fictitious.order_state == -1}}" class="pay_off">已关闭</text>
+	      <text wx:if="{{detailData.fictitious.order_state == 0}}" class="pay_null">待付款</text>
+	      <text wx:if="{{detailData.fictitious.order_state == 1}}" class="pay_ok">已付款</text>
+	      <text wx:if="{{detailData.fictitious.order_state == 2}}" class="pay_ok">已完成</text>
+	      <!--  style="height:{{listH}}" -->
+	      <view class="lists">
+	        <repeat for="{{detailData.data}}" key="index" index="index" item="item" wx:if="{{index<num}}">
+	          <view class="order_detail">
+	            <view class="order_top">
+	              <text wx:if="{{detailData.business == 1}}">订单号：{{item.order_sn || item.orderSn}}</text>
+	              <text wx:if="{{detailData.business == 0}}">服务单号：{{item.order_sn || item.orderSn}}</text>
+	              <text class="service_name fr"  wx:if="{{item.id_code}}">{{item.id_code}}服务商</text>
+	            </view>
+	            <view class="order_tit mt20" wx:if="{{detailData.business == 0}}">
+	              <text class="order_name">{{item.orderName}}</text>
+	              <text class="fr">¥{{item.amount || 0}}.00</text>
+	            </view>
+	            <view class="order_tit mt20" wx:if="{{detailData.business == 1}}">
+	              <text class="order_name">{{item.fileName}}</text>
+	              <text class="fr">{{item.fileSize || 0}}kb</text>
+	            </view>
+	            <view class="order_bottom mb20">
+	              <text class="fr">x1</text>
+	            </view>
+	          </view>
+	        </repeat>
+	        <view class="weui-loadmore weui-loadmore_line"  wx:if="{{detailData.data.length>3}}">
+	            <view class="weui-loadmore__tips weui-loadmore__tips_in-line" @tap="anAll">
+								<text>共{{detailData.data.length}}项，{{allTxt}}</text>
+	            	<image class="ml10" src="{{imgSrc}}">
+	            </view>
+	        </view>
+	        <view class="detail_bottom mt20 mb20">
+	          <view class="detail_l">
+	            订单金额
+	          </view>
+	          <view class="detail_r">
+	          ¥{{detailData.fictitious.amount || 0}}.00
+	          </view>
+	        </view>
+	        <view class="detail_bottom">
+	          <view class="detail_l">
+	            实付款
+	          </view>
+	          <view class="detail_r_c" :class="{'pay_no':detailData.fictitious.order_state==0,'pay':detailData.fictitious.order_state>=1,'pay_on':detailData.fictitious.order_state==-1}">
+	          ¥{{detailData.fictitious.payment_amount || 0}}.00
+	          </view>
+	        </view>
+	      </view>
+	    </view>
+	    <view class="memo">
+	      <text>备注信息</text>
+	      <view class="txt mt20">{{detailData.asistantremarks || '暂无备注信息'}}</view>
+	    </view>
+	    <view class="inviter" wx:if="{{detailData.fictitious.asistantPhone}}">
+	      邀请人信息
+	      <view class="inviter_info mt20">
+	        <image src="{{detailData.inviteAvatar || '/images/confirm/photo.png'}}" alt="">
+	        <text class="true_name ml20">{{detailData.asistantName || '--'}}</text>
+	        <text class="fr">{{detailData.fictitious.asistantPhone}}</text>
+	      </view>
+	    </view>
+	    <view class="call" @tap="call">
+	      <image src="/images/login/call.png" alt="">
+	      <text class="ml20">联系客服</text>
+	    </view>
+	    <view class="order_bottom">
+	    <view class="order_data">
+	      <view class="txt">订单号：{{detailData.fictitious.order_sn}}</view>
+	      <view class="txt">下单时间：{{createTime}}</view>
+	      <view class="txt">商户订单号：{{detailData.fictitious.payment_sn}}</view>
+	      <view class="txt" wx:if="{{paymentTime}}">支付时间：{{paymentTime}}</view>
+	    </view>
+	    </view>
+	    <view class="footer" wx:if="{{detailData.fictitious.order_state == '0' && detailData.fictitious.channel_code != 'ali'}}">
+		    <view class="footer_l">
+		      <text class="txt_l">合计</text>
+		      <text class="txt_r ml20">¥{{detailData.fictitious.payment_amount || 0}}.00</text>
+		    </view>
+		    <view class="footer_r" @tap.stop="showAgreement({{detailData.fictitious}})">
+		      去支付
+		    </view>
+		  </view>
+	  </view>
+	  <view class="list_null" wx:else>
+	    <image src="/images/login/null.png" alt="">
+	    <text>您无权限查看他人订单</text>
+	  </view>
+
+	  <ServiceAgreement :show.sync="showServiceAgreement" @back.user="hideServiceAgreement" :orderData.sync="orderData" @paySuccess.user="paySuccess"/>
+	</view>
+
+</template>
+
+
+<script>
+  import wepy from 'wepy';
+  import order from '../../api/order';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import Tips from '../../utils/Tips';
+  import FormTips from '../../components/weui/tips';
+  /*
+  过滤器
+   */
+  import Lang from '../../utils/Lang';
+  import interfaces from '../../interfaces'
+  import ServiceAgreement from '../../components/confirm/serviceAgreement';
+  export default class HomeIndex extends wepy.page {
+  	components = {
+      ServiceAgreement: ServiceAgreement,
+      Tips: FormTips,
+    };
+    def = {
+    	imgSrc: '',
+    	allTxt: '展开全部',
+    	noPermisson: false,
+    	orderFictitiousSn:'',
+    	showServiceAgreement: false,
+    	orderData:{},
+    	init: false,
+      orderBool: false,
+      num: 3,
+      detailData: {
+      	fictitious: {}
+      },
+      listH: '',
+      createTime: '',
+      paymentTime: ''
+    };
+    data = {...this.def};
+    async onLoad (option) {
+    	const sessionRes = await interfaces.checkLogin();
+    	if (!sessionRes.isLogin) {
+    		wepy.redirectTo({
+          url: '/pages/login/login'
+        });
+        return;
+    	}
+    	this.orderFictitiousSn = option.orderFictitiousSn;
+      await this.getOrderDetail();
+      this.loaded();
+    }
+    async getOrderDetail () {
+    	try{
+    		let detailLists = '';
+	      detailLists = await order.orderDetails(this.orderFictitiousSn);
+	      Tips.loaded();
+	      this.detailData = detailLists;
+	      this.createTime = Lang.TimeDaySeconds(detailLists.fictitious.create_time);
+	      this.paymentTime = detailLists.fictitious.payment_time ? Lang.TimeDaySeconds(detailLists.fictitious.payment_time) : '';
+	      this.$apply();
+	      if(this.detailData.data.length<=3){
+	        // this.listH = this.detailData.data.length * 200 + 150 + 'rpx';
+	      } else {
+	        // this.listH = 750 + 'rpx';
+	        this.imgSrc = '/images/confirm/arrow.png';
+	      }
+    	}catch(err){
+    		//10011 不存在  10010 不属于你
+    		if (err.status == 10011 || err.status == 10010) {
+    			this.noPermisson = true;
+    		}
+    		if (err.status == 401) {
+    			wepy.redirectTo({
+	          url: '/pages/login/login'
+	        });
+    		}
+    	}
+    }
+    methods = {
+    	paySuccess(){
+        this.methods.hideServiceAgreement.bind(this)();
+    		Tips.loading();
+    		this.getOrderDetail();
+    	},
+    	showAgreement(item) {
+    		var ret = {
+    			phone: item.buyer_mobile,
+    			order_fictitious_sn: item.order_fictitious_sn,
+    			payment_sn: item.payment_sn,
+    			amount: item.amount,
+    			service: item.orderName,
+    			order_sn: item.orderSns,
+    		}
+    		this.orderData = ret;
+    		this.showServiceAgreement = true;
+	      this.$apply();
+      },
+      hideServiceAgreement() {
+        this.showServiceAgreement = false;
+        this.$apply();
+      },
+      anAll() {
+        if(this.num == this.detailData.data.length){
+          this.allTxt = '展开全部';
+          this.imgSrc = '/images/confirm/arrow.png';
+          this.num = 3;
+          // this.listH = 750 + 'rpx';
+          this.$apply();
+        }else{
+          this.allTxt = '点击收起';
+          this.imgSrc = '/images/confirm/down.png';
+          this.num = this.detailData.data.length;
+          // this.listH = this.detailData.data.length * 200 + 150 + 'rpx';
+          this.$apply();
+        }
+      },
+      loadMore() {
+        console.log(222222)
+      },
+      call() {
+        wepy.makePhoneCall({
+          phoneNumber: '4000315426'
+        })
+      }
+    };
+    config = {
+      navigationBarTitleText: '订单详情'
+    };
+    mixins = [base, input];
+  }
+</script>
+
+<style lang="scss">
+@import "../../styles/variable";
+.orderDetails{
+	background-color: #F8F8F8;height:100%;
+	.orderDetail{
+		background-color: #F8F8F8;
+	  .fr{float:right}
+	  .fl{float:left}
+	  .detail_list{background: #FFFFFF;border-radius: 4rpx;position: relative;margin: 20rpx 20rpx 0;padding-top:20rpx;
+	    >text{display:inline-block;color:#fff;width:128rpx;height:50rpx;font-size:$text-sm;line-height: 50rpx;border-radius:0 25rpx 25rpx 0;padding-left: 30rpx;}
+	    .pay_off{background: #ccc;}
+	    .pay_ok{background: #09BB07;}
+	    .pay_null{background: #F64744;}
+	    .lists{padding:0 30rpx 30rpx;overflow: hidden;;transition:height 1s;
+	      .order_detail{background: #FFFFFF;box-sizing:border-box;border-bottom:1rpx dashed #ddd;padding-top:30rpx;
+	        .order_top{color: #999999;
+	          text{color: #999999;line-height:33rpx;font-size:$text-nm;}
+	          .service_name{color:#ccc;font-size:$text-xs;}
+	        }
+	        .order_tit{font-size:$text-nm;color: #333333;line-height:40rpx;
+	          .order_name{width:490rpx;word-break:break-all;overflow: hidden;display:inline-block;}font-size:$text-nm;color: #333333;
+	        }
+	        .order_bottom{font-size:$text-nm;color: #999999;align-items:center;overflow: hidden;padding-top:10rpx;box-sizing:border-box;line-height:30rpx;padding-bottom: 0;
+	          text{font-size:20rpx;color: #999;}
+	        }
+	      }
+	    }
+	    .detail_bottom{overflow:hidden;
+	      .detail_l{font-size:$text-nm;color: #888888;float: left;line-height:40rpx;}
+	      .detail_r{font-size:$text-nm;color: #333;float: right;line-height:40rpx;}
+	      .detail_r_c{font-size:$text-lg;float: right;line-height:40rpx;}
+	      .pay_no{color: #F64744;}
+	      .pay{color: #09bb07;}
+	      .pay_on{color: #333;}
+	    }
+	  }
+	  .memo{background: #FFFFFF;border-radius: 4rpx;position: relative;margin: 20rpx 20rpx 0;padding:30rpx 30rpx;font-size:$text-nm;color: #333;line-height:37rpx;box-sizing:border-box;
+	    .txt{color:#666;font-size:$text-sm;line-height:37rpx;word-break:break-all;}
+	  }
+	  .inviter{background: #FFFFFF;border-radius: 4rpx;position: relative;margin: 20rpx 20rpx 0;padding:30rpx 30rpx;font-size:$text-nm;color: #333;line-height:37rpx;box-sizing:border-box;
+	    image{width:70rpx;height:70rpx;border-radius:100%;vertical-align: top;}
+	    text{line-height: 70rpx;font-size:$text-nm;color:#333;}
+	    .true_name{overflow: hidden;text-overflow:ellipsis;white-space: nowrap;width:340rpx;display:inline-block}
+	  }
+	  .call{height:88rpx;background: #FFFFFF;border-radius: 4rpx;margin: 20rpx 20rpx 0;box-sizing:border-box;text-align:center;padding-top:19rpx;
+	    image{width:50rpx;height:50rpx;vertical-align: top;}
+	    text{font-size:$text-nm;color: #333;vertical-align: top;line-height: 50rpx;display:inline-block;}
+	  }
+  .order_bottom{padding-bottom: 120rpx;}
+  .order_data{background: #FFFFFF;border-radius: 4rpx;margin: 20rpx 20rpx 0;box-sizing:border-box;text-align:center;text-align:left;padding:30rpx;
+	    .txt{font-size:$text-sm;color: #888;}
+	  }
+	  .weui-loadmore_line{border-top:1px dashed #e5e5e5;background-color:#fff;margin-top: -1rpx;margin-bottom:-20rpx;}
+	  .weui-loadmore__tips_in-line{background-color:#fff;
+	  	text{vertical-align: middle;color: #888888;font-size: $text-xs;}
+	    image{width:20rpx;height:14rpx;vertical-align: middle;}
+	  }
+	}
+	.footer{width:100%;height:94rpx;position: fixed;bottom:0;background-color:#fff;box-shadow: 0 -8px 16px 0 rgba(0,89,135,0.06);box-sizing:border-box;overflow: hidden;
+	  .footer_l{padding:25rpx 30rpx;box-sizing:border-box;float: left;
+	    text{display:inline-block;}
+	    .txt_l{font-size:$text-nm;color: #888888;vertical-align: middle;}
+	    .txt_r{font-size:$text-xxl;color: #F64744;line-height:100%;vertical-align: middle;}
+	  }
+	  .footer_r{float: right;width:300rpx;height:94rpx;background: #F64744;color:#fff;font-size:$text-xxl;text-align:center;line-height:94rpx}
+	}
+	.list_null{
+		width:690rpx;height:728rpx;margin:0 auto;text-align:center;padding-top:304rpx;box-sizing:border-box;
+    image{width:422rpx;height:334rpx;}
+    text{display:block;font-size:$text-xs;color:#999;}
+  }
+}
+</style>

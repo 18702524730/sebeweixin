@@ -1,0 +1,166 @@
+<template>
+  <view class="modal-mask" @tap="hideModal" catchtouchmove="preventTouchMove" wx:if="{{showModal}}">
+    <view class="mymodal-dialog">
+    	<view class="mymodal-dialog-in">
+    		<view class="modal-title">
+	      	<rich-text nodes="{{title}}"></rich-text>
+	      </view>
+	      <view class="modal-content">
+	      	<rich-text nodes="{{content}}"></rich-text>
+	      	<rich-text wx:if="{{minorContent}}" class="minor" nodes="{{minorContent}}"></rich-text>
+	      </view>
+	      <view class="modal-footer">
+	        <view wx:if="{{myOptions.showCancel}}" style="color: {{ myOptions.cancelColor }}" class="btn-cancel" @tap="cancel" data-status="cancel">{{ myOptions.cancelText }}</view>
+	        <view style="color: {{ myOptions.confirmColor }};width: {{myOptions.showCancel? '50%' : '100%'}};" class="btn-confirm" @tap="confirm" data-status="confirm">{{ myOptions.confirmText }}</view>
+	      </view>
+	    </view>
+    </view>
+  </view>
+
+</template>
+
+<script>
+  import wepy from 'wepy'
+  const defaultOptions = {
+    showCancel: true,
+    cancelText: '取消',
+    cancelColor: '#000000',
+    confirmText: '确定',
+    confirmColor: '#4272FF'
+  }
+  export default class confirmModal extends wepy.component {
+
+    props = {
+    	showModal: {
+    		type: Boolean,
+    		twoWay: true,
+    		default: false,
+    	},
+    	title: {//标题
+    		type: String,
+    		default: '温馨提示',
+    	},
+    	content: {//主提示
+    		type: String,
+    		default: '提示内容',
+    	},
+    	minorContent: {//次要提示
+    		type: String,
+    		default: '',
+    	},
+      options: {
+        type: Object,
+        default: defaultOptions
+      }
+    };
+
+    events = {
+      modalOptions: (v) => {
+        console.log(v)
+        this.myOptions = v;
+      }
+    }
+
+    data = {
+    	myOptions: {}
+    }
+
+    async onLoad () { // 在Page和Component共用的生命周期函数
+      console.log(333)
+      this.myOptions = {
+      	...defaultOptions,
+        ...this.options
+      };
+      this.$apply();
+    }
+
+    methods = {
+    	preventTouchMove(){},
+      //对话框取消按钮点击事件
+      cancel () {
+        this.showModal = false;
+        this.$emit('confirmBtn', false);
+      },
+      // 成功回调
+      confirm() {
+        this.$emit('confirmBtn', true);
+        if (!this.myOptions.showCancel) {
+        	this.showModal = false;
+        }
+      },
+      // 隐藏
+      hideModal () {
+        this.showModal = false;
+      }
+    }
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .modal-mask {
+    width: 100%;
+    height: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    z-index: 9000;
+    color: #fff;
+  }
+  .mymodal-dialog {
+    width: 600rpx;
+    min-height: 290rpx;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin-left: -300rpx;
+    transform: translateY(-50%);
+    z-index: 9001;
+    background: #fff;
+    border-radius: 10rpx;
+    .mymodal-dialog-in{
+    	height: 100%;width: 100%;
+	    .modal-title {
+	      margin-top: 50rpx;
+	      font-size: 34rpx;
+        line-height:1.5;
+	      color: #000;
+	      text-align: center;
+	      padding:0 38rpx;
+	    }
+	    .modal-content {
+	      font-size: 28rpx;
+	      color: #666666;
+	      text-align: center;
+	      margin: 18rpx auto 30rpx auto;
+	      padding:0 38rpx;
+	      .minor{
+	      	font-size: 24rpx;
+	      	color: #999;
+	      }
+	    }
+	    .modal-footer {
+	      display: flex;
+			  flex-direction: row;
+			  align-items: center;
+	      height: 100rpx;
+	      border-top: 1px solid #E5E5E5;
+	      font-size: 34rpx;
+	      line-height: 100rpx;
+	      .btn-cancel {
+	      	width: 50%;
+	        text-align: center;
+	        font-size: 36rpx;
+	        border-right: 1px solid #E5E5E5;
+	      }
+	      .btn-confirm {
+	      	width: 50%;
+	        font-size: 36rpx;
+	        text-align: center;
+	      }
+	    }
+    }
+  }
+</style>

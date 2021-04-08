@@ -1,0 +1,378 @@
+<template>
+	<view class="core_brand law_message" wx:if="{{init && !isErr}}" style="background: #f8f8f8;">
+    <view class="company_bg"></view>
+
+		<view class="pub_top_box">
+
+      <searchLine :placeholder.sync="placeholder" :content.sync="content" :autoFocus.sync="autoFocus" :richText.sync="resultRichText" @query.user="searchQueryFn" @cancel.user="cancelSearchFn" />
+
+      <view class="page page_tag">
+        <view class="page__bd">
+            <view class="weui-tab">
+                <view class="weui-navbar">
+                    <block wx:for="{{tabs}}" wx:key="*this">
+                        <view id="{{index}}" class="weui-navbar__item {{activeIndex == index ? 'weui-bar__item_on' : ''}}" @tap="tabClick">
+                            <view class="weui-navbar__title">{{item}}</view>
+                        </view>
+                    </block>
+                    <view class="weui-navbar__slider" style="left: {{sliderLeft}}rpx; transform: translateX({{sliderOffset}}rpx); -webkit-transform: translateX({{sliderOffset}}rpx);"></view>
+                </view>
+            </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="content_wrap" >
+      <!-- 我的企业 -->
+      <myCompany :myList.sync="companyList" :swiperOpt.sync="swiperOne" :current.sync="current" :emptyObj.sync="myEmptyObj" :showStatus.sync="showStatus" :companyType.sync="activeIndex" hidden="{{ activeIndex != 0 }}" @selectCompany.user="selectCompanyFn" />
+
+      <!-- 关注企业 -->
+      <followCompany :myList.sync="companyList" :swiperOpt.sync="swiperOne" :current.sync="current" :emptyObj.sync="followEmptyObj" :showStatus.sync="showStatus" :companyType.sync="activeIndex" hidden="{{ activeIndex != 1 }}" @selectCompany.user="selectCompanyFn" />
+    </view>
+		
+
+		<!-- 商标列表 -->
+		<brandList :show.sync="showList" :selectEditType.sync="editType" :resultList.sync="resultList" :noMoreData.sync="noMoreData" :loading.sync="loading" :showType.sync="brandShowType" :messageType.sync="messageType"  />
+
+		<!-- 底部按钮 -->
+    <view class="bottom_btn_box" wx:if="{{ editType == 0 && showList && resultList.length>0 }}">
+      <view class="btn confirm" style="width: 100%;" @tap="callFn">
+        <image src="../../images/icons/phone_white.png"></image>
+        <view class="text">联系我的VIP专属顾问</view>
+      </view>
+    </view>
+
+		<NetError :show="isErr"  />
+
+
+	</view>
+</template>
+
+<script>
+
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import NetError from '../../components/common/net_error';
+  import FormTips from '../../components/weui/tips';
+  import Tips from '../../utils/Tips';
+  import interfaces from '../../interfaces';
+  import searchLine from '../../components/search/searchLine';
+  import myCompany from '../../components/home/companyList';
+  import brandList from '../../components/brandList/brandList';
+  import homeApi from '../../api/home';
+
+  export default class lawMessage extends wepy.page {
+  	components = {
+      Tips: FormTips,
+  		myCompany,
+      followCompany: myCompany,  //关注企业
+  		searchLine,
+  		brandList,
+  		NetError
+  	}
+
+  	data = {
+  		init: false,
+      isErr: false,
+      editType: 0,  //是否可编辑 0.不可以 1.取消托管 2.设置核心商标 3.添加企业 4.删除
+      showStatus: true,
+      companyList: [],
+      resultList: [],
+      showList: true,
+
+      activeIndex: 0,
+      sliderOffset: 0,
+      sliderLeft: 0,
+      tabs: ["我的企业", "关注企业"],
+      myEmptyObj: {
+        title: '管家在手，商标无忧',
+        urlText: '回到首页',
+        urlLink: '/'
+      },
+      followEmptyObj: {
+        title: '知己知彼，百战不殆',
+        urlText: '回到首页',
+        urlLink: '/'
+      },
+      swiperOne: {
+        circular: true, //衔接滑动
+        indicatorDots: false,  //是否显示面板指示点
+        autoplay: false,
+        duration: 300,  //滑动动画时长
+        previousMargin: '20rpx',
+        nextMargin: '20rpx'
+      },
+      selectCompanyData: {},  //选中的公司数据
+      brandShowType: 1,  //消息形式展现
+      messageType: 1,  //消息展示类型
+
+      current: 0,
+      placeholder: '搜索托管中的企业或商标',
+      searchType: -1,  //搜索类型
+      content: '',
+      autoFocus: false,
+
+      loading: false, //结果加载状态控制
+      selectStatus: 0,  //全部
+      noMoreData: false,  //上啦加载更多数据
+      page: 1,  //当前页数
+      msgId: '',  //消息ID
+      stewardSubjectId: '',  //当前选择的企业ID
+  	}
+
+    onReachBottom (e) {
+      console.log(this.noMoreData)
+      if (!this.noMoreData) {
+        let isLoadMore = true;
+        this.methods.getLawMsgFn.bind(this)(this.content, isLoadMore);  //查询已托管商标列表
+      }
+    }
+
+    methods = {
+      // 搜索
+      searchQueryFn (data) {
+        let self = this;
+        let type_ = parseInt(self.activeIndex) + parseInt(1);
+        self.methods.getCompanyListFn.bind(self)(type_, data);
+        self.searchType = data;
+        self.$apply();
+      },
+      // 取消搜索
+      cancelSearchFn () {
+        let self = this;
+        let type_ = parseInt(self.activeIndex) + parseInt(1);
+        self.searchType = -1;  //未筛选状态
+        self.current = 0;
+        self.methods.getCompanyListFn.bind(self)(type_, -1);
+        self.$apply();
+      },
+      callFn () {
+        wepy.makePhoneCall({
+          phoneNumber: '15168455893'
+        })
+      },
+      async getCompanyListFn (type, selectType) {     // 默认加载公司列表
+        let self = this;
+        let comNmae = self.content;  //公司名
+        let TmName='';  //商标名
+        if (selectType == -1) {
+          comNmae = '';
+          TmName = '';
+        }
+        else if (selectType == 0){  //搜企业
+          TmName = '';
+        }
+        else if (selectType == 1) {  //搜商标
+          comNmae = '';
+          TmName = self.content;
+        }
+        let params = {
+          applicationType: type,  //企业类型
+          applicationName: comNmae,
+          trademarkName: TmName,
+          newsType: 1,
+          page: 1,
+          size: 50
+        }
+        try {
+          let resp = await homeApi.findFilterSub(params);
+          self.companyList = resp.data;   //企业列表
+          if (self.companyList.length > 0) {
+            if (self.stewardSubjectId) {
+              self.companyList.forEach( (item, index) => {
+                if (item.id == self.stewardSubjectId) {
+                  self.current = self.companyList.indexOf(item);
+                }
+              })
+            }
+            self.selectCompanyData = self.companyList[self.current];   //默认选择的企业
+            self.methods.getLawMsgFn.bind(self)(TmName);  //查询消息列表
+          }
+          else{
+            self.resultList = [];
+            self.noMoreData = true;
+            self.$broadcast('changeResultList', self.resultList);
+          }
+          self.$apply();
+          self.$broadcast('changeCompanyList', resp.data);  //广播最新企业列表
+          
+        }
+        catch(e) {}
+      },
+      async tabClick (e) {    //切换tab
+        let self = this;
+        self.activeIndex = e.currentTarget.id;
+        self.sliderOffset = 690 / self.tabs.length * self.activeIndex;
+        let type_ = parseInt(self.activeIndex) + parseInt(1);
+        // 切换加载公司列表
+        self.methods.getCompanyListFn.bind(self)(type_, self.searchType); 
+      },
+      async selectCompanyFn (data) {   //选择企业
+        let self = this;
+        let TmName = '';
+        self.selectCompanyData = data;  //当前选中的公司信息
+        if (self.searchType == 1) {
+          TmName = self.content;
+        }
+        self.methods.getLawMsgFn.bind(self)(TmName);  //查询消息列表
+      },
+      async getLawMsgFn (name, isLoadMore) {   //查询法律消息列表
+        let self = this;
+        let type_ = parseInt(self.activeIndex) + parseInt(1);
+        if (isLoadMore) {
+          self.page += 1
+        }
+        else {
+          self.page = 1
+        }
+        console.log(self.selectCompanyData)
+        let params = {
+          stewardSubjectId: self.selectCompanyData.id,
+          trademarkName: name,
+          id: self.msgId,
+          newsType: 1,
+          page: self.page,
+          size: 5
+        }
+        self.loading = true;
+        try {
+          let resp = await homeApi.findNews(params);
+          let docs = resp.data || [];
+          let allPage = Math.ceil(resp.total/params.size);  //最大页数
+          self.loading = false;
+          if (self.page == allPage || allPage==1 || docs.length==0) {
+            self.noMoreData = true;
+          }
+          else if(self.page < allPage){
+            self.noMoreData = false;
+          }
+          if (docs.length > 0) {
+            docs.forEach( (item) => {
+              item.newsContent = JSON.parse(item.newsContent)
+            })
+          }
+          if (isLoadMore) {
+            self.resultList = self.resultList.concat(docs);  //托管商标列表
+          }
+          else {
+            self.resultList = docs;  //托管商标列表
+          }
+          self.$apply();
+          self.$broadcast('changeResultList', self.resultList);
+        }
+        catch (e) {}
+      }
+    };
+
+  	async onLoad (opts) {
+      let self = this;
+      self.msgId = opts.id || '';
+      self.activeIndex = opts.applicationType-1 || 0;
+      self.stewardSubjectId = opts.stewardSubjectId || '';
+      // tab切换初始化
+      wx.getSystemInfo({
+        success: function(res) {
+          self.sliderLeft = (690 / self.tabs.length - 140) / 2 ;
+          self.sliderOffset = 690 / self.tabs.length * self.activeIndex ;
+        }
+      });
+      self.$apply();
+
+      let type_ = opts.applicationType || 1;
+      // 默认加载公司列表
+      self.methods.getCompanyListFn.bind(self)(type_, -1); 
+  	}
+
+  	async onShow () {
+    	this.loaded();
+    }
+
+    mixins = [base];
+    config = {
+      navigationBarTitleText: '法律状态更新'
+    };
+
+  }
+
+</script>
+
+<style lang="scss">
+	@import "../../styles/variable";
+  @import "../../styles/pub";
+	.core_brand {
+		min-height: 100%;
+    .company_bg {
+      width: 100%; height: 284rpx; background-image: linear-gradient(180deg, #4272FF 3%, #238DFF 97%); position:absolute; top:0;
+    }
+    .serach_box {
+      background: none;
+    }
+		.null_company {
+      width: 690rpx;
+      height: auto;
+      background: #fff;
+      box-shadow: 0 10px 24px 0 rgba(66,114,255,0.07);
+      border-radius: 8rpx;
+      padding: 70rpx 0;
+      margin: 0 auto 30rpx auto;
+      .text {
+        font-family: PingFangSC-Regular;
+        font-size: 32rpx;
+        color: #666666;
+        text-align: center;
+      }
+      .detail_btn {
+        width: 510rpx;
+        margin: 40rpx auto 0 auto;
+        background: #F4F6FF;
+				border: 1px solid #CBD8FF;
+        border-radius: 100rpx;
+        height: 86rpx;
+        line-height: 86rpx;
+        font-family: PingFangSC-Regular;
+        font-size: 32rpx;
+        color: #4272FF;
+        text-align:center;
+        padding: 0 10rpx;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        .icon_go {
+          width: 30rpx;
+          height: 14rpx;
+          margin: 0 0 2rpx 14rpx;
+        }
+      }
+    }
+		.bottom_btn_box {
+			width: 100%; height:94rpx; position:fixed; left:0; bottom:0; background: #fff; box-shadow: 0 -10px 24px 0 rgba(66, 114, 255, 0.07);
+			.btn {
+				width:50%; box-sizing:border-box; text-align:center; height:94rpx; line-height:94rpx; font-family: PingFangSC-Regular; font-size: 30rpx; display: inline-block;
+			}
+			.lef {
+				border-right: 1px solid #E5E5E5; color: #333333;
+			}
+			.right { color: #333333;}
+      .confirm {
+        background-image: linear-gradient(90deg, #4272FF 0%, #237CFF 100%); color: #fff;
+      }
+      image {
+        width: 60rpx;
+        height: 60rpx;
+        vertical-align: middle;
+        display:inline-block;
+        margin-bottom: -10rpx;
+      }
+      .text {
+        vertical-align:middle;
+        display:inline-block;
+        height: 94rpx;
+        line-height: 94rpx;
+        color: #fff;
+        font-size: 30rpx;
+      }
+		}
+	}
+
+
+
+</style>

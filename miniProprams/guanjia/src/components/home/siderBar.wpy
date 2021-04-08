@@ -1,0 +1,235 @@
+<template>
+	<!-- 企业列表 -->
+	<view class="company_list_box" :class="{'show_box': isShow, 'fadeout_box': fadeOut}" >
+    <view class="box_bg" @tap="hideBoxFn"></view>
+    <view class="rig_content">
+      <image class="con_bg" src="../../images/home/sider_bg.png"></image>
+      <vie class="top_title">
+        <view class="name" wx:if="{{ titleType==1 }}">我的企业</view>
+        <view class="name" wx:if="{{ titleType==2 }}">切换竞品</view>
+      </vie>
+      <view class="add_box" @tap="toAddCompanyFn">
+        <image class="add" src="../../images/icons/add.png"></image>
+        <text class="text">添加</text>
+      </view>
+      <view class="list_box">
+        <repeat for="{{ myList }}" key="index" index="index" item="item" >
+          <view class="item" :class="{'active':item.id==selectItem.id}" @tap="selectItemFn({{ item }})">
+            <view class="name text_over">{{ item.applicationName }}</view>
+            <soan class="num" wx:if="{{ titleType==1 && item.newsNumber1>0 || titleType==1 && item.newsNumber2>0 }}" catchtap="goNewsDetailFn({{ item }})">{{ item.newsNumber1 + item.newsNumber2 }}</soan>
+            <soan class="num" wx:if="{{ titleType==2 && item.newsNumber3>0 }}" catchtap="goNewsDetailFn({{ item }})">{{ item.newsNumber3 }}</soan>
+          </view>
+        </repeat>
+      </view>
+      <view class="btn_box">
+        <view class="btn_white" @tap="hideBoxFn">取消</view>
+        <view class="btn_white" @tap="selectCompanyFn">确定</view>
+      </view>
+    </view>
+  </view>
+
+</template>
+
+<script>
+  import wepy from 'wepy';
+  import interfaces from '../../interfaces';
+  import FormTips from '../../components/weui/tips';
+  import VCode from '../../components/weui/vcode';
+  import base from '../../mixins/base';
+  import Tips from '../../utils/Tips';
+  import NetError from '../../components/common/net_error';
+  import wxCharts from '../../api/wxcharts-min';
+  import homeApi from '../../api/home';
+
+  export default class coreBrand extends wepy.component {
+  	components = {
+      Tips: FormTips,
+    };
+
+    events = {
+
+    }
+
+    props = {
+      isShow:{
+        type: Boolean,
+        default: false,
+        twoWay: true
+      },
+    	myList: {   //企业列表
+        type: Array,
+        default: [],
+      },
+      titleType: {  //标题类型
+        type: Number,
+        default:1
+      },
+      activeItem: {
+        type: Object,
+        default: {}
+      }
+    };
+
+    data = {
+      selectItem: {},
+      fadeOut: false,  //盒子隐藏时的动画样式是都显示
+    };
+
+    methods = {
+      // 去消息页面
+      goNewsDetailFn (item) {
+        let url = '';
+        if (this.titleType == 1) {
+          if (item.newsNumber2 || item.newsNumber2 && item.newsNumber1) {   //风险
+            url = '/pages/message/riskMessage'
+          }
+          else if (item.newsNumber1) {  //进展
+            url = '/pages/message/progressMessage'
+          }
+        }
+        else if (this.titleType == 2 && item.newsNumber3) {
+          url = '/pages/message/intelligenceMessage'
+        }
+        wepy.navigateTo({
+          url: url
+        })
+      },
+      // 去添加企业
+      toAddCompanyFn () {
+        wepy.navigateTo({
+          url: '/pages/search/search?applicationType=2'
+        })
+      },
+      // 选择企业
+      selectItemFn (item ) {
+        this.selectItem = item;
+        this.$apply();
+      },
+      // 隐藏弹窗
+      hideBoxFn () {
+        this.isShow = false;
+        this.fadeOut = true;
+      },
+      // 确定选择企业
+      async selectCompanyFn () {
+        let params = {
+          stewardSubjectId: this.selectItem.id
+        }
+        try {
+          let rsps = await homeApi.firstHomePage(params, true);
+          this.$emit('selectCompany', this.selectItem)
+        }
+        catch(e) {}
+      }
+    };
+
+    async onLoad () {
+      if (this.myList.length) {
+        this.selectItem = this.myList[0];
+        this.$apply();
+      }
+    };
+
+    watch = {
+      myList: function(v) {
+        if (v && v.length) {
+          this.selectItem = v[0];
+          this.$apply();
+        }
+      }
+    }
+
+    config = {
+      navigationBarTitleText: '侧边栏',
+      onReachBottomDistance: 100,
+      enablePullDownRefresh: true,
+    };
+    mixins = [base];
+
+  }
+
+</script>
+
+<style lang="scss">
+  @import "../../styles/pub";
+  @keyframes moveLeft {
+    0% {
+      right: -560rpx;
+      opacity: 0;
+    }
+    50% {
+      right: -280rpx;
+      opacity: 0.5;
+    }
+    100% {
+      right: 0;
+      opacity: 1;
+    }
+  }
+  @keyframes fadeIn {
+    0% {
+      left: 750rpx;
+      opacity: 0;
+      dispaly: none;
+    }
+    50% {
+      left: 375rpx;
+      opacity: 0.5;
+    }
+    100% {
+      left: 0;
+      opacity: 1;
+      dispaly: block;
+    }
+  }
+  @keyframes fadeOut {
+    0% {
+      left: 0;
+      opacity: 1;
+      dispaly: block;
+    }
+    50% {
+      left: 375rpx;
+      opacity: 0.5;
+    }
+    100% {
+      left: 750rpx;
+      opacity: 0;
+      dispaly: none;
+    }
+  }
+  .company_list_box {
+    width: 100%; height: 100%; position: fixed; left:750rpx; top: 0; z-index: 99; 
+    &.fadeout_box {animation: fadeOut 0.4s ease-in-out; animation-fill-mode: forwards; }
+    &.show_box { animation: fadeIn 0.4s ease-in-out; animation-fill-mode: forwards; }
+    .box_bg {position: absolute; left: 0; top: 0; width: 100%; height: 100%; background:rgba(0,0,0,.6); z-index: 99; }
+    .rig_content {
+      width: 552rpx; height: 100%; position: relative; right: 0; float: right;
+      .con_bg {width: 552rpx; height: 100%; position: absolute; left: 0; top: 0; z-index: 100;}
+      .top_title {
+        width: 522rpx; height: 116rpx; position: absolute; top: 40rpx; left: 30rpx; z-index: 100;
+        .name {width: 522rpx; text-align: center; font-size: 37rpx; color: #fff;}
+      }
+      .add_box {
+        width: 42rpx; height: auto; position: absolute; right: 30rpx; top: 30rpx; z-index: 100; text-align: center;
+        .add {width: 42rpx; height: 42rpx; margin: 0 auto; float: left;}
+        .text {
+          width: 50rpx; text-align: center; color: #fff; font-size: 24rpx; float: left; display: inline-block; margin-left: -4rpx;
+        }
+      }
+      .list_box {
+        position: absolute; left: 30rpx; top: 130rpx; width: 522rpx; z-index: 100; max-height: 600rpx; overflow-y: auto; 
+        .item {
+          width:100%; height: 80rpx; line-height: 80rpx; box-sizing:border-box; padding-left: 30rpx; display: flex; justify-content:space-between; align-items:center; border-bottom: 1px solid rgba(255,255,255,.3);
+          .name {font-size: 28rpx; color: #fff; width: 400rpx; }
+          .num {height: 38rpx; line-height: 38rpx; padding: 0 17rpx;  display: inline-block; background: #82BAFD; border-radius:16rpx; margin-right: 15rpx; font-size: 26rpx; color: #fff; text-align: center;}
+          &.active {background:rgba(17,98,187,.7); }
+        }
+      }
+      .btn_box {
+        width: 522rpx; height: 60rpx; display: flex; justify-content: center; align-items:center; position: absolute; left: 30rpx; bottom:188rpx; z-index: 100;
+        .btn_white {width:174rpx; height:60rpx; line-height: 60rpx; background:#fff; border-radius: 32rpx; margin: 0 17rpx; text-align: center; color: #1D68BD; font-size: 28rpx;}
+      }
+    }
+  }
+</style>

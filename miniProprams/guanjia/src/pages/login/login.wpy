@@ -1,0 +1,279 @@
+<template>
+	<Tips />
+	<view class="login_home">
+		<view class="login_wrap" wx:if="{{init}}">
+			<view class="login">
+				<view class="login_tit">
+					<image src="/images/login/bg.png"></image>
+					<text>登录注册</text>
+				</view>
+				<view class="ipt_list">
+					<text class="{{focusPhone ? 'posT' : 'posB'}}">手机号码</text>
+					<input class="mb15" id="phone" value="{{input.phone}}" maxlength="11" type="number" @focus="focusPhone" @blur="input" bindinput="input">
+				</view>
+				<view class="ipt_list">
+					<text class="{{focusCode ? 'posT' : 'posB'}}">验证码</text>
+					<input class="ipt_code mb15" id="code" maxlength="6" type="number" cursor-spacing="30" @focus="focusCode" @blur="input" bindinput="input">
+					<!-- <view class="{{submited ? 'btn_code_f' : 'btn_code'}}" @tap="btnCode">{{btnText}}</view> -->
+					<VCode @tap.user="code" class="btn_code"/>
+				</view>
+				<view class="login_tip">
+					温馨提示：未注册拾贝网账号的手机号，登录时将自动注册，且代表您已同意
+					<text @tap="showRegAgreementH">《拾贝网用户协议》</text>
+				</view>
+			</view>
+			<view class="login_btn">
+				<button class="{{input.phone ? 'btn_success' : 'btn_error'}}" style="" @tap="loginBtn">登录</button>
+			</view>
+		</view>
+	</view>
+
+	<RegisterAgreement :show.sync="showRegAgreement" @back.user="hideRegisterAgreement" />
+	<NetError :show.sync="isErr" @refreshed.user="refreshed"/>
+</template>
+
+
+<script>
+	import wepy from 'wepy';
+	import auth from '../../api/auth';
+	import interfaces from '../../interfaces';
+	import FormTips from '../../components/weui/tips';
+	import VCode from '../../components/weui/vcode';
+	import RegisterAgreement from '../../components/confirm/registerAgreement';
+
+	import base from '../../mixins/base';
+	import input from '../../mixins/input';
+	import Tips from '../../utils/Tips';
+	import NetError from '../../components/common/net_error';
+	export default class HomeIndex extends wepy.page {
+		def = {
+			showRegAgreement: false,
+			init: false,
+			focusPhone: false,
+			focusCode: false,
+			btnText: '获取验证码',
+			submited: false,
+			isErr: false
+		};
+		data = {...this.def};
+		async onLoad (options) {
+			// console.log(wepy.$instance.globalData.baseUrl)
+			this.loaded();
+			this.input.phone = wepy.getStorageSync('phoneNumber') || '';
+			this.focusPhone = this.input.phone ? 'posT' : 'posB';
+			this.$apply()
+			// this.order = await order.lists(28);
+		}
+		methods = {
+			refreshed() {
+				this.isErr = false;
+				this.init = true;
+				this.input.phone = wepy.getStorageSync('phoneNumber') || '';
+				this.focusPhone = this.input.phone ? 'posT' : 'posB';
+				this.$apply();
+				return;
+			},
+			showRegAgreementH(){
+				this.showRegAgreement = true;
+			},
+			hideRegisterAgreement() {
+				this.showRegAgreement = false;
+			},
+			async loginBtn() {
+				if (!this.isValid(this.input.phone)) {
+					return;
+				}
+				try {
+					let sessionId = wepy.getStorageSync('sessionId');
+					let loginRes = await auth.login(sessionId, this.input.phone, this.input.code);
+					if(loginRes.code == 0) {
+						interfaces.syncStore(loginRes);
+						// wepy.navigateBack();
+						wepy.redirectTo({
+							url: '/pages/home/home'
+						});
+					} else if(loginRes.code == 10013) {
+						this.tips('您的账号存在异常，请先联系4000-315-426解除异常');
+						return;
+					} else if(loginRes.code == 10023) {
+						this.tips('手机验证码错误');
+						return;
+					} else if(loginRes.code == 10009) {
+						this.tips('验证码发送过于频繁');
+						return;
+					} else if(loginRes.code == 10010 || loginRes.code == 10012 || loginRes.code == 500 || loginRes.code == 400 || loginRes.code == 100004 || loginRes.code == 100003 || loginRes.code == 10002) {
+						this.init = false;
+						this.isErr = true;
+						this.$apply()
+						return;
+					} else if(loginRes.code == 300017){
+						wx.showModal({
+							title: '',
+							showCancel:false,
+							confirmColor:"#10AEFF",
+							content: '手机号已与另一个微信账号关联，请换一个手机号再试'
+						})
+					} else if(loginRes.code == 300016){
+						wx.showModal({
+							title: '',
+							showCancel:false,
+							confirmColor:"#10AEFF",
+							content: '微信账号已与另一个手机号关联，请换一个微信账号再试'
+						})
+					}else{
+						this.init = false;
+						this.isErr = true;
+						this.$apply()
+					}
+					console.log('loginRes:',loginRes)
+				}
+				catch(err){
+					// this.loaded();
+				}
+			},
+			focusPhone() {
+				this.focusPhone = true;
+				if (!this.input.code) {
+					this.focusCode = false;
+				}
+				this.$apply();
+			},
+			focusCode() {
+				this.focusCode = true;
+				if (!this.input.phone) {
+					this.focusPhone = false;
+				}
+				this.$apply();
+			},
+			/* btnCode(e) {
+				let self = this;
+				if (!this.isPhoneValid(this.input.phone)) {
+					return;
+				}
+				let time = 60;
+				console.log(this.input)
+				if (self.submited) {
+					return;
+				}
+				self.submited = true;
+				self.btnText = '重新发送(' + time + ')';
+				this.interval = setInterval(() => {
+					time--;
+					if (time < 0) {
+						self.submited = false;
+						clearInterval(this.interval);
+						self.btnText = '获取验证码';
+					}
+					this.$apply();
+					self.btnText = '重新发送(' + time + ')';
+					console.log(time)
+				}, 1000);
+			}, */
+			async code() {
+				if (!this.isPhoneValid(this.input.phone)) {
+					return;
+				}
+				if(this.submited){
+					return;
+				}else{
+					this.submited = true;
+				}
+				// 发送验证码
+				try {
+					await auth.sms(this.input.phone);
+					this.$invoke('VCode', 'cd', 60);
+					Tips.success('验证码已发送');
+					this.submited = false;
+				} catch (err) {
+					if (err.status == 10005) {
+						console.debug('请求验证码太频繁');
+						this.$invoke('VCode', 'cd', 60);
+					} else if (err.status == 10009) {
+						console.debug('请求验证码太频繁');
+						this.$invoke('VCode', 'cd', 60);
+					}
+					this.tips(err.msg);
+					this.submited = false;
+				} finally {
+					this.loaded();
+				}
+			}
+		}
+		/**
+		 * 校验表单提交
+		 */
+		isValid(phone) {
+			if (!this.isPhoneValid(phone)) {
+				return false;
+			}
+			if (this.isEmpty(this.input.code)) {
+				this.tips('请输入验证码');
+				return false;
+			}
+			const regcode = /^[0-9]{6}$/;
+			if (!regcode.test(this.input.code)) {
+				this.tips('短信验证码格式错误');
+				return false;
+			}
+			return true;
+		}
+		/**
+		 * 校验电话号码
+		 */
+		isPhoneValid(phone) {
+			if (this.isEmpty(phone)) {
+				this.tips('请输入手机号码');
+				return false;
+			}
+			const reg = /^1\d{10}$/;
+			if (!reg.test(phone)) {
+				this.tips('手机号码格式错误');
+				return false;
+			}
+			return true;
+		}
+		config = {
+			navigationBarTitleText: '商标管家'
+		};
+		mixins = [input, base];
+		components = {
+			Tips: FormTips,
+			RegisterAgreement: RegisterAgreement,
+			VCode:VCode,
+			NetError: NetError
+		};
+	}
+</script>
+
+<style lang="scss">
+@import "../../styles/variable";
+.login_home{background-color:#f8f8f8;height:100%;}
+.login_wrap{
+	background-color: #F8F8F8;
+	.login{box-sizing:border-box;
+		.login_tit{background-image: linear-gradient(180deg, #4272FF 3%, #237CFF 97%);width:100%;height:210rpx;text-align:center;box-sizing:border-box;position: relative;margin-bottom:60rpx;
+			image{width:440rpx;height:210rpx;position: absolute;top:0;right: 0;}
+			text{color:#fff;font-size:$text-lg;border-bottom:4rpx solid #fff;padding-bottom: 37rpx;position: absolute;bottom:0;left:60rpx;}
+		}
+		.ipt_list{height:125rpx;width:630rpx;margin:10rpx auto;position: relative;border-bottom:1rpx solid #E0E5EC;
+			text{position: absolute;font-size:$text-nm;color: #999;}
+			.posB{margin-top: 65rpx;transition:all 0.2s ease;}
+			.posT{transition:all 0.2s ease;}
+			input{position: absolute;bottom:0;width:630rpx;font-size:40rpx;}
+			.ipt_code{width:450rpx}
+			.btn_code{position: absolute;bottom:5rpx;right:0;font-size:$text-lg;color: #4272FF;;border-left:0;}
+			.btn_code.muted{color:#a3a3a3;}
+			// .btn_code_f{position: absolute;bottom:20rpx;right:0;color:#888;}
+		}
+		.login_tip{width:630rpx;margin:40rpx auto 0;color: #999;font-size:$text-sm;
+			text{color:#4272FF;font-size:$text-sm;}
+		}
+	}
+	.login_btn{width:100%;text-align:center;
+		button{width:630rpx;height:94rpx;margin:60rpx auto 0;color:#fff;line-height:94rpx;background: #2F80F6;box-shadow: 0 12rpx 20rpx 0 rgba(66,114,255,0.20);border-radius: 8rpx;}
+		button::after{border:0}
+		.btn_error{opacity:0.5;}
+		.btn_success{opacity:1;}
+	}
+}
+</style>

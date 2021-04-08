@@ -1,0 +1,321 @@
+<template>
+  <Tips />
+  <view class="chooseBusiness" wx:if="{{init}}">
+    <view class="weui-tab business-tab">
+      <view class="weui-navbar">
+        <block wx:for="{{allData}}" wx:key="{{index}}" wx:for-index="index" wx:for-item="item">
+          <view id="{{index}}" data-val="{{item.id}}" class="weui-navbar__item {{activeIndex == index ? 'weui-bar__item_on' : ''}}" @tap="tabClick">
+            <view class="weui-navbar__title">{{item.name}}</view>
+          </view>
+        </block>
+        <view class="weui-navbar__slider" style="width:{{100/allData.length}}%; left: {{sliderLeft}}px; transform: translateX({{sliderOffset}}px); -webkit-transform: translateX({{sliderOffset}}px);"></view>
+      </view>
+      <view class="weui-tab__panel">
+        <!-- <view class="weui-tab__content" hidden="{{activeIndex != 0}}">选项一的内容</view> -->
+        <view class="tab_content">
+        	<view class="content_l">
+        		<view id="{{index}}" class="row title {{secActiveIndex == index ? 'on' : ''}}" wx:for="{{secondData}}" wx:key="{{index}}" wx:for-index="index" wx:for-item="item" @tap="secondClick" data-bid="{{item.shopBusinessTypeId}}" data-cid="{{item.id}}">
+	          	<view class="name">{{item.name}}</view>
+	          	<view class="row-center num" wx:if="{{item.number}}"><text>{{item.number}}</text></view>
+          	</view>
+          </view>
+          <view class="content_r">
+          	<view class="list" wx:for="{{thirdData}}" wx:key="{{index}}"  wx:for-index="index" wx:for-item="item" @tap="selectItem({{item}}, {{index}})">
+	          	<view class="name"><view class="name_in">{{item.name}}</view></view>
+	          	<view class="check">
+	          		<view class="check_icon {{item.checked ? 'checked' : ''}}"><image src="/images/icons/fill.png" /></view>
+	          	</view>
+	          </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="fixed_bottom">
+    	<view class="total">您已选择<text>{{total}}项服务</text></view>
+    	<button class="confirm-btn" @tap="next">下一步</button>
+    </view>
+  </view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import qs from 'qs';
+  // import itemData from './mock.js'
+  import auth from '../../api/auth';
+  import createOrder from '../../api/createOrder';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import FormTips from '../../components/weui/tips';
+  import Tips from '../../utils/Tips';
+  import WxUtils from '../../utils/WxUtils';
+
+  export default class ChooseBusiness extends wepy.page {
+    def = {
+    	allData: [],
+    	currentId:'',
+    	secondData: [],
+    	thirdData: [],
+    	secActiveIndex: '0',
+      activeIndex: '0',
+      total:0,
+      postData: {},
+      sliderOffset: 0,
+      sliderLeft: 0,
+      init: false,
+    };
+    data = {...this.def};
+
+    async onShow (options) {
+    	this.loaded();
+    	let createOrderData = wepy.getStorageSync('createOrderData');
+    	this.postData = {...createOrderData};
+      var that = this;
+      let tab = await createOrder.findShopProductAll();
+      tab.data.forEach((item, index) => {
+      	item.name = item.name.replace('服务','');
+      });
+  		this.allData = [].concat(tab.data);
+  		this.mergeData();
+      this.currentId = tab.data[this.activeIndex]['id'];
+      this.$apply();
+    }
+
+    async changeContent(){
+      this.secondData = this.allData[this.activeIndex].children;
+    	this.thirdData = this.secondData[0].children;
+      this.calculateAll();
+      this.loaded();
+    }
+
+    // 判断是否在选中的服务中
+    isInSelectedData(item){
+    	var ret = false;
+    	var arr = this.postData.asistantOrderDtoList;
+    	if (!arr) {
+    		return ret;
+    	}
+    	for (var i = arr.length - 1; i >= 0; i--) {
+    		var it = arr[i];
+    		if (it.shopProductPriceId == item.id) {
+    			ret = true;
+    		}
+    	}
+    	return ret;
+    }
+
+    // 计算每个二级菜单上数量，总的数量
+    calculateAll(){
+    	this.calSelectNumber();
+    	this.calTotalNumber();
+    }
+
+    // 计算每个二级菜单上数量
+    calSelectNumber(){
+    	let curData = this.allData[this.activeIndex] && this.allData[this.activeIndex].children;
+    	if (curData) {
+    		let num = 0;
+    		curData.forEach((item, idx) => {
+    			item.number = this.getSelectNumber(item.children);
+    			num += item.number;
+    		});
+    		this.secondData = curData;
+    	}
+    }
+
+    // 计算总的数量
+    calTotalNumber(){
+    	let num = 0;
+    	// let temp = this.postData.asistantOrderDtoList || [];
+    	let temp = [];
+    	this.allData.forEach((it, idx) => {
+    		if (it.children) {
+    			it.children.forEach((item, idx) => {
+	    			item.number = this.getSelectNumber(item.children);
+	    			temp = temp.concat(this.getSelectInfo(item.children));
+	    			num += item.number;
+	    		});
+    		}
+  		});
+  		this.postData.asistantOrderDtoList = temp;
+  		if(num > 45){
+    		this.tips('最多只能选择45个业务');
+    	}
+    	this.total = num;
+    }
+
+    // 计算各三级选中的数量总和
+    getSelectNumber(arr){
+    	arr = arr || [];
+    	let num = 0;
+    	arr.forEach((item, idx) => {
+    		if (item.checked) {
+    			num++;
+    		}
+  		});
+  		return num;
+    }
+
+    // 计算拼接提交的参数
+    getSelectInfo(arr){
+    	arr = arr || [];
+    	let temp = [];
+    	arr.forEach((item, idx) => {
+    		if (item.checked) {
+    			temp.push({
+	    			shopProductPriceId: item.id,
+	    			productNum: 1,
+	    			name: item.name,
+	    			standardPrice: item.standardPrice,
+	    			idCode: item.idCode || ''
+	    		});
+    		}
+  		});
+  		return temp;
+    }
+
+    // 用于合并选中数据
+    mergeData(){
+    	this.allData.forEach((item, idx) => {
+    		let c = item.children;
+  			c.forEach((it) => {
+  				let children = it.children;
+  				children.forEach((q) => {
+  					q.checked = this.isInSelectedData(q);
+	  			});
+  			});
+    	});
+    }
+
+    methods = {
+    	// tab切换
+    	tabClick(e) {
+    		this.sliderOffset = e.currentTarget.offsetLeft;
+    		this.activeIndex = e.currentTarget.id;
+    		this.secActiveIndex = '0';
+    		this.currentId = e.currentTarget.dataset.val;
+    	},
+    	// 二级菜单选择
+    	async secondClick(e){
+    		this.secActiveIndex = e.currentTarget.id;
+      	this.thirdData = this.allData[this.activeIndex].children[this.secActiveIndex].children;
+      	this.calculateAll();
+      	this.$apply();
+    	},
+    	// 选择条目
+    	selectItem(item, idx){
+    		item.checked = !item.checked;
+    		this.thirdData.splice(idx, 1, item);
+    		this.calculateAll();
+    		this.$apply();
+    	},
+    	next(){
+      	if (this.total>0) {
+      		if(this.total>45){
+		    		this.tips('最多只能选择45个业务');
+		    		return;
+		    	}
+      		var data = this.postData;
+      		wepy.setStorageSync('createOrderData', data);
+      		// data.asistantOrderDtoList = JSON.stringify(data.asistantOrderDtoList)
+		      wepy.navigateTo(
+		        {
+		          url: '/pages/createOrder/confirm'
+		        }
+		      )
+			  }else{
+			  	this.tips('请选择至少一个业务')
+			  }
+    	}
+    };
+    watch = {
+    	currentId(){
+    		if (this.currentId !== '') {
+    			this.changeContent();
+    		}
+    	}
+    }
+    mixins = [input, base];
+    config = {
+      navigationBarTitleText: '确定业务信息'
+    };
+    components = {
+      Tips: FormTips
+    };
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .chooseBusiness{
+    box-sizing: border-box;width: 100%;min-height: 100%;
+
+    .business-tab{
+      position: relative;width: 100%;height: 1200rpx;box-sizing: border-box;overflow: hidden;
+      .weui-navbar{
+      	position: absolute;top: 0;left: 0;border-bottom:$border;background-color: #FFF;height: 94rpx;
+	      .weui-navbar__item{
+	      	padding:27rpx 0;
+	      	.weui-navbar__title{font-size: $text-nm;color: #515F71;height: 40rpx;line-height: 40rpx;}
+	      }
+	      .weui-bar__item_on{
+	      	.weui-navbar__title{color: #2F80F6;}
+	      }
+	      .weui-navbar__slider{height:4rpx;background-color:#2F80F6;}
+      }
+      .weui-tab__panel{padding-top: 94rpx;}
+      .tab_content{
+      	height: 100%;display: flex;align-items: center;justify-content: center;
+      	.content_l{
+      		flex:38;align-items: center;height: 100%;background: #F8F8F8;border-right: 1rpx solid #EAECF1;
+      		.title{
+      			height: 94rpx;border-bottom: 1rpx solid #EAECF1;position: relative;
+      			.name{font-size: $text-nm;color: #8795A8;max-width:170rpx;padding-left: 40rpx;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;}
+      			.num{
+      				background: #FF9A2F;width: 34rpx;height: 34rpx;border-radius:34rpx;margin-left: 10rpx;
+      				text{
+								font-size:$text-xs;color: #FFFFFF;
+      				}
+      			}
+      		}
+      		.on{background-color: #FFF;margin-right:-1rpx;
+	      		.name{color: #2F80F6;}
+	      	}
+      	}
+      	.content_r{
+					flex:62;height: 100%;background: #FFF;padding-left: 40rpx;
+      		.list{
+      			display: flex;height: 94rpx;align-items: center;border-bottom: 1rpx solid #EAECF1;
+      			.name{
+      				flex:4.5;
+      				.name_in{max-width:340rpx;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;color: #8795A8;font-size: $text-nm;}
+      			}
+      			.check{
+      				flex:1;align-items: center;
+	      			.check_icon{
+			          background: #F3F7FF;width: 45rpx;height: 45rpx;text-align: center;border-radius:45rpx;display: inline-block;margin-right: 18rpx;
+			          image{width: 24rpx;height: 17rpx;position: relative;top: -1rpx;margin:0 auto;}
+			        }
+			        .checked{
+			          background: #FF9A2F;
+			        }
+		        }
+      		}
+      	}
+      }
+
+    }
+
+
+		.fixed_bottom{
+			position: fixed;bottom:0;left:0;z-index: 2;width: 100%;height: 206rpx;box-sizing: border-box;padding:0 30rpx 25rpx;background: #FFFFFF;box-shadow: 0 -10rpx 30rpx 0 rgba(47,128,246,0.09);
+			.total{
+				display: flex;width: 100%;color: #8795A8;font-size: $text-lg;height: 85rpx;line-height: 85rpx;text-align: center;align-items: center;justify-content: center;
+				text{color: #FF9A2F;}
+			}
+	    .confirm-btn{
+	      width: 100%;background-image: linear-gradient(147deg, #0096FF 0%, #2F80F6 100%);border-radius: 8rpx;height: 96rpx;line-height:96rpx;font-size: $text-xxl;color: #fff;
+	      &::after{border:0;}
+	    }
+    }
+  }
+</style>

@@ -1,0 +1,226 @@
+<template>
+<view class="detail">
+	<view class="top">
+		<view class="detail_tit weui-flex">
+			<view class="tit_left row-center mr30">
+				<image src="{{tradmarkData.tm_image_format}}">
+			</view>
+			<view class="tit_right">
+				<view class="info weui-flex mb12">
+					<view class="info_left mr30">
+						商标名称
+					</view>
+					<view class="trm_name info_data weui-flex__item">
+						{{tradmarkData.tm_name}}
+					</view>
+				</view>
+				<view class="info weui-flex mb12">
+					<view class="info_left mr30">
+						当前状态
+					</view>
+					<view class="info_r info_data weui-flex__item">
+						{{tradmarkData.status_definition}}
+					</view>
+				</view>
+				<view class="info weui-flex mb12">
+					<view class="info_left mr30">
+						注册号
+					</view>
+					<view class="info_r info_data weui-flex__item">
+						{{tradmarkData.registr_num}}
+					</view>
+				</view>
+				<!-- <view class="info weui-flex mb12">
+					<view class="info_left mr30">
+						类别
+					</view>
+					<view class="trm_type weui-flex__item">
+						第{{tradmarkData.category_id}}类 {{cateIdData[tradmarkData.category_id-1] && cateIdData[tradmarkData.category_id-1].goodsname}}
+					</view>
+				</view> -->
+				<view class="info weui-flex">
+					<view class="info_left mr30">
+						申请时间
+					</view>
+					<view class="info_r info_data weui-flex__item">
+						{{tradmarkData.apply_date}}
+					</view>
+				</view>
+			</view>
+		</view>
+
+		<view class="lists_tab weui-flex mt20">
+			<view class="{{tabScorll == 1 ? 'click_class' : ''}} weui-flex__item" @tap="tabView('name')">基本信息</view>
+			<view class="{{tabScorll == 2 ? 'click_class' : ''}} weui-flex__item" @tap="tabView('time')">日期/期号</view>
+			<view class="{{tabScorll == 3 ? 'click_class' : ''}} weui-flex__item" @tap="tabView('service')">商品/服务</view>
+		</view>
+	</view>
+	
+
+	<scroll-view class="list_detail" scroll-y  scroll-into-view="{{toView}}" scroll-with-animation bindscroll="scrollView">
+		<view class="content bm" id="name">
+			<view class="content_tit mt30">基本信息</view>
+			<view class="mt30 weui-flex">
+				<view class="content_name mr30">类别</view>
+				<view class="content_info weui-flex__item">第{{tradmarkData.category_id}}类 {{cateIdData[tradmarkData.category_id-1] && cateIdData[tradmarkData.category_id-1].goodsname}}</view>
+			</view>
+			<view class="mt10 weui-flex">
+				<view class="content_name mr30">申请人</view>
+				<view class="content_info weui-flex__item">{{tradmarkData.proposer}}</view>
+			</view>
+			<view class="mt10 weui-flex">
+				<view class="content_name mr30">申请地址</view>
+				<view class="content_info weui-flex__item">{{tradmarkData.proposer_addr}}</view>
+			</view>
+			<view class="mt10 weui-flex">
+				<view class="content_name mr30">商标流程</view>
+				<view class="content_info weui-flex__item">
+					<view wx:if="{{tradmarkData.tm_ann_list}}" wx:for="{{tmannlist}}" wx:key="item">{{item}}</view>
+					<view wx:if="{{!tradmarkData.tm_ann_list}}">--</view>
+				</view>
+			</view>
+		</view>
+		<view class="content bm" id="time">
+			<view class="content_tit mt30">日期/期号</view>
+			<view class="mt30 weui-flex">
+				<view class="content_time mr30">初审公告日期</view>
+				<view class="content_info weui-flex__item">{{tradmarkData.first_annc_date || "--"}}</view>
+			</view>
+			<view class="mt10 weui-flex">
+				<view class="content_time mr30">初审公告期号</view>
+				<view class="content_info weui-flex__item">{{tradmarkData.first_annc_issue || "--"}}</view>
+			</view>
+			<view class="mt10 weui-flex">
+				<view class="content_time mr30">注册公告日期</view>
+				<view class="content_info weui-flex__item">{{tradmarkData.reg_annc_date || "--"}}</view>
+			</view>
+			<view class="mt10 weui-flex">
+				<view class="content_time mr30">注册公告期号</view>
+				<view class="content_info weui-flex__item">{{tradmarkData.reg_annc_issue || "--"}}</view>
+			</view>
+		</view>
+		<view class="content" id="service">
+			<view class="content_tit mt30">商品/服务</view>
+			<view class="mt30 weui-flex" wx:for="{{tradmarkData.tm_service_list}}" wx:key="item.goodsName">
+				<view class="content_info weui-flex__item">{{item.goodsName}}</view>
+			</view>
+		</view>
+	</scroll-view>
+</view>
+</template>
+<script>
+  import wepy from 'wepy';
+  // import auth from '../../api/auth';
+
+  import base from '../../mixins/base';                                                 
+  import order from '../../api/order';
+  import Date from '../../common/data.js';
+  // import interfaces from '../../interfaces'
+
+  export default class tradmarkQuery extends wepy.page {
+  	components = {
+    };
+    def = {
+    	toView: '',
+    	tabScorll: 1,
+    	viewTop: 0,
+    	tradmarkData: {},
+    	cateIdData: Date.cateIdData,
+    	tmannlist: []
+    };
+    data = {...this.def};
+    async onLoad(option) {
+    	let self = this;
+    	let detailData = await order.trademarkDetail(option.id,option.code);
+    	self.tradmarkData = detailData.docs;
+    	self.tmannlist = self.tradmarkData.tm_ann_list.split(',');
+      //创建节点选择器
+      let query = wepy.createSelectorQuery();
+      //选择id
+      query.select('#time').boundingClientRect();
+      query.exec(function (res) {
+        //res就是 所有标签为time的元素的信息 的数组
+        let top = res[0].top;
+        self.viewTop = top;
+        self.$apply();
+      })
+      self.$apply();
+    }
+    methods = {
+      tabView(item) {
+      	this.toView = item;
+      	this.$apply();
+      },
+      scrollView(e) {
+      	let self = this;
+        //创建节点选择器
+	      let query = wepy.createSelectorQuery();
+	      //选择id
+	      query.select('#time').boundingClientRect();
+	      query.exec(function (res) {
+	        //res就是 所有标签为time的元素的信息 的数组
+	        let timetop = res[0].top;
+	        // 中间日期/期号距离上部大于270则是基本信息高亮
+	        // 小于270大于-130日期高亮
+	        // 小于130商品服务高亮
+	        if(timetop >= 270){
+	        	self.tabScorll = 1;
+	        }else if(270 > timetop && timetop > 130){
+	          self.tabScorll = 2;
+	        }else if(timetop <= 130){
+	          self.tabScorll = 3;
+	        }
+	        // 混动后讲定位id初始化
+	        self.toView = '';
+	        self.$apply();
+	      })
+      }
+    };
+    config = {
+      navigationBarTitleText: '商标详情'
+    };
+    mixins = [base];
+  }
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.detail{height:100%;background-color:#f8f8f8;
+	.top{position: absolute;top:0;z-index:10;background-color:#f8f8f8;}
+	.detail_tit{width:750rpx;padding:30rpx;background-color:#fff;box-sizing:border-box;
+		.tit_left{background: #FFFFFF;border: 1rpx solid #DDDDDD;border-radius: 6rpx;width:200rpx;height:200rpx;box-sizing:border-box;
+			image{width:170rpx;height:170rpx;}
+		}
+		.tit_right{
+			.mb12{margin-bottom: 12rpx;}
+			.info{
+				.info_left{width:130rpx;line-height:40rpx;font-size:$text-nm;color:#999;text-align: left;}
+				.info_data{font-size:$text-nm;}
+				.info_r{color:#666;}
+				.trm_name{color: #F64744;}
+				.trm_type{height:40rpx;background: #10AEFF;border-radius: 6rpx;color:#fff;font-size:$text-xs;line-height:40rpx;padding:0 9rpx;}
+			}
+		}
+	}
+	.lists_tab{background: #FFFFFF;border-bottom: 1rpx solid #eee;box-sizing:border-box;height:92rpx;
+		view{text-align: center;line-height:92rpx;height:92rpx;font-size: $text-lg;color: #666666;}
+		.click_class{color: #10AEFF;border-bottom:4rpx solid #10aeff;box-sizing:border-box;}
+	}
+	.list_detail{height:100%;background-color:#fff;padding:380rpx 30rpx 0;box-sizing:border-box;z-index:1;
+		.bm{border-bottom:1rpx solid #E4E4E4;}
+		.content{padding-bottom:40rpx;box-sizing:border-box;
+			.content_tit{font-size: $text-lg;color: #333333;}
+			.content_name{width:120rpx;line-height:40rpx;height:40rpx;color: #999999;font-size: $text-nm;}
+			.content_time{width:170rpx;line-height:40rpx;height:40rpx;color: #999999;font-size: $text-nm;}
+			.content_service{width:60rpx;line-height:40rpx;height:40rpx;color: #666666;font-size: $text-nm;}
+			.content_info{color:#666;font-size: $text-nm;
+				view{color:#666;font-size: $text-nm;}
+			}
+		}
+	}
+}
+::-webkit-scrollbar{
+  width: 0;
+  height: 0;
+  color: transparent;
+}
+</style>

@@ -1,0 +1,160 @@
+<template>
+  <view class="persona">
+    <Tips />
+    <view class="personalInfo" wx:if="{{init}}">
+      <view class="info weui-flex">
+        <input id="name" value="{{input.name}}" @input="input" maxlength="{{maxNum}}" @blur="input" class="info_l txt weui-flex__item">
+        <view class="info_r icon_sp_area" @tap="move">
+          <image class="clear ml20" src="/images/icons/clear.png">
+        </view>
+      </view>
+      <view class="change_name mt20">温馨提示：请在此修改您的{{txtChange}}</view>
+    </view>
+    <view class="btn" @tap="changeData">保存</view>
+  </view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import qs from 'qs';
+  import FormTips from '../../components/weui/tips';
+  import input from '../../mixins/input';
+  import customer from '../../api/customer';
+  import base from '../../mixins/base';
+  export default class extends wepy.page {
+    def = {
+      maxNum: 11,
+      userData: '',
+      changeNum: '',
+      txtChange: '',
+      applyName: '',
+      applyPhone: '',
+      remarks: '',
+      companyName: '',
+      avatar: '',
+      option: {},
+      init: false
+    };
+    data = {...this.def};
+    async onLoad (option) {
+      this.loaded();
+      this.option = option;
+      if(option.data){
+        this.input.name = decodeURIComponent(option.data);
+      }else{
+        this.input.name = '';
+      }
+
+      if(this.option.state == 1) {
+        this.txtChange = '企业名称';
+        this.maxNum = 60;
+      }else if(option.state == 2) {
+        this.txtChange = '申请人姓名';
+        this.maxNum = 30;
+      }else if(option.state == 3) {
+        this.txtChange = '手机号码';
+        this.maxNum = 11;
+      }else if(option.state == 4) {
+        this.txtChange = '姓名';
+        this.maxNum = 30;
+      }
+      const userData = wepy.getStorageSync('auth');
+      this.userData = userData;
+      this.$apply();
+    }
+    onReachBottom(e) {
+      console.log(222222)
+    }
+    methods = {
+      move() {
+        let self = this;
+        setTimeout(function (argument) {
+          self.input.name = '';
+          self.$apply();
+        },300)
+      },
+      async changeData() {
+        console.log(this.companyName)
+        if(this.option.state == 1) {
+          this.companyName = this.input.name;
+          this.applyName = '';
+          this.applyPhone = '';
+          this.remarks = '';
+        }else if(this.option.state == 2) {
+          this.companyName = '';
+          this.applyName = this.input.name;
+          this.applyPhone = '';
+          this.remarks = '';
+        }else if(this.option.state == 3) {
+          this.companyName = '';
+          this.applyName = '';
+          this.applyPhone = this.input.name;
+          this.remarks = '';
+        }else if(this.option.state == 4) {
+          this.nickname = this.input.name;
+        }
+        this.$apply();
+        if(this.option.state < 4) {
+          try {
+            let data = await customer.infoChange(this.option.id,this.companyName,this.applyName,this.applyPhone,this.remarks);
+            console.log('data::::',data)
+            wepy.setStorageSync('customerInfoData', data.data);
+            wx.navigateBack({
+              delta: 1
+            })
+          } catch (e) {
+            this.tips('服务器繁忙，请稍后再试');
+          }
+        } else {//修改昵称
+          try {
+            let data = await customer.infoNamePhoto(this.avatar,this.nickname);
+            var userData = this.userData;
+            userData.phone = data.mobile;
+            userData = {...userData, ...data};
+            wepy.setStorageSync('auth', userData);
+            wx.navigateBack({
+              delta: 1
+            })
+          } catch (e) {
+            this.tips('服务器繁忙，请稍后再试');
+          }
+        }
+
+      },
+      loadMore() {
+        console.log(222222)
+      }
+    };
+    mixins = [input, base];
+    config = {
+      navigationBarTitleText: '个人信息'
+    };
+    components = {
+      Tips: FormTips
+    };
+  }
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.persona{background-color:#f8f8f8;height:100%;
+  .personalInfo{background: #FFFFFF;box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.09);border-radius: 8rpx;width:690rpx;margin:30rpx auto;padding:30rpx;box-sizing:border-box;
+    .info{border-bottom:1rpx solid #E5E5E5;padding-bottom: 20rpx;}
+    .info,.info_bottom{box-sizing:border-box;
+      .photo_l{line-height:88rpx;color: #8795A8;font-size: $text-lg;}
+      .info_l{color: #8795A8;font-size: $text-lg;padding-top: 30rpx;}
+      .info_r{padding-top: 30rpx;}
+      .info_r,.info_r_top{
+        .portrait{width:88rpx;height:88rpx;border-radius:100%;vertical-align: middle;}
+        .icon{width:14rpx;height:25rpx;vertical-align: middle;}
+        .clear{width:30rpx;height:30rpx;vertical-align: middle;}
+        .txt{color: #515F71;font-size: $text-lg;vertical-align: middle;}
+        .phone{color: #B3BFD0;font-size: $text-lg;}
+      }
+      .icon_sp_area{
+        .weui-icon-cancel{color:#f5f5f5}
+      }
+    }
+    .change_name{color: #B3BFD0;font-size: $text-sm;}
+  }
+  .btn{width:690rpx;height:94rpx;background-image: linear-gradient(147deg, #0096FF 0%, #2F80F6 100%);box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.30);border-radius: 8rpx;color:#fff;margin:0 auto;border:0rpx;font-size: $text-xxl;text-align: center;line-height:94rpx;}
+}
+</style>

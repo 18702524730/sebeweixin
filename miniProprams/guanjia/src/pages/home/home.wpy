@@ -1,0 +1,1164 @@
+<template>
+  <view class="index_page" :class="{'hidden': isShowSiderBox, 'show_box': init && !isErr}">
+
+    <view class="company_bg" :class="{'empaty_bg': !isLogin || !companyList.length}">
+      <image class="img" src="../../images/home/top_bg.png"></image>
+      <view class="pub_search_box">
+        <view @tap="focusAction">
+          <searchBox placeholder="搜商标/搜企业" :isDisabled.sync="isDisabled" :content.sync="content" :autoFocus.sync="autoFocus" :richText.sync="resultRichText" :richText.sync="searchRichText" @focusAction.user="focusAction" />
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{ isLogin && companyList.length }}">
+      <!-- 侧边栏展示企业列表 -->
+      <siderBar :myList.sync="companyList" :isShow.sync="isShowSiderBox" :titleType.sync="titleType" @selectCompany.user="selectCompanyFn" ></siderBar>
+
+      <!-- 当前选择的企业 -->
+      <view class="current_company_bg">
+        <view class="current_company">
+          <image class="icon" src="../../images/icons/company_icon.png"></image>
+          <view class="name" @tap="goCompanyDetailFn(0)">{{ selectCompanyData.applicationName }}</view>
+          <view class="btn_blue" @tap="showSiderFn">切换/添加</view>
+        </view>
+      </view>
+
+      <!-- 企业商标 -->
+      <view class="company_info info_type">
+        <view class="tit">企业商标</view>
+        <view class="tm_type">
+          <view class="item" @tap="goCompanyDetailFn(0)">
+            <view class="num">{{ selectCompanyData.trademarkNumber || 0 }}</view>
+            <view class="name">旗下商标</view>
+          </view>
+          <view class="item" @tap="goCompanyDetailFn(2)">
+            <view class="num">{{ selectCompanyData.depositeNumber }}</view>
+            <view class="name">已托管商标</view>
+          </view>
+          <view class="item" @tap="goCompanyDetailFn(1)">
+            <view class="num">{{ (selectCompanyData.trademarkNumber - selectCompanyData.depositeNumber) >= 0 ? (selectCompanyData.trademarkNumber - selectCompanyData.depositeNumber) : 0}}</view>
+            <view class="name">未托管商标</view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 已托管商标 -->
+      <view class="company_info info_status">
+        <view class="tit">已托管商标</view>
+        <view class="tm_status">
+          <view class="item" wx:for="{{ conditionList }}" wx:key="{{ index }}" @tap="goDetailFn({{ item }})">
+            <view class="num">{{ item.num }}</view>
+            <view class="name">{{ item.name }}</view>
+          </view>
+        </view>
+        <view class="empaty_btn" wx:if="{{ !companyList.length }}"  @tap="">去托管商标 <image class="icon_go" src="../../images/icons/___.png" ></image></view>
+      </view>
+
+      <!-- 核心商标 -->
+      <view class="company_info info_core">
+        <view class="tit">核心商标</view>
+        <view class="core_mark" wx:if="{{ companyList.length>0 }}">
+          <view wx-if="{{ coreNotesList.length>0 }}" wx:key="unique">
+            <view class="item_wrap" >
+              <repeat for="{{ coreNotesList }}" key="index" index="index" item="item">
+                <view class="item {{ index==selectCoreNotes ? 'on' : '' }}"  @tap="selectCoreFn({{index}})"><image src="{{ item.tmImg }}" style="width:100%; height:100%;"></image></view>
+              </repeat>
+              <view class="item edit" @tap="editCoreFn">设置</view>
+            </view>
+            <view class="mark_item" @tap="navToDetail({{coreNoteObj.id}})">
+              <view class="img_box">
+                <image src="{{ coreDetailObj.tmImg }}" alt=""></image>
+              </view>
+              <view class="text_box">
+                <view class="line">
+                  <text class="value value_line">{{ coreDetailObj.tmName || '--'}}</text>
+                </view>
+                <view class="line">
+                  <text class="value type value_1">{{ coreDetailObj.intCls }}类 {{ coreDetailObj.intClsName }}</text>
+                  <text class="value value_2">{{ coreDetailObj.appDate ? coreDetailObj.appDate : '--' }}申请</text>
+                </view>
+                <view class="label_box">
+                  <text class="blue">{{ coreDetailObj.currentStatus }}</text>
+                </view>
+              </view>
+            </view>
+            <view class="law_btn_wrap" wx:if="{{ coreDetailObj.currentFlow }}">
+              <view class="law_btn" >{{ coreDetailObj.currentFlow }}</view>
+            </view>
+            <view class="core_notes" >
+              <!-- wx:if="{{ coreDetailObj.approximateNumber }}" -->
+              <view class="weui-cell" @tap="goSimilarFn">
+                  <view class="">检测到有近似商标</view>
+                  <view class="weui-cell__ft weui-cell__ft_in-access"></view>
+              </view>
+              <view class="weui-cell " wx:if="{{ coreDetailObj.law }}" @tap="goNewsListFn(1)">
+                  <view class="">检测到有法律状态更新</view>
+                  <view class="weui-cell__ft weui-cell__ft_in-access"></view>
+              </view>
+              <view class="weui-cell " wx:if="{{ coreDetailObj.risk }}" @tap="goNewsListFn(2)">
+                  <view class="">检测到有风险预警</view>
+                  <view class="weui-cell__ft weui-cell__ft_in-access"></view>
+              </view>
+            </view>
+            <view wx:if="{{ coreDetailObj.hasNumber }}" class="detail_btn" @tap="goReportPageFn">查看商标注册查询报告</view>
+          </view>
+        </view>
+        <view class="empaty_btn" wx:if="{{ !coreNotesList.length }}"  @tap="addCoreFn">去设置核心商标 <image class="icon_go" src="../../images/icons/___.png" ></image></view>
+      </view>
+    </view>
+
+    <!-- 未登录或者我的企业为空的时候 -->
+    <view class="empaty_company" wx:if="{{ !isLogin || !companyList.length }}">
+      <view class="title">管家在手，商标无忧</view>
+      <view class="empaty_btn"  @tap="addCompanyFn">去添加我的企业 <image class="icon_go" src="../../images/icons/___.png" ></image></view>
+    </view>
+
+    <view class="row-between report" @tap="gotoReport">
+      <image class="hot" src="/images/icons/hot.png"></image>
+      <text>您有一份商标注册查询报告待领取</text>
+      <image class="re" src="/images/icons/report_img.png"></image>
+    </view>
+
+    <!-- 推荐服务 -->
+    <!-- <view class="top_service">
+      <view class="ser_title">
+        <view class="name">
+          <text class="line"></text>
+          <text class="text">推荐服务</text>
+        </view>
+        <view class="more" @tap="serviceMoreFn">
+          <text class="text">查看更多</text>
+          <text class="detail"></text>
+        </view>
+      </view>
+
+      <view class="item_wrap_link">
+        <repeat for="{{ serviceList }}" key="index" index="index" item="item">
+          <view class="item_link" >
+            <view class="part1" @tap="checkDetailFn({{index}})" hidden="{{ index == currentService }}">
+              <image src="{{ item.img }}" ></image>
+              <view class="type_name">{{ item.title }}</view>
+            </view>
+            <view class="part2 moveDown" hidden="{{ index != currentService }}">
+              <view class="price">¥{{ item.price }}</view>
+              <view class="detail" wx:if="{{ item.type==1 }}" @tap="goDetailPageFn({{ item.id }})">查看详情</view>
+              <view class="detail" wx:if="{{ item.type==2 }}">联系客服<button open-type="contact" style="width:200rpx; height:40rpx; margin-top:-40rpx; opacity:0;" /></view>
+            </view>
+            <view class="info">{{ item.info }}</view>
+          </view>
+        </repeat>
+      </view>
+    </view> -->
+
+    <!-- 底部 -->
+    <indexFooter  />
+
+    <!-- 底部公共导航 -->
+    <footerNav :active.sync="footerActive" />
+
+    <!-- 客服悬浮窗 -->
+    <pubKefu  />
+
+    <!-- 自定义弹窗 -->
+    <companyModal :showModal.sync="comShowModal" :title.sync="comTitle" :content.sync="comContent" :minorContent.sync="comMinorContent" :options.sync="comOptions" @confirmBtn.user="confirmFn"  />
+
+
+
+  </view>
+  <NetError :show.sync="isErr" @refresh.user="refresh"/>
+</template>
+<script>
+  import wepy from 'wepy';
+
+  import base from '../../mixins/base';
+  import NetError from '../../components/common/net_error';
+  import FormTips from '../../components/weui/tips';
+  import Tips from '../../utils/Tips';
+  import interfaces from '../../interfaces';
+  import wxCharts from '../../api/wxcharts-min';
+  import searchBox from '../../components/search/searchBox';
+  import siderBar from '../../components/home/siderBar';   //侧边栏
+  import indexFooter from '../../components/common/index_footer';
+  import homeApi from '../../api/home';
+  import pubKefu from '../../components/common/kefu';
+  import tmList from '../../utils/tmTypeData';  //商标种类数据
+  import mask from '../../components/common/mask';
+  import companyModal from '../../components/common/company_model';
+  import footerNav from '../../components/common/footer_nav';
+
+  export default class homePage extends wepy.page {
+    components = {
+      Tips: FormTips,
+      NetError: NetError,
+      siderBar,
+      searchBox,
+      indexFooter,
+      pubKefu,
+      maskTab: mask,
+      maskCompany: mask,
+      companyModal,
+      footerNav
+    };
+
+    data = {
+      isLogin: false,  //是否登录
+      footerActive: 0,  //底部导航高亮下标
+      init: false,
+      isErr: false,
+      checkDetail: false,  //推荐服务
+      currentService: -1,  //当前选择的服务
+      isDisabled: true,  //首页搜索默认disabled
+      styleType: 1, //企业列表样式
+
+      tabTmIsFirst: false, //新手指引第一次显示
+      tabMmgStyleInfo: 'width:356rpx;height:286rpx;right:-24rpx;top:220rpx',
+      tabImgSrc: '/images/guide/11.png',
+
+      comTmIsFirst: false, //新手指引第一次显示
+      comImgStyleInfo: 'width:750rpx;height:585rpx;right:0;top:210rpx',
+      comImgSrc: '/images/guide/2.png',
+
+      content: '',
+      autoFocus: false,   //搜索自动聚焦
+      resultRichText:'共结果',
+      searchRichText: '',
+
+      activeIndex: 0,
+      sliderOffset: 0,
+      sliderLeft: 0,
+      serviceList: [  //推荐服务
+        {
+          img: '../../images/home/service_1.png',
+          title: '商标注册',
+          info: '极速申报全周期',
+          price: '699',
+          next: '查看详情',
+          type: 1,
+          url: 'xxx',
+          id: 1
+        },
+        {
+          img: '../../images/home/service_2.png',
+          title: '国际商标',
+          info: '品牌出海第一步',
+          price: '3800-11000',
+          next: '查看详情',
+          type: 1,
+          url: 'xxx',
+          id: -1
+        },
+        {
+          img: '../../images/home/service_3.png',
+          title: '驳回复审',
+          info: '疑难问题对症下药',
+          price: '3550',
+          next: '联系客服',
+          type: 2,
+          url: 'xxx'
+        },
+      ],
+      myEmptyObj: {
+        title: '管家在手，商标无忧',
+        urlText: '去托管我的商标',
+        urlLink: '/pages/company/setMy'
+      },
+      showStatus: true,
+      isIndex: true,  //是首页
+      numPosition: true,  //true标识位于右下角，false表示居中
+      companyList: [],  //我的企业
+      chartOption: {
+        animation: true, //是否有动画
+        disablePieStroke: true, //不绘制各部分连接处的白线
+        canvasId: 'pieCanvas',
+        type: 'pie',
+        title: {
+          name: '已注册“金银花”商标的法律状态分布图',
+          offsetX: 100
+        },
+        series: [
+          {
+              name: '待审中',
+              data: 45,
+              color: '#FFD55C'
+          },
+          {
+              name: '已初审',
+              data: 65,
+              color: '#FFB747'
+          },
+          {
+              name: '已驳回',
+              data: 10,
+              color: '#75D998'
+          },
+          {
+              name: '已注册',
+              data: 12,
+              color: '#4294FF'
+          }
+        ],
+        width: 400,
+        height: 270,
+        dataLabel: true,  //是否在图表中显示数据内容值
+      },
+      nyNotesList: [],
+      tabs: ["我的企业", "关注企业"],
+      followCompanyList: [],
+      followEmptyObj: {
+        title: '知己知彼，百战不殆',
+        urlText: '去关注其他企业',
+        urlLink: '/pages/company/setConcered'
+      },
+      selectCoreNotes: 0,  //默认选择的核心商标
+      coreNoteObj: {},  //选择的核心商标
+      coreDetailObj: {},  //核心商标详情
+      coreNotesList: [],  //核心商标相关消息
+      swiperOne: {
+        circular: true, //衔接滑动
+        indicatorDots: false,  //是否显示面板指示点
+        autoplay: false,
+        duration: 300,  //滑动动画时长
+        previousMargin: '26rpx',
+        nextMargin: '26rpx'
+      },
+      swiperTwo: {
+        circular: true, //衔接滑动
+        indicatorDots: false,  //是否显示面板指示点
+        autoplay: true,
+        duration: 300,  //滑动动画时长
+        vertical: true,
+        interval: 3500
+      },
+      selectCompanyData: {},  //选中的公司数据
+      currentCompany: 0,  //现在选择的企业
+
+      comShowModal: false,
+      comTitle: '',
+      comContent: '',
+      comMinorContent:'',
+      comOptions: {},
+      // 已托管商标
+      conditionList: [
+        {name:'待审中', typeID:1},
+        {name:'已初审', typeID:4},
+        {name:'已驳回', typeID:3},
+        {name:'已注册', typeID:2},
+        {name:'已销亡', typeID:0},
+        {name:'注册满3年', typeID:6},
+        {name:'注册满5年', typeID:7},
+        {name:'注册满10年', typeID:8}
+      ],
+      isShowSiderBox: false,  //是否展示侧边栏
+      titleType: 1,  //1.主体企业 2.竞品企业
+    }
+
+    methods = {
+      // 企业商标
+      goCompanyDetailPageFn (type) {
+
+      },
+      // 已托管商标去详情页
+      goDetailFn (item) {
+        console.log(item)
+        let data = this.selectCompanyData;
+        wepy.navigateTo({
+          url: `/pages/detail/enterpriseDetail?companyName=${data.applicationName}&applicationType=1&companyId=${data.id}&hostType=1&status=${item.typeID}&hostType=2`
+        })
+      },
+      // 去企业详情页
+      goCompanyDetailFn (type) {
+        let data = this.selectCompanyData;
+        wepy.navigateTo({
+          url: `/pages/detail/enterpriseDetail?companyName=${data.applicationName}&applicationType=1&companyId=${data.id}&hostType=${type}`
+        })
+      },
+      // 展示侧边栏
+      showSiderFn () {
+        this.isShowSiderBox = true;
+       },
+       // 查询所有分类
+      async statisticsTrademarkFn () {
+        let self = this;
+        let params = {
+          stewardSubjectId: self.selectCompanyData.id
+        }
+        try {
+          let typeList = await homeApi.statisticsTrademark(params, true);
+          self.conditionList.forEach(function(item){
+            item.num = typeList[item.name]
+            if (item.name == '全部' ) {
+              if (item.num > 999){
+                item.num = '999+'
+              }
+            }
+            else{
+              if (item.num > 99) {
+                item.num = '99+'
+              }
+            }
+          })
+        }
+        catch(e){}
+      },
+      gotoReport(){
+        wepy.navigateTo({
+          url: '/pages/my/creatReport'
+        })
+      },
+    	navToDetail(id){
+    		wepy.navigateTo({
+          url: `/pages/detail/trademarkDetail?trademarkId=${id}`
+        });
+    	},
+    	refresh(){
+    		console.log('refresh')
+    		Tips.loading('获取网络状态中')
+    		this.pageInit();
+    	},
+      // 去近似商标
+      goSimilarFn () {
+        wepy.navigateTo({
+          url: `/pages/search/searchTm?content=${this.coreNoteObj.tmName}&similar=true`
+        })
+      },
+      // 去消息详情
+      goNewsListFn (type) {
+        console.log(type)
+        let self = this;
+        let url_ = '';
+        if(type == 1) {   //法律状态
+          url_ = `/pages/message/lawMessage?tmId=${self.coreDetailObj.id}`;
+        }
+        else if (type == 2) {   //风险预警
+          url_ = `/pages/message/warmMessage?tmId=${self.coreDetailObj.id}`;
+        }
+        else if (type == 3) {  //情报中心
+          url_ = `/pages/message/intelligenceMessage?applicationType=${self.activeIndex}`;
+        }
+        else if (type == 4) {   //近似商标
+          url_ = `/pages/message/similarMessage?applicationType=${self.activeIndex}`;
+        }
+        wepy.navigateTo({
+          url: url_
+        })
+        if (type == 5 || type==6) {
+          wepy.switchTab({
+            url: `/pages/message/myMessage?applicationType=${self.activeIndex}`
+          })
+        }
+      },
+      // 推荐服务查看更多
+      serviceMoreFn () {
+        wepy.navigateTo({
+          url: '/pages/home/service'
+        })
+      },
+      //查看商标注册查询报告
+      goReportPageFn () {
+        wepy.navigateTo({
+          url: `/pages/my/report?trademarkName=${this.coreDetailObj.tmName}`
+        })
+      },
+      tabHideGuide(){
+        this.tabTmIsFirst = false;
+        wepy.setStorageSync('tabTmIsFirst', false);
+        if (wepy.getStorageSync('comTmIsFirst') !== false) {
+          this.comTmIsFirst = true;
+        }
+      },
+      comHideGuide () {
+        this.comTmIsFirst = false;
+        wepy.setStorageSync('comTmIsFirst', false);
+      },
+      editCoreFn () {  //编辑核心商标
+        let data = this.selectCompanyData;
+        let type = '';
+        if (this.coreNotesList.length < 5) {
+          type = 2;
+        }
+        else if (this.coreNotesList.length = 5){
+          type = 1;
+        }
+        wepy.navigateTo({
+          url: `/pages/detail/enterpriseDetail?companyName=${data.applicationName}&applicationType=1&companyId=${data.id}&hostType=1&optionType=${type}`
+        })
+      },
+      addCoreFn () {    //添加核心商标
+        let data = this.selectCompanyData;
+        wepy.navigateTo({
+          url: `/pages/detail/enterpriseDetail?companyName=${data.applicationName}&applicationType=1&companyId=${data.id}&hostType=1&optionType=2`
+        })
+      },
+      addCompanyFn () {   //去添加我的企业
+        wepy.navigateTo({
+          url: '/pages/search/search?applicationType=2'
+        })
+      },
+      async selectCoreFn (index) {  //切换核心商标
+        let self = this;
+        self.selectCoreNotes = index;
+        self.coreNoteObj = self.coreNotesList[index];
+        try {
+          let detail_ = await self.methods.findCoreTrademarkDetailsFn(self.coreNoteObj.id);
+          self.coreDetailObj = detail_;
+          if(self.coreDetailObj.tmName == '') {
+            self.coreDetailObj.tmName = '图形';
+          }
+          tmList.cateIdData.forEach(function(data){
+            if (data.id == self.coreDetailObj.intCls) {
+              self.coreDetailObj.intClsName = data.goodsname;
+            }
+          })
+          // 初始化饼图
+          self.methods.dreawConvasFn.bind(self)();
+          self.$apply();
+        }catch (e) {}
+      },
+      //  公共查询
+      async queryFn () {
+        let self = this;
+        wx.showNavigationBarLoading();
+        try {
+          self.methods.statisticsTrademarkFn.bind(self)();  //默认查询已托管商标分类数据
+        	let [coreData_, msgs] = await Promise.all([self.methods.getCoreTrademarkFn(self.selectCompanyData.id), self.methods.statisticsNews(self.selectCompanyData.id)]);
+        	wx.hideNavigationBarLoading();
+          self.coreNotesList = coreData_.data;  //核心商标列表
+          self.$apply();
+          let msgList_ = [];
+          if (msgs.data.length > 0) {
+            msgs.data.forEach(function(item){
+              if (item.statistics > 0) {
+                msgList_.push(item)
+              }
+            })
+            msgList_.forEach(function(item){
+              if (item.newsType == 1) {
+                item.title = '条法律状态更新'
+              }
+              else if (item.newsType == 2) {
+                item.title = '条风险预警(异议、撤三、到期)'
+              }
+              else if (item.newsType == 3) {
+                item.title = '条重要情报(异议、撤三、未续展撤销)'
+              }
+              else if (item.newsType == 4) {
+                item.title = '条近似商标更新'
+              }
+              else if (item.newsType == 5 || item.newsType == 6) {
+                item.title = '条新消息'
+              }
+            })
+          }
+          else{
+            msgList_ = [];
+          }
+          self.nyNotesList = msgList_;
+          let num1 = 0, num2 = 0;
+          self.nyNotesList.forEach( (item) => {
+            if (item.newsType==5) {
+              num1 = item.statistics;
+            }
+            if(item.newsType==6){
+              num2 = item.statistics;
+            }
+            if (item.newsType==5 || item.newsType==6) {
+              item.statistics = num1+num2;  //类型为5或者6的都叫新消息，并且数量合并
+            }
+          })
+          self.$apply();
+
+          if (self.coreNotesList.length) {
+            self.coreNoteObj = self.coreNotesList[0];
+            let detail_ = await self.methods.findCoreTrademarkDetailsFn(self.coreNoteObj.id);  //核心商标详情
+            self.loaded();  //初始化加载完成
+            self.coreDetailObj = detail_;
+            if(self.coreDetailObj.tmName == '') {
+              self.coreDetailObj.tmName = '图形';
+            }
+            self.$apply();
+            tmList.cateIdData.forEach(function(data){
+              if (data.id == self.coreDetailObj.intCls) {
+                self.coreDetailObj.intClsName = data.goodsname;
+              }
+            })
+            // 初始化饼图
+            self.methods.dreawConvasFn.bind(self)();
+            self.$apply();
+          }
+          else{
+            self.loaded();  //初始化加载完成
+          }
+        }catch (e) {}
+      },
+      // 初始化饼图
+      dreawConvasFn () {
+        let self = this;
+        let sysInfo = wx.getSystemInfoSync();
+        // 初始化饼图
+        self.chartOption.width = sysInfo.windowWidth;
+        self.chartOption.series.forEach( (item) => {
+          item.data = self.coreDetailObj.report.stateStatistics[item.name];
+        })
+        self.coreDetailObj.hasNumber = false;
+        for (let i in self.coreDetailObj.report.stateStatistics){
+          if (self.coreDetailObj.report.stateStatistics[i] != 0) {
+            self.coreDetailObj.hasNumber = true;
+            break
+          }
+        }
+        self.$apply();
+        new wxCharts(self.chartOption);
+      },
+      async selectCompanyFn (data) {   //选择企业
+        let self = this;
+        self.isShowSiderBox = false;
+        self.selectCompanyData = data;  //当前选中的公司信息
+        // self.currentCompany = self.companyList.indexOf(data);
+        self.methods.queryFn.bind(self)();  //公共查询
+      },
+      async getCompanyListFn () {     // 默认加载公司列表
+        let self = this;
+        let params = {
+          applicationType: 1,
+          page: 1,
+          size: 20
+        }
+        self.loading = true;
+        // 默认加载公司列表
+        try {
+          let company_ = await homeApi.findCompanyList(params, true);
+          self.loading = false;
+          self.companyList = company_.data;
+          if(self.companyList.length > 0) {
+            self.selectCompanyData = self.companyList[0];   //默认选择的企业
+            self.currentCompany = 0;
+            self.loaded();  //初始化加载完成
+            self.$broadcast('changeCompanyList', self.companyList);  //广播最新企业列表
+            self.methods.queryFn.bind(self)();
+            self.$apply();
+          }
+          else{
+            self.coreNotesList = [];  //核心商标列表为空
+            self.nyNotesList = [];  //消息为空
+            self.loaded();  //初始化加载完成
+            self.$apply();
+          }
+          self.$apply();
+        }
+        catch (e) {
+        }
+      },
+      async getCoreTrademarkFn (id) {    //查询核心商标
+        let params = {
+          stewardSubjectId: id
+        }
+        return await homeApi.findCoreTrademark(params, true);
+      },
+      async findCoreTrademarkDetailsFn (id) {    //查询核心商标详情
+        let params = {
+          trademarkId: id
+        }
+        return await homeApi.findCoreTrademarkDetails(params, true);
+      },
+      async statisticsNews (id) {    //消息统计
+        let params = {
+          stewardSubjectId: id
+        }
+        return await homeApi.statisticsNews(params, true);
+      },
+      async showSetCompanyFn () {    //首次加载默认提示设置企业
+        let self = this;
+        let data = await interfaces.checkLogin();
+        let key = wepy.getStorageSync('key');
+        let setCompanyModal = wepy.getStorageSync('setCompanyModal');
+        if (data.isLogin && key && self.companyList.length == 0 && setCompanyModal) {
+          self.comShowModal = true;
+          self.comTitle = '请搜索并设置您的企业';
+          self.comMinorContent = '以便管家为您提供全方位、更贴心的服务哦';
+          self.comOptions = {
+            showCancel: false,
+            confirmText: '去设置',
+            confirmColor: '#4272FF'
+          };
+          self.$apply();
+          self.$broadcast('modalOptions', self.comOptions);
+          wepy.setStorageSync('setCompanyModal', false);
+        }
+      },
+      confirmFn (data) {
+        wepy.navigateTo({
+          url: '/pages/company/setMy'
+        })
+      },
+      focusAction () {
+        wepy.navigateTo({
+          url: '/pages/search/search'
+        })
+      },
+      hideRegisterAgreement() {
+        this.showRegAgreement = false;
+      },
+      checkDetailFn (index) {  //推荐服务查看详细信息
+        this.currentService = index;
+      },
+      goDetailPageFn (id) {   //跳转服务详情页
+        let url_ = '';
+        if (id == -1) {
+          url_ = 'pages/home/homePage'
+        }
+        else{
+          url_ = `pages/home/detail?id=${id}`
+        }
+        wx.navigateToMiniProgram({
+          appId: 'wxd3395f89f8ce776a',
+          path: url_,
+          envVersion: 'trial',
+          success(res) {
+            // 打开成功
+          }
+        })
+      },
+      goCustomer() {
+        if (!wepy.getStorageSync('key')) {
+          wepy.navigateTo({
+            url: '../login/login'
+          });
+        }else{
+          wepy.navigateTo({
+            url: '../createOrder/createOrder'
+          });
+        }
+      },
+    };
+
+    onLoad () {
+      let self = this;
+      wx.onNetworkStatusChange(function(res) {
+        self.isErr = !res.isConnected;
+        self.$apply();
+      })
+      self.loadInit();
+    }
+
+    async onShow () { // 在Page和Component共用的生命周期函数
+      let self = this;
+      self.$apply();
+    }
+
+    // 初始化 检查登录态
+    async loadInit(){
+    	let data = await interfaces.checkLogin();
+      let key = wepy.getStorageSync('key');
+      if (data.isLogin && key) {
+        this.isLogin = true;
+      }
+      else {
+        this.isLogin = false;
+        this.loaded();  //初始化加载完成（当没有登录的时候）
+      }
+      this.pageInit();
+    }
+
+    // 初始化
+    async pageInit(){
+    	let self = this;
+      self.methods.getCompanyListFn.bind(self)();   // 默认加载公司列表
+    }
+
+    mixins = [base];
+    config = {
+      navigationBarTitleText: '商标管家'
+    };
+
+    onShareAppMessage () {
+      const title = '拾贝商标管家';
+      const url = '/pages/home/home';
+      return Tips.share(title, url, title);
+    }
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  @import "../../styles/pub";
+  .index_page{
+    font-family: PingFangSC-Regular;
+    min-height: 100%;
+    background: #F8F8F8;
+    display: none;
+    &.show_box {display: block;}
+    &.hidden {height: 100%; overflow:hidden;}
+    .company_bg {
+      width: 100%; height: 205rpx; position:relative; top:0; overflow:hidden; z-index: 99;
+      .img {position:absolute; top:0; left:0; width:100%; height:100%;}
+      .pub_search_box {
+        position: absolute; top:0;
+      }
+    }
+    .empaty_bg {height: 330rpx;}
+    .empaty_company {
+      width: 690rpx; height: 250rpx; margin: -180rpx auto 0 auto; background: #fff; border-radius: 8rpx; position: relative; z-index: 1000;  box-shadow:0px 10px 24px 0px rgba(66,114,255,0.07);
+      .title {width: 100%; text-align: center; color: #333; padding-top: 40rpx; margin-bottom: 30rpx; font-size: 32rpx;}
+
+    }
+    .current_company_bg {
+      background:#fff;
+      .current_company {
+        margin: 0 30rpx; height:100rpx; line-height:100rpx; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;
+        .icon {width:33rpx; height:31rpx; }
+        .name {width: 450rpx; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:28rpx; color:3333; margin-left: -25rpx;}
+        .btn_blue {}
+      }
+    }
+    .company_info {
+      padding: 0 30rpx 30rpx 30rpx; background: #fff;
+      .empaty_btn {
+        width: 510rpx;
+        margin: 20rpx auto 0 auto;
+        background: #4272FF;
+        border-radius: 100rpx;
+        height: 86rpx;
+        line-height: 86rpx;
+        font-family: PingFangSC-Regular;
+        font-size: 30rpx;
+        color: #FFFFFF;
+        text-align:center;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        .icon_go {
+          width: 30rpx;
+          height: 14rpx;
+          margin: 0 0 2rpx 14rpx;
+        }
+      }
+      .tit {width:100%; text-align:left; font-size: 28rpx; color: #333; margin-bottom: 20rpx; }
+      .tm_type {
+        display:flex; justify-content: space-between; align-items: center;
+        .item {
+          width:210rpx; height: 120rpx; box-sizing:border-box; background: #F9F9F9; padding-top: 15rpx;
+          .num {width:100%; text-align:center; font-size: 36rpx; color: #333; height:56rpx; font-family: 'PingFangSC-Medium';}
+          .name {font-size: 24rpx; color: #999; width: 100%; text-align: center; }
+        }
+      }
+      .tm_status {
+        display:flex; justify-content: flex-start; align-items: center; flex-wrap: wrap; box-sizing:border-box; border-top: 1px solid #eee; border-left: 1px solid #eee;
+        .item {
+          width: calc(680rpx / 4); height: 113rpx; background: #F9F9F9; border-right: 1px solid #eee; border-bottom: 1px solid #eee; padding-top: 15rpx;
+          .num {width:100%; text-align:center; font-size: 36rpx; height: 56rpx; color: #4072FF;}
+          .name {font-size: 24rpx; color: #999; width: 100%; text-align: center; margin-top: 5rpx;}
+        }
+      }
+      .detail_btn {
+        .icon_go {
+          width: 30rpx;
+          height: 14rpx;
+          margin: 0 0 2rpx 14rpx;
+        }
+      }
+      .my_notes {
+        width: 690rpx;
+        height: 84rpx;
+        box-shadow: 0 10px 24px 0 rgba(66,114,255,0.07);
+        border-radius: 100rpx;
+        margin: 0 auto 20rpx auto;
+        .note_item {
+          line-height: 84rpx;
+          .title {
+            font-family: PingFangSC-Regular;
+            font-size: 26rpx;
+            color: #2A2A2A;
+            letter-spacing: 0;
+            text-align: left;
+            padding-left: 100rpx;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            .num {
+              color: #FF9A2F;
+            }
+          }
+        }
+      }
+      .core_mark {
+        width: 686rpx;
+        height: auto;
+        margin: 0 auto;
+        background-color: #fff;
+        overflow: hidden;
+        border-radius: 8rpx;
+        .title {
+          width: 100%;
+          display:inline-block;
+          font-family: PingFangSC-Regular;
+          font-size: 28rpx;
+          color: #666666;
+        }
+        .item_wrap {
+          width: 100%;
+          margin-top: 10rpx;
+          margin-bottom: 30rpx;
+          overflow: hidden;
+          .item {
+            float: left;
+            width: 100rpx;
+            height: 100rpx;
+            box-sizing: border-box;
+            line-height: 100rpx;
+            border: 1px solid #E5E5E5;
+            text-align:center;
+            margin-right: 10rpx;
+            border-radius: 8rpx;
+            font-size: 22rpx;
+            overflow:hidden;
+          }
+          .on {
+            border: 1px solid #4272FF;
+          }
+          .edit {
+            width: 80rpx;
+            font-family: PingFangSC-Regular;
+            font-size: 26rpx;
+            color: #4272FF;
+            background: #F4F6FF;
+            border: 1px solid #CBD8FF;
+            border-radius: 8rpx;
+            margin-right: 0;
+          }
+        }
+        .mark_item {
+          width: 100%;
+          height: auto;
+          overflow: hidden;
+          position: relative;
+          margin-bottom: 30rpx;
+          .img_box {
+            float: left;
+            width: 240rpx;
+            height: 240rpx;
+            overflow: hidden;
+            background: #FFFFFF;
+            border: 1px solid #E5E5E5;
+            border-radius: 8rpx;
+            text-align: center;
+            image {
+              width: 100%;
+              height: 100%;
+            }
+          }
+          .text_box {
+            float: left;
+            width: calc(100% - 264rpx);
+            margin-left: 20rpx;
+            padding-top: 10rpx;
+            .line {
+              width: 100%;
+              margin-bottom: 15rpx;
+              overflow: hidden;
+              .key {
+                float: left;
+                font-family: PingFangSC-Regular;
+                font-size: 26rpx;
+                color: #999999;
+              }
+              .value {
+                float:left;
+                max-width: 196rpx;
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                font-family: PingFangSC-Regular;
+                font-size: 26rpx;
+                color: #666666;
+              }
+              .value_1 {
+                padding-right: 15rpx; border-right:1px solid #D8D8D8;
+              }
+              .value_2 {
+                padding:0 15rpx; max-width: 210rpx;
+              }
+              .value_line {max-width: 100%;}
+              .status {
+                display: inline-block; height: 40rpx;line-height: 40rpx;margin-left:10rpx;margin-top: 2rpx; background: #E9EEFF;border-radius: 100px;font-family: PingFangSC-Regular;font-size: 24rpx; color: #4272FF;text-align: center;vertical-align: middle; padding:0 20rpx; float:left;
+              }
+              .type {
+                float: left;
+                // background: #EEEEEE;
+                // border-radius: 100px;
+                // padding: 0 20rpx;
+              }
+            }
+          }
+          .fa-angle-right{
+            position: absolute;top: 113rpx;right: 6rpx;width: 22rpx;height: 22rpx;border-top: 4rpx solid #ddd;border-right: 4rpx solid #ddd;transform: rotate(45deg);
+          }
+        }
+        .law_btn_wrap {
+          width: 100%;
+          height: 62rpx;
+          margin-bottom: 20rpx;
+          box-sizing: border-box;
+          .law_btn {
+            width: 100%;
+            height: 62rpx;
+            margin: 0 auto;
+            box-sizing: border-box;
+            line-height: 62rpx;
+            background: #F4F6FF;
+            border: 1px solid #CBD8FF;
+            border-radius: 100rpx;
+            font-family: PingFangSC-Regular;
+            font-size: 26rpx;
+            color: #4272FF;
+            text-align: center;
+            padding: 0 10rpx;
+            white-space: nowrap;
+            text-overflow: hidden;
+          }
+        }
+        .core_notes {
+          border: none;
+          margin-bottom: 40rpx;
+          .weui-cell {
+            padding: 20rpx 0 20rpx 15rpx;
+            border-bottom: 1px solid #E5E5E5;
+            position: static;
+            justify-content: space-between;
+          }
+          .weui-cell__bd {
+            color: #666;
+          }
+        }
+        .pie_box {
+          margin-left: -60rpx;
+          position: relative;
+          min-height:270px;
+          width:680rpx;
+        }
+        .pie_text {
+          text-align: center;
+          .title {
+            font-family: PingFangSC-Regular;
+            font-size: 24rpx;
+            color: #999999;
+            margin-bottom: 40rpx;
+            position: relative;
+            .text_content {
+              width: 480rpx;
+              font-size:24rpx;
+              color:#999999;
+              margin:0 auto;
+            }
+            .right {
+              position: absolute;
+              right: 0;
+              top: 20rpx;
+              width: 60rpx;
+              border-top: 1px solid #E5E5E5;
+              content: '';
+            }
+            .left {
+              position: absolute;
+              left: 0;
+              top: 20rpx;
+              width: 60rpx;
+              border-top: 1px solid #E5E5E5;
+              content: '';
+            }
+          }
+          .info {
+            font-family: PingFangSC-Regular;
+            font-size: 28rpx;
+            color: #666666;
+            margin-bottom: 20rpx;
+          }
+        }
+        .detail_btn {
+          background: #4272FF;
+          border-radius: 100rpx;
+          height: 86rpx;
+          line-height: 86rpx;
+          font-family: PingFangSC-Regular;
+          font-size: 30rpx;
+          color: #FFFFFF;
+          text-align:center;
+          padding: 0 10rpx;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+      }
+    }
+    .info_type {
+      padding-top: 30rpx;
+    }
+    .info_core {
+
+    }
+    .info_status {
+
+    }
+    .report{
+      margin: 20rpx 0 0 0; width:100%; height: 120rpx; position: relative; background-color: #fff;
+      .hot{width: 68rpx;height: 60rpx;margin-left: 50rpx; }
+      text{line-height: 84rpx;font-size: 28rpx;color: #FF9A2F}
+      .re{width: 153rpx;height: 120rpx; top:0; position: relative; }
+    }
+    .top_service {
+      background:#fff; margin: 20rpx 0 30rpx 0;
+      .ser_title {
+        padding: 0 30rpx; height: 80rpx; line-height: 80rpx; border-bottom: 1px solid #eee;
+        .name {
+          width: 50%; float: left; text-align: left;
+          .line {width: 8rpx; height: 30rpx; background: #257CFF; vertical-align: middle; display: inline-block;}
+          .text {font-size: 28rpx; color: #333; margin-left: 20rpx; vertical-align: middle;}
+        }
+        .more {
+          float: right;width: 50%;text-align: right;
+          .text {font-size: 28rpx; color: #BBBBBB; vertical-align: middle;}
+          .icon {vertical-align: middle; display: inline-block; padding-right: 0; width: 28rpx;}
+          .detail {display: inline-block; width: 20rpx; height: 20rpx; border-top: 1px solid #DDDDDD; border-right: 1px solid #DDDDDD; transform:rotate(45deg);}
+        }
+      }
+      @keyframes moveDown {
+        0% {
+          transform: translateY(-100rpx);
+          opacity: 0.1;
+        }
+        100% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+      .item_wrap_link {
+        width:100%; display: flex; display: -webkit-flex; justify-content: space-around; padding: 35rpx 0;
+        .item_link {
+          width:33.33%; text-align: center; font-family: PingFangSC-Regular; overflow: hidden; border-right: 1px solid #eee;
+          &:last-child {
+            border-right:none;
+          }
+          image {
+            width: 48rpx; height: 48rpx;
+          }
+          .moveDown {
+            animation: moveDown 0.3s linear;
+          }
+          .part1 {
+            .type_name {
+              font-size: 30rpx; color: #333333; margin: 5rpx auto;
+            }
+          }
+          .part2 {
+            .price {
+              font-family: PingFangSC-Regular; font-size: 30rpx; color: #333333;
+            }
+            .detail {
+              font-size: 30rpx; color: #4272FF; margin: 10rpx 0;
+            }
+          }
+          .info {
+            opacity: 0.76; font-size: 22rpx; color: #666666;
+          }
+        }
+      }
+    }
+
+  }
+</style>

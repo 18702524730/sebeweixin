@@ -1,0 +1,407 @@
+<template>
+	<view class="affinity_search">
+		<FormTips><FormTips/>
+
+		<view class="search_top_wrap" style="top:{{-topH}}px;" id="searchtop">
+    	<!-- 顶部搜索栏 -->
+      <ImgSearchTop id="AffinitySearchTop" :img.sync="img" :numFound.sync="numFound"></ImgSearchTop>
+      <!-- 筛选栏 -->
+      <SearchCondition id="SearchCondition" :isReset.sync="isReset" @conQuery.user="query" @updateCondition.user="updateCondition"></SearchCondition>
+    </view>
+
+    <!-- 滚动容器 -->
+	  <scroll-view scroll-y="true" scroll-top="{{scrollTop}}" style="height: {{scrollH}}px;padding-top: {{paddingH}}px;box-sizing: border-box;" lower-threshold="100" bindscroll="scroll" bindscrolltolower="getMoreList">
+	    <!-- 搜索结果列表 -->
+	    <SearchResult :loading.sync="loading" :selectMode.sync="selectMode" :resultList.sync="resultList" :noMoreData.sync="noMoreData" @queryList.user="query" @resetCondition.user="resetCondition" @updateResultList.user="updateResultList"></SearchResult>
+	    <!-- 生成报告按钮 -->
+			<CreateReport :show.sync="showCreate" :title.sync="actionText" @setActionVisible.user="setActionVisible" @creatReport.user="creatReport"></CreateReport>
+			<!-- 菜单选择器 -->
+			<Actionsheet :show.sync="actionVisible" :title.sync="actionTitle" :dataList.sync="menus" @setVisible.user="setActionVisible" @setSelectedItem.user="actionDo"></Actionsheet>
+	  </scroll-view>
+	</view>
+</template>
+
+<script>
+  import wepy from 'wepy';
+	import base from '../../mixins/base';
+	import input from '../../mixins/input';
+	import FormTips from '../../components/weui/tips';
+	import Tips from '../../utils/Tips';
+	import search from '../../api/search';
+  import qs from 'qs'
+  import ImgSearchTop from '../../components/search/imgSearchTop'
+  import SearchCondition from '../../components/search/searchCondition'
+  import SearchResult from '../../components/search/searchResult'
+  import CreateReport from '../../components/search/createReport'
+  import Actionsheet from '../../components/weui/actionsheet'
+
+  /*const rootUrl = CONFIG.rootUrl;
+  const wxUrl = CONFIG.wxUrl;
+  const cartUrl = CONFIG.cartUrl;
+  const indexUrl =  CONFIG.indexUrl;*/
+
+  const rows = 15;
+  export default class imgSearchResult extends wepy.page {
+    components = {
+    	FormTips,
+    	ImgSearchTop,
+    	SearchResult,
+      SearchCondition,
+      CreateReport,
+      Actionsheet
+    };
+    data = {
+    	numFound: 0,//总条目
+    	img:'', //图片base64
+
+    	isReset: false, // 重置筛选条件标志
+      cate_id:'', //商标类别id,以逗号分隔
+      status: '', //状态
+      sort_name:'',
+      start: 1, //页码
+      loading: false,
+
+    	direction:1, //上拉还是下拉
+    	scrollH: 0, //容器高度
+    	scrollTop: 0, //滚动高度
+    	oldScrollTop: 0, //老的滚动高度，用于计算
+    	topH: 0, //顶部top位移
+    	paddingH: 0, //偏移距离
+    	conditionH: 0, //筛选栏整个高度
+
+      //pdfUrl:'',
+      //pdfImgsData:[],
+
+      actionText: '生成报告',
+      showCreate: false,
+
+
+      selectMode: false, //列表可选择模式
+      resultList:[], //搜索结果数据集
+      noMoreData: false,//加载更多 是否没有数据了
+
+      menus:[{
+        label: '手动添加',
+        value: 'manual'
+      }, {
+        label: '以前10条结果生成报告',
+        value: 'add1'
+      }, {
+        label: '以前15条结果生成报告',
+        value: 'add2'
+      }, {
+        label: '直接生成',
+        value: 'create'
+      }],
+      actionVisible: false, //菜单选择器显示
+    	actionTitle:'<span style="color:#999;font-size:14px;">已手动添加的<b>0</b>条结果，会显示在报告最顶部</span>', //菜单选择器标题
+
+    	init: false,
+      // isDirectCreat: false
+    };
+
+    // 下拉刷新
+    onPullDownRefresh(){
+    	this.methods.query.bind(this)({});
+	    wx.stopPullDownRefresh()
+	  }
+
+    async onLoad (options) {
+      var self = this;
+      /*wepy.setStorageSync('searchImgData', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACYAAAAmCAYAAACoPemuAAAAAXNSR0IArs4c6QAAA5tJREFUWAnNmMFrE0EUxr/ZmpYiikIR22K9KeLV1hbRg5faQlX0IopVLKL/gXgoFDyp4MGTggVRLF70oNDSiwhFrLYXj/VQqGArFb0IgonN+H2bTEw2u82m2UQHwmzevnnvt29m3uxbgw20/se23WRwHBaH+eukiQ7Ln0wZYJndMi8+8zdjU3gxfd6s6F41jXbitYFJ22K/4Iq1OMsRPQSKN9ZQE3hvDCbMTtyfGjS/4nisaHzMWu/tOM7R8A1C7Y5jNEqHNpZoY7RvBE/GjMlG6Um+LtjQI9uVyeAZjR1Yz0i19wg4n0rh9Mth8ylqbCTYwEN7KLuG55yIHVGDa5IbrHpNODV10bwJs+OFCY89sGfsGl7VDUpO+cDyIV9hDGURU6Q0gNPXHDYgaRmnNW2acDQYuRIwral0BnN1jVTYk3Fam1PoLl5zhanU7tNCbziUQDmt8i0Gx124UEpIevc5J3F6+RaD0/Wn0k+eK1jgzZrylDO60V55zrRjr5KwH7F8Rv+nUHoYBUYsus6BZf+GUMJ6tNZUPKuE05EHowMZaR64cc++ePZLtNo2A7cHgemPwNMPJbfK/+hsbUanl39LKEkb5doblzio9q1AHxfLpsJ2i7DJAInJs1kciVCpWVwMtfAVuD4F/F736M65FJPHUPnvUTVTBAyEQf3MBJQi/opJgU0crBaoPGuHZ6sAO7kf2N4a8Zh5cQJQXP2MGJMa+8ptaB9wtRe4yd0VBZcElEjE5BEr1vv460Vg8RvQtS0cLikoP0Rk0hpT8VCx/eCb+jXuqjC4RKFyJMueX81UxMopFOC+5yJ3i9O6py2XPJWnXEqIu/si3bLCEthMpELIDR9ukpEj3C5O690TQKJQ8kkmT3UfL2JtAMdZDCdZYpGSMbKIyT+K+sftLNEOSl5N29ICXO4B7s0CNU+fc2zwbnrE9PonF7fnhJNX0ytyd7gQEoOic8eSA2OFTMFSNVD10BWDqnXZ9sH0xsj3oNF6OKvGphjcJwQfTINVtpN4vhpDSerKtxiczQKYviWobOeuWHU3G9bTp3yLwfksgEmguk5lO+nTTqHevXzJZ3FNKZ8lYBL4FbHFhUbA+T7oK1iFi8PPY7oItv/yo4og9RQq2/lUiW8I2ZTtsEi5AJVNpbuhXvPee8k/EYZprOY8l7cxLJvBNVXsV9eRUxlULHzqVA1q0M0jLN5YncMWc8ZjOkryU2cQUP8b8XH4D5aEbdXJzNxPAAAAAElFTkSuQmCC');*/
+      this.img = options.img;
+
+      //设置容器的高度
+	    wx.getSystemInfo({
+	      success: function(res) {
+	        self.scrollH = res.windowHeight;
+	        let q = wepy.createSelectorQuery();
+			    q.select('#searchtop').boundingClientRect();
+			    q.exec(function (res) {
+			    	self.totalH = res[0].height;
+			    	self.paddingH = self.totalH;
+			    	self.$apply();
+			    });
+			    let c = wepy.createSelectorQuery();
+			    c.select('#condition').boundingClientRect();
+			    c.exec(function (res) {
+			      self.conditionH = res[0].height;
+			      self.$apply();
+			    });
+	      }
+	    })
+
+	    await this.methods.query.bind(this)({});
+	    this.$apply();
+	    this.loaded();
+	    wepy.setStorageSync('selectedTMArr', []);
+
+    };
+
+    //获取选中的条目
+    getSelectedItems(){
+      var resultList = this.resultList;
+      var arr = [];
+      resultList.forEach((item, i) => {
+        if (item.isAdded) {
+          arr.push(item);
+        }
+      });
+      return arr;
+    }
+
+    config = {
+      navigationBarTitleText: '图形搜索结果',
+      navigationBarBackgroundColor: '#10AEFF',
+			enablePullDownRefresh: true,
+    };
+    mixins = [input, base];
+    computed = {
+    }
+    watch = {
+      pdfUrl(){
+        this.getPreviewImg(this.pdfUrl, 'pdfImgsData');
+      },
+    };
+    methods = {
+    	updateCondition(data){
+    		this.cate_id = data.cate_id
+    		this.status = data.status;
+    		this.$apply();
+    	},
+    	resetCondition(){
+    		this.cate_id = '';
+				this.status = '';
+				this.$apply();
+    	},
+    	updateResultList(data){
+    		this.resultList[data.index] = data.item;
+    	},
+    	//加载更多
+    	getMoreList(e){
+    		console.log(this.noMoreData);
+    		if (!this.noMoreData) {
+    			this.methods.query.bind(this)({isLoadMore: true})
+    		}
+    	},
+    	// 滚动事件
+    	scroll(e){
+    		//console.log(e.detail.scrollTop);
+    		this.direction = e.detail.scrollTop - this.scrollTop > 0 ? 1 : -1;
+    		this.oldScrollTop = this.scrollTop;
+    		this.scrollTop = e.detail.scrollTop;
+    		this.gapH = this.scrollTop - this.oldScrollTop;
+
+    		//console.log(this.gapH)
+    		let h = this.topH + this.gapH;
+    		let ph = this.paddingH - this.gapH;
+    		let totalH = this.totalH;
+    		let conditionH = this.conditionH;
+    		let searchH = totalH - conditionH;
+    		this.topH = h >= 0 ?  (h>=searchH ? searchH : h) : 0;
+    		this.paddingH = ph >= conditionH ? (ph>=totalH ? totalH : ph) : conditionH;
+    		this.$apply();
+    	},
+
+      //控制actionSheet显示
+    	setActionVisible(v){
+    		this.actionVisible = v;
+    		if (v) {
+    			var arr = this.getSelectedItems();
+	        if (arr.length) {
+	        	this.actionTitle = this.actionTitle.replace(/\<b\>.*\<\/b\>/, '<b>'+arr.length+'</b>');
+	        }else{
+	        	this.actionTitle = '<span style="color:#999;font-size:14px;">已手动添加的商标，会显示在报告最顶部</span>'
+	        }
+    		}
+    	},
+      //actionSheet 菜单点击事件
+      actionDo(item){
+      	let key = item.value;
+      	console.log(key)
+        var self = this;
+        var add = function(num){
+          // 追加列表前10个
+          var resultList = self.resultList;
+          console.log(resultList)
+          var arr = [].concat(wepy.getStorageSync('selectedTMArr'));
+          // 判断｛｝是否在数组中
+          var inArrayOf = function(arr, sortItem, sortName){
+            var ret = -1;
+            arr.forEach((item, i) => {
+              if (item[sortName] == sortItem[sortName]) {
+                ret = i;
+                return false;
+              }
+            });
+            return ret;
+          }
+          resultList.forEach((item, i) => {
+            if (i > num-1) {
+              return false;
+            }
+            item.isAdded = true;
+            var idx = inArrayOf(arr, item, 'id');
+            if (idx == -1) {
+              arr.push(item);
+            }
+          });
+
+          //更新选中的条目
+          wepy.setStorageSync('selectedTMArr', arr);
+          self.methods.creatReport.bind(self)();
+          self.actionVisible=false;
+        }
+        this.isDirectCreat = false;
+        if (key == 'manual') {
+          this.selectMode = true;
+          this.actionVisible = false;
+          this.actionText = '生成';
+          this.isDirectCreat = true;
+        }else if(key == 'add1'){
+          // 追加列表前10个
+          add(10);
+        }else if(key == 'add2'){
+          // 追加列表前15个
+          add(15);
+        }else if(key == 'create'){
+          self.methods.creatReport.bind(self)();
+          this.actionVisible=false;
+        }
+        console.log(this.selectMode)
+      },
+
+      //查询
+     	async query(params){
+     		console.log(this)
+     		if (params.isLoadMore) {
+		    	this.start += 1;
+		    }else{
+		    	this.start = 1;
+		    }
+		    let d = {
+          iscut: 1,
+          category: this.cate_id,
+          imageUrl: this.img,
+          imageName: 'aa.jpg',
+          status: this.status,
+          sort_name: this.sort_name,
+          sort_type: 0,
+          start: 1,
+          rows: 15
+        }
+		    let p = {...d, ...params};
+		    this.loading = true;
+		    let data = await search.doimgLists(p, params.isLoadMore);
+		    this.loading = false;
+		    console.log(data)
+		    let docs = data.docs;
+        docs.forEach((item, i) => {
+          item.showRight = '';//用于判断是否显示右滑
+          item.isAdded = false;//用于判断是否被勾选
+          item.tm_name_temp = item.tm_name;
+        })
+        let contentArr = this.content.split('');
+        //高亮关键字 且不区分大小写
+        docs.forEach((item, k) => {
+          var tmName = item.tm_name_temp;
+          var tmNameArr = tmName.split('');
+          contentArr.forEach((str, i) => {
+            tmNameArr.forEach((tm, j) => {
+              if (tm == str.toUpperCase() || tm == str.toLowerCase()) {
+                tmNameArr[j] = '<b>'+tm+ '</b>';
+              }
+            });
+          });
+          item.tm_name_temp = tmNameArr.join('');
+        });
+
+        if (params.isLoadMore) {
+        	if (data.docs.length < d.rows) {
+            this.noMoreData = true;
+          }else{
+            this.noMoreData = false;
+          }
+        	this.resultList = this.resultList.concat(data.docs || []);
+        	console.log(this.resultList)
+        }else{
+        	this.resultList = data.docs || [];
+        }
+        if (this.resultList.length) {
+        	this.showCreate = true;
+        }
+		    this.numFound = data.numFound;
+		    this.$apply();
+      },
+
+      // pdf转换成图片 用于预览
+      getPreviewImg(pdf_url, dataName){
+        this.$http.get(wxUrl + '/api/preview?pdf_url='+pdf_url)
+        .then((response) => {
+          this[dataName] = response.data.urls;
+        })
+        .catch((error) => {
+          console.log(error)
+        });
+      },
+
+      //点击“生成”，真正生成报告
+      async creatReport(){
+      	console.log('creatReport')
+        var self = this;
+        console.log(self.getSelectedItems())
+        if (!self.getSelectedItems().length) {
+          self.tips('请选择商标');
+          return;
+        }
+        var selectedTMArr = wepy.getStorageSync('selectedTMArr');
+        var infoIdList = [];
+        var regCodeList = [];
+        selectedTMArr.forEach((item, i) => {
+        	if (item.id) {
+	          infoIdList.push(item.id);
+	          regCodeList.push(item.registr_num);
+          }
+        });
+        var data = {
+          content: encodeURIComponent(this.content),
+          companyName: this._agentName,
+          cate_id: this.cate_id,
+          info_idList: infoIdList.join(),
+          reg_codeList: regCodeList.join()
+        }
+        this.loading2 = true;
+        self.actionVisible=false;
+        let resp = await search.creatReport(data);
+        if (resp && resp.url) {
+        	wepy.setStorageSync('selectedTMArr', []);
+        	wepy.downloadFile({
+		        url: resp.url
+		      })
+		      .then(function (res) {
+		      	console.log(res)
+		        var filePath = res.tempFilePath
+		        wepy.openDocument({
+		          filePath: filePath
+		        })
+		        .then(function (res) {
+		          console.log(res)
+		        })
+		      })
+        }else{
+          self.tips('导出报告异常！')
+        }
+      }
+    }
+  };
+</script>
+
+<style lang='scss'>
+  @import "../../styles/variable";
+  .affinity_search {
+  	background: #fff;
+		.search_top_wrap{
+      position: fixed;top: 0;left: 0;width: 100%;z-index: 2;
+    }
+  }
+</style>

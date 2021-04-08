@@ -1,0 +1,381 @@
+<template>
+  <!-- 自定义成功弱提示 -->
+  <successTips />
+
+	<view class="core_brand" wx:if="{{init && !isErr}}" style="background: #f8f8f8;">
+
+    <!-- 企业列表 -->
+    <searchResult :topPadding.sync="topPadding" :show.sync="isLogin" :resultList.sync="companyList" :noMoreData.sync="noMoreData" :loading.sync="loading" :listType.sync="listType" @query.user="query" @deleteCompany.user="deleteCompanyFn" @setIndex.user="setIndexFn" />
+
+    <!-- 未登录空页面 -->
+    <nullLogin wx:if="{{ !isLogin }}" />
+
+    <!-- 底部添加企业按钮 -->
+    <view class="bottom_btn" wx:if="{{ companyType==1 && isLogin }}" @tap="toAddCompanyFn(1)">去添加企业</view>
+    <view class="bottom_btn" wx:if="{{ companyType==2 && isLogin }}" @tap="toAddCompanyFn(2)">去添加竞品</view>
+
+		<NetError :show="isErr"  />
+    
+    <!-- 弹窗 -->
+    <comfirmModal :showModal.sync="showModal" :title.sync="modalTitle" :content.sync="modalContent" @confirmBtn.user="confirmDeleteFn" />
+
+	</view>
+</template>
+
+<script>
+
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import company from '../../mixins/company';
+  import NetError from '../../components/common/net_error';
+  import FormTips from '../../components/weui/tips';
+  import Tips from '../../utils/Tips';
+  import interfaces from '../../interfaces';
+  import homeApi from '../../api/home';
+  import searchResult from '../../components/search/searchCompanyResult';
+  import comfirmModal from '../../components/common/confirm_model';
+  import successTips from '../../components/weui/success_tips';
+  import nullLogin from '../../components/common/null_login';  //未登录空页面
+
+  export default class myCompanyPage extends wepy.page {
+  	components = {
+      NetError,
+      searchResult,
+      comfirmModal,
+      successTips,
+      nullLogin
+  	}
+
+  	data = {
+      isLogin: false,  //是否登录
+  		init: false,
+      isErr: false,
+      editType: 0,  //是否可编辑 0.不可以 1.取消托管 2.设置核心商标 3.添加企业 4.删除
+      canSetAsIndex: true,  //是否可以设置公司信息
+      showRegAgreement: true,
+      autoFocus: false,
+      styleType: 1, //企业列表样式
+
+      loading: false, //结果加载状态控制
+      selectStatus: 0,  //全部
+      noMoreData: true,  //上啦加载更多数据
+      page: 1,  //当前页数
+
+      companyList: [],  //企业列表
+      companyType: 1,  //企业类型 1.我的企业 2.关注企业
+      listType: 2,  //企业列表管理
+
+      showModal: false,
+      modalTitle: '确定删除',
+      modalContent: '',
+      selectCompanyData: {},  //当前操作的企业信息
+  	}
+
+    onPullDownRefresh (e) {
+      console.log('下拉刷新')
+    }
+
+    onReachBottom (e) {
+      if (!this.noMoreData) {
+        let isLoadMore = true;
+        this.methods.findStewardTrademarkFn.bind(this)(this.content, isLoadMore);  //查询已托管商标列表
+      }
+    }
+
+    methods = {
+      query () {
+
+      },
+      // 设为默认
+      async setIndexFn (data) {
+        let params = {
+          stewardSubjectId: data.id
+        }
+        try {
+          let rsps = await homeApi.firstHomePage(params, true);
+          this.successTips('设置成功！');
+          this.companyList.forEach(function(item){
+            if (item.id == data.id) {
+              item.sequence = 1;  //默认
+            }
+            else{
+              item.sequence = 0;  //设为默认
+            }
+          })
+          // this.methods.getCompanyListFn.bind(this)();
+        }
+        catch(e) {}
+      },
+      // 去添加企业
+      toAddCompanyFn (type) {
+        wepy.navigateTo({
+          url: '/pages/search/search?applicationType=2'
+        })
+      },
+      // 设为首页展示
+      setAsIndexFn (index) {
+        let self = this;
+        let params = {
+          stewardSubjectId: self.selectCompanyData.id
+        }
+        try {
+          let rsps = homeApi.firstHomePage(params, true);
+          Tips.success('设置成功');
+        }
+        catch(e) {}
+      },
+      // 查询分类
+      selectTypeDataFn (data) {
+        this.selectStatus = data.typeID;
+        this.methods.findStewardTrademarkFn.bind(this)('');
+        this.$apply();
+      },
+      // 查询所有分类
+      async statisticsTrademarkFn (id) {
+        let self = this;
+        let params = {
+          stewardSubjectId: id
+        }
+        try {
+          let typeList = await homeApi.statisticsTrademark(params, true);
+          self.conditionList.forEach(function(item){
+            item.num = typeList[item.name]
+            if (item.name == '全部' ) {
+              if (item.num > 999){
+                item.num = '999+'
+              }
+            }
+            else{
+              if (item.num > 99) {
+                item.num = '99+'
+              }
+            }
+          })
+          self.$broadcast('changeConditionList', self.conditionList);
+        }
+        catch(e){}
+      },
+      // 搜索我的企业
+      searchQueryFn (data) {
+        let self = this;
+        self.idSearch = true;
+        self.methods.getCompanyListFn.bind(self)();
+        self.searchType = data;
+        self.$apply();
+      },
+      // 取消搜索
+      cancelSearchFn () {
+        let self = this;
+        self.searchType = -1;  //未筛选状态
+        self.current = 0;
+        self.methods.getCompanyListFn.bind(self)();
+        self.$apply();
+      },
+      // 删除企业
+      async deleteCompanyFn (item) {
+        let self = this;
+        self.showModal = true;
+        self.modalTitle = '确认删除';
+        self.modalContent = item.applicationName;
+        self.selectCompanyData = item;
+        self.$apply();
+      },
+      // 确认删除企业
+      async confirmDeleteFn (boolean) {
+        console.log(boolean)
+        let self = this;
+        self.loading = true;
+        if (boolean) {
+          try {
+            let resp = await self.methods.deleteStewardSubjectFn(self.selectCompanyData.id);
+            self.loading = false;
+            // 更新数据列表     
+            self.methods.getCompanyListFn.bind(self)();
+            Tips.success('删除成功');
+          }
+          catch (e) {}
+        }
+      },
+      async deleteStewardSubjectFn(id) {
+        let params = {
+          stewardSubjectId: id,
+          applicationType: 1
+        }
+        return await homeApi.deleteStewardSubject(params, true);
+      },
+      myHideGuide () {
+        this.myTmIsFirst = false;
+        wepy.setStorageSync('myTmIsFirst', false);
+        // 默认展示顶部引导页
+        if (wepy.getStorageSync('typeTmIsFirst') !== false) {
+          this.typeTmIsFirst = true;
+        }
+      },
+      typeHideGuide () {
+        this.typeTmIsFirst = false;
+        wepy.setStorageSync('typeTmIsFirst', false);
+        if (wepy.getStorageSync('addTmIsFirst') !== false) {
+          this.addTmIsFirst = true;
+        }
+      },
+      addHideGuide () {
+        this.addTmIsFirst = false;
+        wepy.setStorageSync('addTmIsFirst', false);
+      },
+      async getCompanyListFn () {     // 默认加载公司列表
+        let self = this;
+        let params = {
+          applicationType: self.companyType,  //企业类型
+          page: 1,
+          size: 10
+        }
+        self.loading = true;
+        try {
+          let resp = await homeApi.findCompanyListd(params, true);
+          self.loading = false;
+          self.companyList = resp.data || [];   //企业列表
+          self.$broadcast('resultChangeFn', self.companyList);
+          console.log(self.companyList)
+          self.$apply(); 
+        }
+        catch(e) {}
+      },
+      async selectCompanyFn (data) {   //选择企业
+        let self = this;
+        let TmName = '';
+        if (self.searchType == 1) {
+          TmName = self.content;
+        }
+        self.selectCompanyData = data;  //当前选中的公司信息
+        wepy.setStorageSync('selectCompany', self.selectCompanyData); //当前选择企业
+        wepy.removeStorageSync('selectTmList'); //清除选择商标列表
+        self.changeCompany = true;  //改变企业
+        self.methods.findStewardTrademarkFn.bind(self)(TmName);
+        self.methods.statisticsTrademarkFn.bind(self)(self.selectCompanyData.id); //所有类型
+        self.$apply();
+      },
+      async findStewardTrademarkFn (name, isLoadMore) {   //查询已托管商标列表
+        let self = this;
+        if (isLoadMore) {
+          self.page += 1
+        }
+        else {
+          self.page = 1
+        }
+        let params = {
+          stewardSubjectId: self.selectCompanyData.id,
+          currentStatus: self.selectStatus,
+          trademarkName: name,
+          page: self.page,
+          size: 5
+        }
+        self.loading = true;
+        try {
+          let listData_ = await homeApi.findStewardTrademark(params, true);
+          let docs = listData_.data || [];
+          let allPage = Math.ceil(listData_.total/params.size);  //最大页数
+          self.loading = false;
+          if (self.page == allPage || allPage==1 || docs.length==0) {
+            self.noMoreData = true;
+          }
+          else if(self.page < allPage){
+            self.noMoreData = false;
+          }
+          if (isLoadMore) {
+            self.resultList = self.resultList.concat(listData_.data);  //托管商标列表
+          }
+          else {
+            self.resultList = docs;  //托管商标列表
+          }
+          self.$broadcast('changeResultList', self.resultList);
+          if(self.passEditType == 2) {
+            self.editType = 2;
+          }
+          self.passEditType = 0;  //默认执行一次之后清空参数
+          self.$apply();
+        }
+        catch(e){}
+      },
+      // 更新数据列表
+      updateResultFn () {
+        let self = this;
+        self.editType = 0;
+        self.current = wepy.getStorageSync('current');
+        self.methods.getCompanyListFn.bind(self)(); 
+        self.$apply();
+        wx.setNavigationBarTitle({title:'我的企业'});
+      }
+    }
+
+    async onLoad (option) {
+      console.log(option)
+      let self = this;
+      self.companyType = parseInt(option.type) || 1;
+      console.log(self.companyType)
+      if (option.type == 1) {
+        wx.setNavigationBarTitle({title:'企业管理'});
+      }
+      else if (option.type == 2) {
+         wx.setNavigationBarTitle({title:'竞品管理'});
+      }
+      // 默认加载公司列表
+      self.methods.getCompanyListFn.bind(self)(); 
+
+      let data = await interfaces.checkLogin();
+      let key = wepy.getStorageSync('key');
+      if (data.isLogin && key) {
+        self.isLogin = true;
+      }
+      else {
+        self.isLogin = false;
+      }
+
+      self.$apply()
+    }
+
+  	async onShow () {
+      let self = this;
+      self.loaded();
+
+  	}
+
+    // methods = this.events;  // 这个地方的this到底是什么
+
+    mixins = [company, input];
+
+    config = {
+      navigationBarTitleText: '企业管理'
+    };
+
+  }
+
+
+</script>
+
+<style lang="scss">
+	@import "../../styles/variable";
+	.core_brand {
+		min-height: 100%;
+    .company_search {margin-bottom: 120rpx;}
+    .bottom_btn {
+      position: fixed; left: 0; bottom: 0; width: 100%; height: 98rpx; line-height: 98rpx; background:linear-gradient(90deg,rgba(66,114,255,1),rgba(35,124,255,1)); color: #fff; font-size: 30rpx; text-align: center; 
+    }
+    .company_bg {
+      width: 100%; height: 284rpx; background-image: linear-gradient(180deg, #4272FF 3%, #238DFF 97%); position:absolute; top:0;
+    }
+		.bottom_btn_box {
+			width: 100%; height:94rpx; position:fixed; left:0; bottom:0; background: #fff; box-shadow: 0 -10px 24px 0 rgba(66, 114, 255, 0.07); display:flex;
+			.btn {
+				width:33%; box-sizing:border-box; text-align:center; height:94rpx; line-height:94rpx; font-family: PingFangSC-Regular; font-size: 30rpx; display: inline-block;
+			}
+			.lef {
+				border-right: 1px solid #E5E5E5; color: #333333;
+			}
+			.right { color: #333333;}
+		}
+	}
+
+
+
+</style>

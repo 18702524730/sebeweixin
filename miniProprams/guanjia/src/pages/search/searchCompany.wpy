@@ -1,0 +1,260 @@
+<template>
+  <Tips />
+  <view class="search_company">
+    <view class="topfixed {{scrollTop!=0 ? 'shadow' : ''}}" catch:touchmove="preventdefault">
+	    <searchBox placeholder="请输入企业名称" :content.sync="content" :autoFocus.sync="autoFocus" :richText.sync="resultRichText" @focusAction.user="focusAction" @blurAction.user="blurAction" @query.user="query"/>
+    </view>
+    <!-- <searchSuggestN :show.sync="suggestVisible" :resultList.sync="suggestList" /> -->
+    <searchResult :topPadding.sync="topPadding" :show.sync="resultVisible" :resultList.sync="resultList" :noMoreData.sync="noMoreData" :loading.sync="loading" :listType.sync="listType" @query.user="query"/>
+  </view>
+
+</template>
+
+
+<script>
+  import wepy from 'wepy';
+  import interfaces from '../../interfaces';
+  import FormTips from '../../components/weui/tips';
+  import VCode from '../../components/weui/vcode';
+  import searchBox from '../../components/search/searchBox';
+  import searchResult from '../../components/search/searchCompanyResult';
+  import searchSuggest from '../../components/search/searchSuggest';
+  import companyApi from '../../api/company';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import Tips from '../../utils/Tips';
+  import NetError from '../../components/common/net_error';
+  const RichText = '共搜索到<b style="font-weight:normal;color:#FF9A2F;">@@@</b>个企业';
+  export default class searchCompany extends wepy.page {
+  	components = {
+      Tips: FormTips,
+      searchBox,
+      searchResult,
+      searchSuggestN: searchSuggest,
+    };
+    def = {
+    	suggestList:[], //搜索建议（只针对企业名称）
+      suggestVisible: false,//控制搜索建议的显示
+      content:'', //搜索内容
+      size: 10, //每页数量
+      page: 1, //当前页码
+      resultVisible: false,
+      resultList: [], //结果数据
+      noMoreData: false,//上拉加载无更多数据
+      loading: false, //结果加载状态控制
+
+      autoFocus: false, //自动获取焦点
+      resultRichText:'', //'共<b style="font-weight:normal;color:#FF9A2F;">111</b>结果',
+      topPadding: 0,
+      scrollTop:0,
+
+      listType: 1,  //企业搜索列表
+    };
+    data = {...this.def};
+
+
+    async onLoad (options) {
+    	let self = this;
+    	this.content = options.content || '';
+    	this.methods.query.bind(this)({});
+    	//设置容器的高度
+	    wx.getSystemInfo({
+	      success: function(res) {
+	        self.containerH = res.windowHeight;
+	        console.log('containerH:',self.containerH);
+	        let q = wepy.createSelectorQuery();
+			    q.select('#searchbox').boundingClientRect();
+			    q.exec(function (res) {
+			    	self.topPadding = res[0].height;
+			    	self.$apply();
+			    });
+	      }
+	    })
+
+      //Tips.modal('请不要重复设置“我的企业”')
+      /*Tips.confirm('确定将该关注企业更换为我的企业？')
+      .then(() => {
+      	console.log(11);
+      })*/
+      this.$apply();
+    }
+
+    // 页面滚动头部固定
+    onPageScroll(e){
+    	this.scrollTop = e.scrollTop;
+    	this.$apply();
+    }
+
+    //上拉加载更多数据
+    onReachBottom(e){
+    	if (!this.noMoreData) {
+	    	this.methods.query.bind(this)({
+	    		isLoadMore: true
+	    	});
+	    }
+    }
+
+    //下拉刷新
+    onPullDownRefresh(e){
+    	this.methods.query.bind(this)({});
+    	wx.stopPullDownRefresh();
+    }
+
+    getStatus(status){
+  		let ret = '';
+  		if (status==1) {
+  			ret = '在营';
+  		}else if(status==2){
+  			ret = '吊销';
+  		}else if(status==3){
+  			ret = '注销';
+  		}else if(status==4){
+  			ret = '迁出';
+  		}else if(status==5){
+  			ret = '撤销';
+  		}else if(status==6){
+  			ret = '临时';
+  		}else if(status==7){
+  			ret = '';
+  		}else if(status==8){
+  			ret = '停业';
+  		}else if(status==9){
+  			ret = '其他';
+  		}
+  		return ret;
+  	}
+
+    methods = {
+
+    	//查询
+    	async query(params = {}){
+    		this.content = params.content || this.content;
+    		this.page = params.page || this.page;
+    		this.size = params.size || this.size;
+    		if (params.isLoadMore) {
+		    	this.page += 1;
+		    }else{
+		    	this.page = 1;
+		    }
+
+		    let v = this.content;
+
+    		let data = {
+		  		companyName:  v,
+		  		page: this.page,
+		  		size: this.size
+		  	}
+		  	this.loading = true;
+    		let resp = await companyApi.companyInfoList(data);
+    		this.resultRichText = resp.total ? RichText.replace('@@@', resp.total) : '';
+    		this.loading = false;
+    		console.log(resp)
+    		let docs = resp.data || [];
+    		let contentArr = v.split('');
+    		docs.forEach((item, i) => {
+          item.tm_name_temp = item.name;
+        })
+        //高亮关键字 且不区分大小写
+        docs.forEach((item, k) => {
+          var tmName = item.tm_name_temp;
+          var tmNameArr = tmName.split('');
+          contentArr.forEach((str, i) => {
+            tmNameArr.forEach((tm, j) => {
+              if (tm == str.toUpperCase() || tm == str.toLowerCase()) {
+                tmNameArr[j] = '<b style="font-weight:normal;color:#4272FF;">'+tm+ '</b>';
+              }
+            });
+          });
+          item.tm_name_temp = tmNameArr.join('');
+          item.statusT = this.getStatus(item.status);
+        });
+    		if (params.isLoadMore) {
+        	if (docs.length < this.size) {
+            this.noMoreData = true;
+          }else{
+            this.noMoreData = false;
+          }
+        	this.resultList = this.resultList.concat(docs);
+        }else{
+        	if (docs.length < this.size) {
+            this.noMoreData = true;
+          }else{
+            this.noMoreData = false;
+          }
+        	this.resultList = docs;
+        }
+    		this.resultVisible = true;
+    		this.loaded();
+    		this.$apply();
+    	},
+    	//获取焦点回调
+    	focusAction(){
+    		this.autoFocus = true;
+    		/*this.historyVisible = true;
+    		this.resultVisible = false;
+    		this.conditionVisible = false;
+    		this.trusteeVisible = false;*/
+    		this.$apply();
+    	},
+    	//失去焦点回调
+    	blurAction(){
+    		this.autoFocus = false;
+    		//this.historyVisible = true;
+    	},
+    	preventdefault(){},
+    }
+
+    async companyNameSuggest(name){
+    	let resp = await companyApi.companyNameList(name, true);
+    	if (resp.total) {
+    		this.suggestVisible = true;
+    		//this.historyVisible = false;
+    		this.suggestList = resp.data;
+    		this.$apply();
+    	}
+    }
+
+    watch = {
+    	content(){
+    		let v = this.content;
+        console.log(v)
+    		//2个字及以上，且包含中文
+	  		if(this.init && v.length >= 4 && /[\u4E00-\u9FA5]|[\uFE30-\uFFA0]/.test(v)) {
+    			this.companyNameSuggest(v);
+    		}
+        else{
+          this.suggestVisible = false;
+        }
+    	}
+    }
+
+    config = {
+      navigationBarTitleText: '搜索结果',
+      onReachBottomDistance: 100,
+      enablePullDownRefresh: true,
+    };
+    mixins = [input, base];
+  }
+</script>
+
+<style lang="scss">
+@import "../../styles/variable";
+.search_company{
+	background-color:#f8f8f8;height:100%;
+	.topfixed{
+    position: fixed;left: 0;top: 0;width: 100%;z-index: 1000;
+    .serach_box {margin:0; padding:20rpx 30rpx; height: 108rpx; background:linear-gradient(180deg,rgba(66,114,255,1),rgba(35,141,255,1)); width: 100%;}
+  }
+	.shadow{box-shadow: 0 6px 12px 0 rgba(47,128,246,0.09), inset 0 0 0 0 #E0E5EC;box-sizing:border-box;}
+	.bottomPadding{padding-bottom: 206rpx;}
+	.footer_trustee{
+		position: fixed;bottom: 0;left: 0;height: 206rpx;background-color: #fff;box-shadow: 0 -10px 30px 0 rgba(47,128,246,0.09);
+		width:100%;text-align:center;
+		.selected{
+			padding:25rpx 0; height: 42rpx;text-align: center;font-size: 30rpx;color: #666666;
+			text:last-child{color:#FF9A2F; }
+		}
+	  button{width:690rpx;height:90rpx;border-radius: 8rpx;margin:0 auto;color:#fff;line-height:90rpx;background-image: linear-gradient(90deg, #4272FF 0%, #237CFF 100%);font-size: 34rpx;}
+	}
+}
+</style>

@@ -1,0 +1,966 @@
+<template>
+  <!-- 自定义弱提示框-成功 -->
+  <successTips />
+  <!-- 自定义弱提示框-失败 -->
+  <Tips />
+
+  <view class="enterprise">
+    <view catch:touchmove="preventdefault" class="enter_tit">
+      <view class="head weui-flex">
+        <view class="head_right weui-flex__item" wx:if="{{enterpriseInfo}}">
+          <text class="enterprise_name inline">{{enterpriseInfo.entname}}</text>
+          <view class="enterprise_info faren inline mt12">企业法人：{{enterpriseInfo.frname}}</view>
+          <view class="enterprise_info mt12">成立日期：{{enterpriseInfo.esdate}}</view>
+          <view class="mark mt12">
+            <text class="entstatus" wx:if="{{enterpriseInfo.entstatus}}">{{enterpriseInfo.entstatus}}</text>
+            <text class="ml10 application" wx:if="{{applicationType == 1}}">我的企业</text>
+            <text class="ml10 application" wx:if="{{applicationType == 2}}">关注企业</text>
+          </view>
+          <view class="hosting row-center" wx:if="{{applicationType != 2}}" @tap="backHomeFn(1)" >回到首页</view>
+          <view class="hosting row-center" wx:if="{{applicationType == 2}}" @tap="backHomeFn(2)" >回到竞品</view>
+          <view class="hosting row-center" wx:if="{{isOneBondAllTrademarkinfo === 1 && resultList.length}}"><icon class="mr10" type="success_no_circle" size="15" color="white"/>已托管</view>
+        </view>
+        <view class="head_right weui-flex__item" wx:if="{{!enterpriseInfo}}">
+          <text class="enterprise_name inline">{{companyName}}</text>
+          <view class="enterprise_info faren mt12">企业法人：--</view>
+          <view class="enterprise_info mt12">成立日期：--</view>
+          <view class="mark mt12">
+            <text class="ml10 application" wx:if="{{applicationType == 1}}">我的企业</text>
+            <text class="ml10 application" wx:if="{{applicationType == 2}}">关注企业</text>
+          </view>
+          <view class="hosting row-center" wx:if="{{applicationType != 2}}" @tap="backHomeFn(1)">回到首页</view>
+          <view class="hosting row-center" wx:if="{{applicationType == 2}}" @tap="backHomeFn(2)">回到竞品</view>
+          <!-- <view class="setup row-center" @tap="Setup">设置企业</view>
+          <view class="hosting row-center" wx:if="{{isOneBondAllTrademarkinfo === 0 && BondAllTrademark}}" @tap="hostAll">一键托管</view>
+          <view class="hosting row-center" wx:if="{{isOneBondAllTrademarkinfo === 1 && BondAllTrademark}}"><icon class="mr10" type="success_no_circle" size="15" color="white"/>已托管</view> -->
+        </view>
+      </view>
+      <!-- {{typeTab?'mb120':''}} -->
+
+      <!-- <view class="tab weui-flex">
+        <view class="weui-flex__item ml30 mr30" :class="{'bdc':typeTab}" @tap="tabType(1)">旗下商标（{{!total ? 0 : total > 9999 ? '9999+' : total}}）</view>
+        <view class="bdc weui-flex__item ml30 mr30" :class="{'bdc':!typeTab}" @tap="tabType(2)">企业信息</view>
+      </view> -->
+      <view class="page page_tag tab">
+        <view class="page__bd">
+            <view class="weui-tab">
+                <view class="weui-navbar">
+                    <block wx:for="{{tabs}}" wx:key="*this">
+                        <view id="{{index}}" class="weui-navbar__item {{ index == selectTab ? 'weui-bar__item_on' : ''}}" @tap="tabType({{ item.id }})">
+                            <view class="weui-navbar__title">{{item.name}} <text wx:if="{{ index==0 && total }}">({{!total ? 0 : total > 9999 ? '9999+' : total}})</text></view>
+                        </view>
+                    </block>
+                    <view class="weui-navbar__slider" style="left: {{sliderLeft}}rpx; transform: translateX({{sliderOffset}}rpx); -webkit-transform: translateX({{sliderOffset}}rpx);"></view>
+                </view>
+            </view>
+        </view>
+      </view>
+      <stateTypeDetail wx:if="{{numindex == 1 && TypeisErr }}" :show.sync="TypeisErr" :styleType.sync="styleType" @clickFixed.user="fixedClick" @shutDown.user="shutDown" @confirmData.user="confirmData" :companyName.sync="companyName" :SubjectId="companyId" :hostType="hostType" :windowH.sync="windowH"></stateTypeDetail>
+    </view>
+    <!-- 商标列表-->
+    <searchResult class="{{trusteeImiVisible ? 'bottomPadding' : ''}}"  wx:if="{{!loading&&numindex == 1}}" :optionType.sync="optionType" :topPadding.sync="topPadding" :enterBool="enterBool" :show.sync="resultVisible" :resultList.sync="resultList" :searchType.sync="searchType" :selectMode.sync="selectMode" :noMoreData.sync="noMoreData" :loading.sync="loading" :showCompany.sync="showCompany" @selectList.user="selectTmFn" @addHost.user="addHostFn" @deleteHost.user="deleteHostFn" @isCore.user="isCoreFn" @goAllTm.user="goAllTmFn" />
+
+
+    <!-- 企业信息 -->
+    <view wx:if="{{!loading && numindex == 2}}" class="enterprise_data">
+      <view class="contact">
+        <view class="contact_lists weui-flex" wx:if="{{enterpriseInfo.tel}}" @tap="callPhone">
+          <view class="weui-flex__item weui-flex row-center">
+            <image class="mr15" src="/images/icons/phone.png"></image>
+            <view class="weui-flex__item">
+              <view style="float:left">联系电话</view>
+              <text class="ml25 inline" style="display:block;float:left">{{enterpriseInfo.tel}}</text>
+            </view>
+            <view><image src="/images/icons/right.png"></image></view>
+          </view>
+        </view>
+        <view class="contact_lists weui-flex" wx:if="{{enterpriseInfo.dom}}" @tap="ToMap" style="border-top:1rpx solid #e5e5e5">
+          <view class="weui-flex__item weui-flex row-center">
+            <image class="mr15" src="/images/icons/position.png"></image>
+            <view class="weui-flex__item">
+              <view style="float:left">企业地址</view>
+              <text class="ml25 inline" style="display:block;float:left">{{enterpriseInfo.dom}}</text>
+            </view>
+            <view><image src="/images/icons/right.png"></image></view>
+          </view>
+        </view>
+      </view>
+      <view wx:if="{{enterpriseInfo}}">
+        <view class="enterprise_detail mt20">
+          <view class="tit">经营范围</view>
+          <view class="txt mt20">{{enterpriseInfo.opscope || '--'}}</view>
+        </view>
+        <view class="enterprise_detail">
+          <view class="tit">所属行业</view>
+          <view class="txt mt20">{{enterpriseInfo.industryphyname || '--'}}</view>
+        </view>
+        <view class="enterprise_detail">
+          <view class="tit">工商信息</view>
+          <view class="txt mt20">
+            <text class="mr10">●</text>法定代表人：{{enterpriseInfo.frname || '--'}}
+          </view>
+          <view class="txt mt20">
+            <text class="mr10">●</text>成立日期：{{enterpriseInfo.esdate || '--'}}
+          </view>
+          <view class="txt mt20">
+            <text class="mr10">●</text>登记状态：{{enterpriseInfo.entstatus || '--'}}
+          </view>
+          <view class="txt mt20">
+            <text class="mr10">●</text>注册资本：{{enterpriseInfo.regcap || '--'}}万元
+          </view>
+          <view class="txt mt20">
+            <text class="mr10">●</text>实缴资本：{{enterpriseInfo.regcap || '--'}}万元
+          </view>
+          <view class="txt mt20">
+            <text class="mr10">●</text>企业类型：{{enterpriseInfo.enttype || '--'}}
+          </view>
+          <view class="txt mt20">
+            <text class="mr10">●</text>统一社会信用代码：{{enterpriseInfo.creditcode || '--'}}
+          </view>
+          <view class="txt mt20" style="padding-bottom:30rpx;">
+            <text class="mr10">●</text>工商注册号：{{enterpriseInfo.regno || '--'}}
+          </view>
+          <!-- <view class="txt mt20">
+            <text class="mr10">●</text>组织机构代码：{{CompanyInfo.creditcode}}
+          </view> -->
+        </view>
+        <view class="prompt">数据来源全国企业信用信息公示系统</view>
+      </view>
+      <view class="enterprise_null" wx:if="{{!enterpriseInfo}}">
+        <image src="/images/login/null.png"></image>
+        <view>未找到相关数据</view>
+      </view>
+    </view>
+
+    <!-- 底部按钮 -->
+    <view class="bottom_btn_box" wx:if="{{ enterpriseInfo.applicationType==1 && resultList.length }}">
+      <view class="btn lef" @tap="oprationFn(1)">取消核心商标</view>
+      <view class="btn lef" @tap="oprationFn(2)">设置核心商标</view>
+      <view class="btn " @tap="goSearchPageFn">立即注册商标</view>
+    </view>
+    <view class="bottom_option" wx:if="{{ selectMode && optionType==2 && resultList.length }}">
+      <view class="btn lef" @tap="cancelFn">取消</view>
+      <view class="btn right" @tap="setCoreFn">设置核心商标({{ coreNum }})</view>
+    </view>
+    <view class="bottom_option" wx:if="{{ selectMode && optionType==1 }}">
+      <view class="btn lef" @tap="cancelFn">取消</view>
+      <view class="btn right_b" @tap="cancelCoreFn">取消核心商标({{ coreNum }})</view>
+    </view>
+
+  </view>
+
+  <!-- 托管异常 -->
+  <confirm1 :showModal.sync="showModal1" :title.sync="modalTitle1" :content.sync="modalContent1" :minorContent.sync="minorContent1" :options.sync="modalOptions1" @confirmBtn.user="contact"/>
+
+  <!-- 设置企业 -->
+  <btnmodal :myModal.sync="modalObj" @selectItem.user="selectItem" @hideModal.user="hideModal" @confirm.user="confirm"></btnmodal>
+
+  <!-- 设置成功模态框 -->
+  <successModel :myModal.sync="sucModalObj" @confirm.user="sucConfirmFn" @hideModal.user="sucHideModalFn" />
+
+
+</template>
+<script>
+  import wepy from 'wepy';
+  import auth from '../../api/auth';
+  import searchApi from '../../api/search';
+  import homeApi from '../../api/home';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import stateTypeDetail from '../../components/stateType/stateTypeDetail';
+  import searchResult from '../../components/search/searchResult';
+  import btnmodal from '../../components/common/btn_model';
+  import successModel from '../../components/common/success_model';
+  import confirm from '../../components/common/confirm_model';
+  import Tips from '../../utils/Tips';
+  import successTips from '../../components/weui/success_tips';
+  import failTips from '../../components/weui/tips';
+  const app = getApp();
+
+  export default class enterpriseDetail extends wepy.page {
+    components = {
+      Tips: failTips,
+      successTips,
+      stateTypeDetail:stateTypeDetail,
+      searchResult:searchResult,
+      btnmodal,
+      confirm,
+      confirm1: confirm,
+      successModel
+    };
+    def = {
+      hostType:'',//是否为未托管
+      windowH:0,//屏幕高度
+      windowW:0,
+
+      companyName:'',
+      companyId: '',
+
+      enterBool:true,  //是企业详情
+      noMoreData: false,//上拉加载无更多数据
+      host:true,//托管状态，企业详情页独有
+      typeTab: true,
+      init: false,
+      isErr: false,
+      TypeisErr:true,
+      styleType:false,
+      numindex:1,
+      resultList:[],
+      overflow:'',
+
+      clickFixed:false,//点击固定定位
+      isFixed: false, //固定头部标志
+      oldScrollTop: 0, //上一次滚动的scrollTop值
+      top: 0,  //固定头部时的top值
+      enterpriseInfo:{},
+
+      page: 1, //当前页码
+      size: 10, //每页数量
+      searchType: 3, //搜索类型 1 商标名称、 2注册号、3申请人
+      intCls:'',//筛选商标大类
+      loading:false,
+      untrusteeship:'',
+      status:'',
+      CompanyInfo:{},
+
+      modalObj: {
+        showModal: false,
+        title: '设置企业',
+        info: '请将此企业设置为',
+        content: [
+          {name:'我的企业', active: false},
+          {name:'关注企业', active: false}
+        ],
+        showCancel: true,
+        cancelText: '取消',
+        cancelColor: '#000000',
+        confirmText: '确定',
+        confirmColor: '#4272FF'
+      },
+
+      showModal:false,
+      modalTitle: '为您托管该企业旗下<b style="font-weight:normal;color:#F64744;">0</b>个商标大约需要<b style="font-weight:normal;color:#F64744;">5-10</b>分钟',
+      modalContent: '您可以进行其他操作，后台自动为您继续托管，托管完毕将会通知您',
+      minorContent:'',
+      modalOptions:{
+        //showCancel: false,
+        confirmText: '确定'
+      },
+
+      showModal1:false,
+      modalTitle1: '您的商标托管数量不足<br>已托管<b style="font-weight:normal;color:#F64744;">@@@</b>个，托管上限<b style="font-weight:normal;color:#F64744;">###</b>个',
+      modalContent1: '您可前往拾贝网（www.ipsebe.com）升级会员扩展数量或咨询客服',
+      minorContent1:'注意：已托管数量包括拾贝网用户中心数据',
+      modalOptions1:{
+        showCancel: false,
+        confirmText: '咨询客服'
+      },
+
+      total:0,//商标总数量
+      applicationType:'',//托管类型，默认我的关注
+      enterpriseBol:false,//企业详情不为空
+      isOneBondAllTrademarkinfo:0,//是否一键托管
+      BondAllTrademark:false,
+      enterprise:'', //企业id
+
+      optionType: 0,  //操作类型 1.取消核心商标 2.设置核心商标 3.取消托管 4.搜索结果
+
+      resultVisible: false, //控制查询结果的显示
+      trusteeImiVisible: false, //控制立即托管的显示
+      topPadding: 215, //搜索结果容器的padding-top
+      selectMode: false, //可选择状态
+      showCompany: false,  //商标信息是否展示企业信息
+      coreNum: 0,  //核心商标数量
+      selectList: [],  //选择的商标列表
+      sucModalObj: {
+        showModal: false,
+        title: '设置成功',
+        info: '',
+        content: '"<span style="color:#4272FF;">杭州拾贝知识产权服务有限公司</span>"已成功设置为核心商标',
+        disabled: false, //默认两个按钮都不选中，确实按钮禁用
+        disabledColor: '#ccc',
+        showCancel: true,
+        cancelText: '继续添加',
+        cancelColor: '#000000',
+        confirmText: '去首页',
+        confirmColor: '#4272FF'
+      },
+      tabs: [
+        {name: '旗下商标', id:1},
+        {name: '企业信息', id:2}
+      ],
+      sliderLeft: 0,
+      sliderOffset: 0,
+      selectTab: 0,  //默认选择的tab
+    };
+    data = {...this.def};
+    //上拉加载更多数据
+    onReachBottom(e){
+      if (this.numindex == 1 && !this.noMoreData) {
+        // 查询已托管
+        if (this.optionType==2) {
+          this.methods.findStewardTrademarkFn.bind(this)(true);
+        }
+        else{
+          this.methods.query.bind(this)({
+            isLoadMore: true
+          });
+        }
+      }
+    }
+    async onLoad(option) {
+      this.loading = true;
+      let self = this;
+      self.selectTab = option.selectTab || 0;
+      wx.getSystemInfo({
+        success: function(res) {
+          self.windowH = res.windowHeight;
+          self.windowW = res.screenWidth;
+           // tab切换初始化
+          self.sliderLeft = (750 / self.tabs.length - 300) / 2 ;
+          self.sliderOffset = 750 / self.tabs.length * self.selectTab ;
+          self.topPadding = 440*self.windowW/750;
+          self.$apply();
+        }
+      })
+      this.untrusteeship = option.hostType ? option.hostType : '';//托管状态
+      this.applicationType = option.applicationType;//企业类型
+      this.companyId = option.companyId || '';
+      this.companyName = decodeURIComponent(option.companyName);//企业名称
+      // this.companyName = '小米科技有限责任公司';
+      this.methods.search.bind(this)({});
+      if (option.optionType == 2) {   //设置核心商标
+        this.optionType = 2;
+      }
+      else if (option.optionType == 1){   //编辑核心是航标
+        this.optionType = 1;
+      }
+      this.status = option.status || null;  //商标状态
+      this.$apply();
+    }
+    onShow() {
+    	app.aldstat.sendEvent('企业详情');
+      // let self = this;
+      // let similarTrademarkName = wepy.getStorageSync('similarTrademarkName');//近似商标跳企业详情
+      // if(similarTrademarkName){
+      //   wx.getSystemInfo({
+      //     success: function(res) {
+      //       self.windowH = res.windowHeight;
+      //       self.$apply();
+      //     }
+      //   })
+      //   this.untrusteeship = '';//托管状态
+      //   this.applicationType = '';//企业类型
+      //   this.companyId = '';
+      //   this.companyName = decodeURIComponent(similarTrademarkName);//企业名称
+      //   this.methods.search.bind(this)({});
+      //   wepy.setStorageSync('similarTrademarkName', '');
+      //   this.$apply();
+      // }
+    }
+    async shiftUrl(shift){
+      try{
+        await auth.shiftSteward(shift);
+        Tips.success('设置成功');
+        this.methods.search.bind(this)({});
+      }
+      catch(error){
+        Tips.error('设置失败');
+        this.methods.search.bind(this)({});
+      }
+    }
+    methods = {
+      // 去托管商标
+      goAllTmFn () {
+        this.selectMode = false;
+        this.TypeisErr = true;  //隐藏商标类别筛选盒子
+        this.topPadding = 440*this.windowW/750;  //列表到顶部的距离
+        this.coreNum = 0;
+        this.selectList = [];  //情况选择的商标
+        this.methods.query.bind(this)({});
+        this.$apply();
+      },
+      // 选择核心商标
+      isCoreFn () {
+        this.tips('该商标已经是核心商标，无需重复设置');
+      },
+      // 回到首页
+      backHomeFn (type) {
+        let url = '';
+        if (type == 1) {
+          url = '/pages/home/home'
+        }
+        else if (type == 2) {
+          url = '/pages/follow/follow'
+        }
+        wepy.navigateTo({
+          url: url
+        })
+      },
+      // 立即注册商标
+      goSearchPageFn () {
+        wepy.navigateTo({
+          url: '/pages/search/search'
+        })
+      },
+      // 回首页
+      sucConfirmFn (data) {
+        wepy.navigateTo({
+          url: '/pages/home/home'
+        })
+      },
+      // 继续添加
+      sucHideModalFn () {
+        this.modalObj.showModal = false;
+        if (this.optionType == 2) {
+          this.methods.findStewardTrademarkFn.bind(this)(false);
+        }
+        else{
+          this.methods.findStewardTrademarkFn.bind(this)(false, 1);
+        }
+      },
+      // 处理选择的列表
+      selectTmFn (data) {
+        console.log(data)
+        if (this.optionType == 2) {  //核心商标
+          let isCoreNum = 0;
+          this.resultList.forEach( (item) => {
+            if (item.core) {
+              isCoreNum ++
+            }
+          })
+          this.coreNum = data.length + isCoreNum;
+          if (this.coreNum >= 5) {
+            this.tips('核心商标设置已上限('+ this.coreNum +'/5)')
+          }
+        }
+        else{
+          this.coreNum = data.length
+        }
+        this.selectList = data;
+      },
+      // 取消核心商标
+      async cancelCoreFn () {
+        let self = this;
+        let list = self.selectList.map(function(item){
+          return item.id
+        })
+        let params = {
+          stewardSubjectId: self.stewardSubjectId,
+          trademarkIds: list
+        }
+        let resp = await homeApi.deleteCoreStewardTrademarkinfo(params);
+        let nameList = self.selectList.map( (item) =>{
+          return item.tmName
+        })
+        self.sucModalObj.title = '取消成功';
+        self.sucModalObj.content = '"<span style="color:#4272FF;">'+ nameList.join('、') +'</span>"已取消核心商标'
+        self.sucModalObj.cancelText = '继续设置';
+        self.sucModalObj.confirmText = '去首页';
+        self.sucModalObj.showModal = true;  //设置成功弹窗
+        self.selectList = [];  //清空已选择列表
+        wepy.removeStorageSync('selectTmList');  //清除已选择的商标
+        self.$apply();
+      },
+      //  设置为核心商标
+      async setCoreFn () {
+        let self = this;
+        let list = self.selectList.map(function(item){
+          return item.id
+        })
+        if (list.length == 0) {
+          self.tips('请选择需要新增的核心商标');
+          return
+        }
+        let params = {
+          stewardSubjectId: self.stewardSubjectId,
+          trademarkIds: list
+        }
+        if (self.coreNum > 5) {
+          // self.showModal = true;
+          // self.$broadcast('modalOptions', self.options);
+          self.tips(`每个企业只能设置5个核心商标，当前已设${self.coreNum}个`)
+        }
+        else {
+          let data = await homeApi.addCoreStewardTrademarkinfo(params);
+          if (data.code == 200) {
+            console.log(self.selectLis)
+            let nameList = self.selectList.map( (item) =>{
+              return item.tmName
+            })
+            self.sucModalObj.showModal = true;  //设置成功弹窗
+            self.sucModalObj.title = '设置成功';
+            self.sucModalObj.content = '"<span style="color:#4272FF;">'+ nameList.join('、') +'</span>"已成功设置为核心商标';
+            self.sucModalObj.cancelText = '继续添加';
+            self.sucModalObj.confirmText = '去首页';
+            self.sucModalObj.showModal = true;  //设置成功弹窗
+            self.selectList = [];  //清空已选择列表
+            wepy.removeStorageSync('selectTmList');  //清除已选择的商标
+            self.$apply();
+          }
+        }
+
+      },
+      // 添加托管
+      async addHostFn (data) {
+        console.log(data)
+        let params = {
+          applicationType: data.applicationType,  //1.我的企业 2.竞品企业
+          trademarkKey: data.applicantOther2,
+          intCls: data.intCls+'',
+          applicationName: data.applicantCn
+        }
+        if (!data.applicationType) {
+          params.applicationType = data.hostType;
+        }
+        let typeName_ = '';  //1.我的商标 2.竞品商标
+        if (params.applicationType == 1) {
+          typeName_ = '"我的商标"';
+        }
+        else if (params.applicationType == 2) {
+          typeName_ = '"竞品商标"';
+        }
+        try {
+          let resp = await searchApi.addStewardTm(params);
+          if(resp.status == 401){
+            wepy.navigateTo({
+              url: '/pages/login/login'
+            });
+          }else if(resp.status == 409){
+            this.modalTitle1 = this.modalTitle1.replace('@@@', resp.msg.used).replace('###', resp.msg.usable);
+            this.showModal1 = true;
+            this.$apply();
+          }else if(resp.status == 201){
+            this.successTips('成功设置为'+typeName_);
+            this.selectMode = false;
+            this.trusteeImiVisible = false;
+            this.trusteeVisible = true;
+            this.resultList.forEach( (item) => {  //更新视图，不刷新接口
+              if (item.applicantOther2 == data.applicantOther2) {
+                item.state = 1;
+                item.applicationType = params.applicationType;
+              }
+            })
+          }else{
+            Tips.error('网络异常，请稍后重试');
+          }
+          this.$apply();
+        }
+        catch(e){
+          console.log(e)
+          Tips.error('网络异常，请稍后重试');
+        }
+      },
+      // 取消托管
+      async deleteHostFn (data) {
+        console.log(data)
+        let params = {
+          trademarkIds: [].concat(data.id),
+        }
+        try {
+          let resp = await searchApi.deleteStewardTm(params);
+          this.resultList.forEach( (item) => {
+            if (item.id == data.id) {
+              item.state = 0;
+            }
+          })
+          this.$apply();
+        }
+        catch(e){
+          Tips.error('取消托管失败');
+        }
+      },
+      // 取消
+      cancelFn () {
+        this.selectMode = false;
+        this.TypeisErr = true;  //隐藏商标类别筛选盒子
+        this.topPadding = 440*this.windowW/750;  //列表到顶部的距离
+        this.coreNum = 0;
+        this.selectList = [];  //情况选择的商标
+        this.methods.query.bind(this)({});
+        this.$apply();
+      },
+      // 底部导航操作
+      oprationFn (type) {
+        this.optionType = type;
+        if (type == 1) {  //取消核心商标
+          this.methods.findStewardTrademarkFn.bind(this)(false, 1);
+          this.TypeisErr = false;  //隐藏商标类别筛选盒子
+          this.topPadding = 360*this.windowW/750;  //列表到顶部的距离
+        }
+        if (type == 2) {  //设置核心商标
+          this.methods.findStewardTrademarkFn.bind(this)();
+          // this.untrusteeship = 2;
+          // this.methods.query.bind(this)({
+          //   isLoadMore: true
+          // });
+          this.TypeisErr = false;  //隐藏商标类别筛选盒子
+          this.topPadding = 360*this.windowW/750;  //列表到顶部的距离
+        }
+        this.$apply();
+      },
+      async findStewardTrademarkFn (isLoadMore, isCore) {   //查询已托管商标列表
+        let self = this;
+        if (isLoadMore) {
+          self.page += 1
+        }
+        else {
+          self.page = 1
+        }
+        let params = {
+          stewardSubjectId: self.stewardSubjectId,
+          page: self.page,
+          size: 5
+        }
+        if (isCore) {
+          params.core = 1;
+        }
+        self.loading = true;
+        try {
+          let listData_ = await homeApi.findStewardTrademark(params, true);
+          let docs = listData_.data || [];
+          let allPage = Math.ceil(listData_.total/params.size);  //最大页数
+          self.loading = false;
+          // 当核心商标为空时
+          if (self.optionType == 1 && !docs.length) {
+            self.tips('暂无核心商标');
+          }
+          else{
+            self.selectMode = true;
+            if (self.page == allPage || allPage==1 || docs.length==0) {
+              self.noMoreData = true;
+            }
+            else if(self.page < allPage){
+              self.noMoreData = false;
+            }
+            if (isLoadMore) {
+              self.resultList = self.resultList.concat(listData_.data);  //托管商标列表
+            }
+            else {
+              self.resultList = docs;  //托管商标列表
+            }
+            // self.$broadcast('changeResultList', self.resultList);
+            self.coreNum = 0;
+            self.resultList.forEach((item) => {   //计算初始核心商标数
+              if (item.core && self.optionType==2) {   //核心商标默认高亮
+                item.isAdded = true;
+                self.coreNum ++
+              }
+            })
+          }
+          self.$apply();
+        }
+        catch(e){}
+      },
+      async search(){//企业详情初始化
+        try {
+          let enterprise = await auth.enterpriseDetail(this.companyName);
+          this.enterpriseInfo = enterprise.data;
+          // 一键托管判断与data平级
+          this.isOneBondAllTrademarkinfo = enterprise.isOneBondAllTrademarkinfo;
+          this.applicationType = enterprise.applicationType;
+          this.stewardSubjectId = enterprise.stewardSubjectId
+          if(enterprise.status == 10006){
+            Tips.error(enterprise.msg);
+          }
+          if(!this.enterpriseInfo){
+            this.enterpriseBol = true;
+          }
+          if (this.optionType == 2) {  //设置核心商标
+            this.methods.oprationFn.bind(this)(2);
+          }
+          else if (this.optionType == 1) {  //取消核心商标
+            this.methods.oprationFn.bind(this)(1);
+          }
+          else if (!this.optionType){
+            this.methods.query.bind(this)({});
+          }
+          this.$apply();
+        }
+        catch(e){
+          Tips.error('查询失败');
+          this.loading = false;
+        }
+        this.$apply();
+      },
+      async ToMap(){
+        try{
+          let jwd = await auth.getXY(this.enterpriseInfo.dom);
+          wepy.navigateTo({
+            url: `/pages/map/map?&content=${this.enterpriseInfo.dom}&latitude=${jwd.lat}&longitude=${jwd.lng}`
+          })
+        }
+        catch(e){
+        }
+      },
+      callPhone(){
+        //调取电话信息
+        wepy.makePhoneCall({
+          phoneNumber: this.enterpriseInfo.tel
+        })
+      },
+      //咨询客服
+      contact(){
+      	wepy.makePhoneCall({
+          phoneNumber: '15168455893'
+        })
+      },
+      selectItem(data){//设置企业弹框,默认为关注企业，传值关注企业的值
+        this.modalObj.showModal = false;
+        this.$apply();
+      },
+      hideModal(){//关闭企业弹框
+        this.modalObj.showModal = false;
+        this.$apply();
+      },
+      async confirm(type){//设置企业
+        console.log(type)
+        let applicationType;
+        if(type.name == '我的企业'){
+          applicationType = 1;
+        }else if(type.name == '关注企业'){
+          applicationType = 2;
+        }else{
+          applicationType = 2;//默认为关注企业
+        }
+
+        console.log(applicationType,'设置企业')
+        if(!this.applicationType){
+          let data = {
+            stewardSubjectKey:this.companyName,
+            applicationType:applicationType
+          }
+          try{
+            let result = await auth.addSteward(data);
+            if(result.status == 401){
+              wepy.navigateTo({
+                url: '/pages/login/login'
+              });
+            }else if(!result.status){
+              this.methods.search.bind(this)({});
+            }
+            console.log(result,'ces ')
+          }
+          catch(e){}
+
+        }else if(this.applicationType == applicationType){
+          Tips.modal(`请不要重复设置“${applicationType == 1 ? '我的企业' : '关注企业'}”`);
+        }else{
+          let shift = {
+            stewardSubjectKey:this.companyName,
+            applicationType:applicationType
+          }
+          Tips.confirm(`确定将${applicationType != 1 ? '我的企业' : '关注企业'}更换为${applicationType == 1 ? '我的企业' : '关注企业'}？`)
+          .then(() => {
+            this.shiftUrl(shift)
+          })
+        }
+        this.modalObj.showModal = false;
+        this.$apply();
+      },
+      Setup(){//设置企业
+        this.modalObj.showModal = true;
+        this.$apply();
+      },
+      confirmData(data){
+        console.log(data)
+        if(data.dataInfo){
+          this.intCls = data.dataInfo;
+        }else{
+          this.intCls = '';
+        }
+        if(data.host){
+          this.untrusteeship = data.host;
+        }else{
+          this.untrusteeship = 0;
+        }
+        if(data.law || data.law == 0){
+          this.status = data.law;
+        }else{
+          this.status = '';
+        }
+
+        this.methods.query.bind(this)({
+          isLoadMore: false
+        });
+        this.$apply();
+      },
+      async query(params = {}){
+        let self = this;
+        if (params.isLoadMore) {
+          this.page += 1;
+        }else{
+          this.page = 1;
+        }
+        if(!self.status && self.status != 0){
+          self.status = '';
+        }
+        let data = {
+          stewardSubjectId: this.companyId || this.stewardSubjectId || '',//企业id
+          keyword:this.enterpriseInfo ? this.enterpriseInfo.entname : this.companyName,//查询关键字
+          untrusteeship:self.untrusteeship,//商标托管状态
+          searchType:self.searchType,//默认类别
+          intCls:self.intCls,//大类
+          page:self.page,
+          status:self.status,//商标状态
+          size:10
+        }
+        // let data = {
+        //   stewardSubjectId: 63,//企业id
+        //   keyword: '杭州拾贝知识产权服务有限公司',//查询关键字
+        //   untrusteeship: '',//商标托管状态
+        //   searchType: 3,//默认类别
+        //   intCls: '',//大类
+        //   page:self.page,
+        //   status: '',//商标状态
+        //   size:10
+        // }
+        try {
+          let result = await auth.trademarkIts(data);
+          let docs = result.data || [];
+          if (params.isLoadMore) {
+	        	if (docs.length < this.size) {
+	            this.noMoreData = true;
+	          }else{
+	            this.noMoreData = false;
+	          }
+	        	this.resultList = this.resultList.concat(docs);
+	        }else{
+	        	if (docs.length < this.size) {
+	            this.noMoreData = true;
+	          }else{
+	            this.noMoreData = false;
+	          }
+	        	this.resultList = docs;
+            console.log(this.resultList)
+	        }
+          if(docs.length){
+            self.total = result.total;
+            this.$apply();
+          }else{
+            self.total = 0;
+            this.$apply();
+          }
+          console.log('商标数量',this.resultList)
+
+          this.resultVisible = true;  //展示商标列表
+          this.loading = false;
+          if(this.resultList.length){
+            this.BondAllTrademark = true;
+          }else{
+            this.BondAllTrademark = false;
+          }
+          this.$apply();
+        }
+        catch(e){
+          console.log('错误码',e)
+          Tips.modal('您的操作过于频繁，请稍后再试。')
+          this.loading = false;
+        }
+        this.$apply();
+      },
+      preventdefault(){},
+      async tabType(index) {
+        this.selectTab = index-1;
+        this.sliderOffset = 750 / this.tabs.length * this.selectTab ;
+        console.log(this.sliderOffset)
+        if(index == 1){
+          this.typeTab = true;
+
+        }else if(index == 2){
+         this.typeTab = false;
+        }
+        this.numindex = index;
+
+        this.$apply();
+      },
+      fixedClick(){
+        this.clickFixed = true;
+        this.$apply();
+      },
+      shutDown(){
+        this.clickFixed = false;
+        this.$apply();
+      }
+    };
+    mixins = [base, input];
+    config = {
+      navigationBarTitleText: '企业详情',
+      onReachBottomDistance: 100,
+      enablePullDownRefresh: false,
+    };
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  @import "../../styles/pub";
+.enterprise{height:100%;background-color:#f8f8f8;
+  .enter_tit{position: fixed;top: 0;z-index: 1;}
+  .lists{margin-top:464rpx}
+  .topPixed{top:0}
+  .pixed{position: fixed;z-index:1;}
+  .head{width:750rpx;height:260rpx;background-image: linear-gradient(180deg, #4272FF 3%, #238DFF 97%);padding:30rpx;box-sizing:border-box;
+    .head_left{width:180rpx;height:180rpx;border-radius:90rpx;background-color:#fff;position: relative;overflow-x: hidden;
+      image{width:180rpx;height:180rpx;}
+      view{background:rgba(0,0,0,0.5);position: absolute;width:180rpx;height:54rpx;bottom:0;color:#fff;font-size:$text-xxs;border-radius:250%;text-align:center;padding-top: 9rpx;box-sizing:border-box;line-height:30rpx;}
+    }
+    .head_right{font-size:0;position: relative;
+      .enterprise_name{color:#fff;font-size: $text-lg;line-height:45rpx;width:690rpx;height:45rpx;display:block;}
+      .mt12{margin-top: 12rpx;}
+      .enterprise_info{font-size: $text-xs;color: #CDDAFF;line-height:37rpx;}
+      .faren{width:500rpx;text-overflow:ellipsis;word-break:keep-all;white-space:nowrap;overflow:hidden;}
+      .mark{
+        text{padding:0 18rpx;background: #4272FF;border-radius: 100rpx;color:#fff;font-size: $text-xxs;height:42rpx;line-height:42rpx;display:inline-block;text-align:center;}
+        .entstatus{width:110rpx;box-sizing:border-box;}
+        .application{width:134rpx;box-sizing:border-box;}
+      }
+      .setup{width:174rpx;height:54rpx;background-image: linear-gradient(-90deg, #FFBE4C 20%, #FF9C52 99%);border-radius: 100rpx 0 0 100rpx;color:#fff;position: absolute;right:-30rpx;bottom:75rpx;}
+      .hosting{width:174rpx;height:54rpx;background-image: linear-gradient(-90deg, #FFBE4C 20%, #FF9C52 99%);border-radius: 100rpx 0 0 100rpx;color:#fff;position: absolute;right:-30rpx;bottom:6rpx;}
+    }
+  }
+  .mb120{margin-bottom: 120rpx;}
+  .tab{height:90rpx;background-color:#fff;border-bottom:1rpx solid #e5e5e5;width:750rpx;
+    .bdc{border-bottom:4rpx solid #2F80F6;color: #2F80F6;}
+    .weui-navbar {
+      border-bottom:none;
+      .weui-navbar__item {
+        padding: 0;
+        .weui-navbar__title {line-height:90rpx; color:#666;}
+      }
+      .weui-bar__item_on {
+        .weui-navbar__title {
+          color: #4272FF;
+          text {color: #4272FF;}
+        }
+      }
+      .weui-navbar__slider {width: 300rpx; background-color:#4272FF; height:4rpx;}
+    }
+  }
+  .enterprise_data{box-sizing:border-box;padding-top:350rpx;box-sizing:border-box;
+    .enterprise_detail{font-size:0;box-sizing:border-box;background-color:#fff;padding:30rpx 30rpx 0;
+      .tit{line-height:40rpx;font-size:$text-nm;color: #666666;}
+      .txt{color: #999999;line-height:46rpx;font-size:$text-sm;
+        text{color: #999999;font-size:$text-xxs;}
+      }
+    }
+    .contact{background-color:#fff;padding:0 30rpx;
+      .bdb{border-bottom:1rpx solid #e5e5e5;}
+      .contact_lists{height:100rpx;line-height:100rpx;
+        image{width:34rpx;height:34rpx;}
+        >view{
+          view{font-size:$text-nm;color: #666666;
+            text{font-size:$text-nm;color: #999999;width:443rpx;display:inline-block;white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+            image{width:14rpx;height:25rpx;}
+          }
+        }
+      }
+    }
+    .prompt{color: #999999;text-align: center;font-size: $text-xs;height:73rpx;line-height:73rpx;background-color:#f8f8f8;width:750rpx; margin-bottom:100rpx;}
+    .enterprise_null{text-align:center;padding-top: 50rpx;
+      view{font-size:$text-nm;color:#999;line-height:40rpx;}
+      image{width:422rpx;height:384rpx;}
+    }
+  }
+}
+</style>

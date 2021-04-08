@@ -1,0 +1,183 @@
+<template>
+	<Tips />
+	<view class="add_view">
+		<form @submit="goCustomer">
+		<view class="add_tit">
+			<view class="add_tab weui-flex">
+				<view class="weui-flex__item" @tap="tabType">
+					<view :class="{'tab_click':typeTab,'mr10':typeTab}" class="fr">企业客户</view>
+				</view>
+				<view class="weui-flex__item" @tap="tabType">
+					<view :class="{'tab_click':!typeTab,'ml10':!typeTab}">个人客户</view>
+				</view>
+			</view>
+			<view class="add_lists {{typeTab ? 'higher' : ''}}">
+				<view class="lists_tit" wx:if="{{typeTab}}">企业名称</view>
+				<view class="lists_input mb40 mt20" wx:if="{{typeTab}}">
+					<input maxlength="60" id="companyName" placeholder-class="placeholder" @blur="input" placeholder="请输入申请企业名称" @confirm="goCustomer" />
+				</view>
+				<view class="lists_tit">联系人</view>
+				<view class="lists_input mb40 mt20">
+					<input maxlength="30" id="applyName" placeholder-class="placeholder" @blur="input" placeholder="请输入联系人姓名" @confirm="goCustomer" />
+				</view>
+
+				<view class="lists_tit">手机号</view>
+				<view class="lists_input mb40 mt20">
+					<input type="number" maxlength="11" id="applyPhone" placeholder-class="placeholder" @blur="input" placeholder="请输入联系人手机号码" @confirm="goCustomer" cursor-spacing="60" />
+				</view>
+
+				<view class="lists_tit">备注<text>（选填）</text><view class="txt_num">{{input.remarks.length || 0}}/200</view></view>
+				<view class="lists_input mt20">
+					<textarea wx:if="{{!platType}}" maxlength="200" auto-height="true" id="remarks" placeholder-class="placeholder" @blur="input" @confirm="goCustomer" placeholder="请输入备注信息" cursor-spacing="120"/>
+					<textarea wx:else style="margin-left:-5rpx;" maxlength="200" auto-height="true" id="remarks" placeholder-class="placeholder" @blur="input" @confirm="goCustomer" placeholder="请输入备注信息" cursor-spacing="120"/>
+				</view>
+			</view>
+			<view class="btn" @tap="goCustomer">确定添加</view>
+		</view>
+		</form>
+	</view>
+</template>
+<script>
+	import wepy from 'wepy';
+	import input from '../../mixins/input';
+	import FormTips from '../../components/weui/tips';
+	import customer from '../../api/customer';
+	const reg = /^1\d{10}$/;
+	export default class orderList extends wepy.page {
+		def = {
+			typeTab: true,
+			platType: false
+		};
+		data = {...this.def};
+		async onLoad () {
+			var phone=wx.getSystemInfoSync();  //调用方法获取机型
+			if (phone.platform=='ios'){
+				this.platType = true;
+			} else if (phone.platform == 'android'){
+				this.platType = false;
+			}
+		}
+		onReachBottom(e) {
+			console.log(222222)
+		}
+		methods = {
+			async goCustomer() {
+				console.log(221212)
+				let self = this;
+				/*
+				企业
+				 */
+				if(this.typeTab){
+					if(!self.input.companyName){
+						self.tips('请输入申请企业名称');
+						return;
+					} else if(!self.input.applyName) {
+						self.tips('请输入联系人姓名');
+						return;
+					} else if(!this.isPhoneValid(self.input.applyPhone)) {
+						return;
+					}
+					try {
+						let data = await customer.infoAdd(1, self.input.companyName, self.input.applyName, self.input.applyPhone, self.input.remarks);
+						console.log(data)
+						if(data.code == 'success'){
+							wepy.navigateBack({
+								delta: 1
+							})
+						}else{
+							self.tips(data.msg);
+						}
+					} catch (err) {
+						return self.tips(err.data.msg);
+					}
+				}else{
+					if(!self.input.applyName) {
+						self.tips('请输入联系人姓名');
+						return;
+					} else if(!this.isPhoneValid(self.input.applyPhone)) {
+						return;
+					}
+					try {
+						let data = await customer.infoAdd(2, self.input.companyName, self.input.applyName, self.input.applyPhone, self.input.remarks);
+						if(data.code == 'success'){
+							wepy.navigateTo(
+								{
+									url: '/pages/customer/customerList'
+								}
+							)
+						}else{
+							self.tips(data.msg);
+						}
+						console.log(data)
+
+					} catch (err) {
+						return self.tips(err.data.msg);
+					}
+				}
+			},
+			tabType() {
+				this.typeTab = !this.typeTab;
+			},
+			loadMore() {
+				console.log(222222)
+			},
+			goDetail(data) {
+				console.log(data)
+				wepy.navigateTo(
+					{
+						url: '/pages/order/orderDetail'
+					}
+				)
+			}
+		};
+		/**
+		 * 校验电话号码
+		 */
+		isPhoneValid(phone) {
+			if (this.isEmpty(phone)) {
+				this.tips('请输入手机号码');
+				return false;
+			}
+			const reg = /^1\d{10}$/;
+			if (!reg.test(phone)) {
+				this.tips('手机号码格式错误');
+				return false;
+			}
+			return true;
+		}
+		config = {
+			navigationBarTitleText: '添加客户'
+		};
+		components = {
+			Tips: FormTips
+		};
+		mixins = [input];
+	}
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.add_view{background-color:#f8f8f8;height:100%;}
+.add_tit{width:100%;height:370rpx;background-image: linear-gradient(178deg, #2F80F6 0%, #43A0FF 100%);padding-top: 100rpx;box-sizing:border-box;
+	.add_tab{width:690rpx;box-sizing:border-box;margin:0 auto;height:80rpx;
+		.weui-flex__item{
+			.fr{float: right;}
+			view{width:330rpx;height:80rpx;background-color:#fff;border-radius: 6rpx 6rpx 0 0;line-height:80rpx;color: #2F80F6;opacity: 0.5;text-align: center;font-size:$text-nm;}
+			.tab_click{height:88rpx;opacity: 1;width:340rpx;transition: opacity 0.2s;}
+		}
+	}
+
+	.add_lists{background-color:#fff;width:690rpx;padding:60rpx 30rpx 40rpx;box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.09);border-radius:8rpx;margin:0 auto 40rpx;box-sizing:border-box;min-height: 566rpx; transition: min-height 0.3s;
+		.lists_tit{color: #515F71;font-size:$text-nm;line-height: 40rpx;position: relative;
+			.txt_num{text-align: right;color: #B3BFD0;font-size:$text-xs; position: absolute;right:0;top: 0;}
+			text{color: #B3BFD0;}
+		}
+		.lists_input{border-bottom:1rpx solid #e5e5e5;padding-bottom: 20rpx;line-height:40rpx;font-size:$text-nm;
+			.placeholder{color: #B3BFD0;}
+			textarea{color:#515F71;text-align: left;padding:0;text-overflow:clip;overflow:hidden;white-space:nowrap;width:630rpx;}
+			input{color:#515f71;}
+		}
+	}
+	.higher{min-height: 740rpx;}
+}
+.btn{width:690rpx;height:96rpx;background-image: linear-gradient(147deg, #0096FF 0%, #2F80F6 100%);box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.30);border-radius: 8rpx;color:#fff;margin:0 auto;border:0rpx;font-size: $text-xxl;text-align: center;line-height:94rpx;}
+</style>

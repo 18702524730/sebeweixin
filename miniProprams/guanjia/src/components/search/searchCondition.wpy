@@ -1,0 +1,178 @@
+<template>
+	<!-- style="opacity: {{show ? 1 :0}}" -->
+  <view class="common_search_condition {{toggleStatus ? 'bb' : ''}}" id="condition" wx:if="{{show}}">
+    <view class="row-between s_status" ref="s_status">
+    	<repeat for="{{statusData}}" key="index" index="index" item="item">
+	      <view class="statusC" :class="{'cur': searchType == item.id}" data-item="{{item}}" @tap="selectStatus">{{item.name}}</view>
+	    </repeat>
+	    <view class="row-between filter_entra {{isHight ? 'hight' : ''}}" @tap="toggleFilter">
+		    <text>筛选</text>
+		    <image src="{{imgSrc}}"></image>
+		  </view>
+    </view>
+  </view>
+	<stateType :show.sync="toggleStatus" @hide.user="hide" @confirm.user="confirm" />
+</template>
+
+<script>
+	import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import stateType from '../../components/stateType/stateType';
+  import qs from 'qs'
+  const imgSrc = '/images/search/filter.png';
+  const app = getApp();
+  //头部筛选状态数据
+  const statusData = [
+    {
+      id: 1,
+      name: '商标名'
+    },
+    {
+      id: 2,
+      name: '注册号'
+    },
+    {
+      id: 3,
+      name: '企业名'
+    }
+  ];
+
+	export default class SearchCondition extends wepy.component {
+		components = {
+      stateType,
+    };
+    props = {
+    	searchType: {
+        type: Number,
+        default: 1,
+        twoWay: true
+      },
+      show: {
+        type: Boolean,
+        twoWay: true,
+        default: false
+      }
+    };
+    data = {
+    	toggleStatus: false,
+      selectCateIdArr:[],
+      packCateType: false,
+      packStatus: false,
+      statusData: statusData,
+      status:'',
+      showRight: false,
+      showStatus: false,
+      page: 0,
+      isHight: false,
+      imgSrc: imgSrc
+    };
+		methods = {
+			hide(){
+				this.toggleStatus = false;
+				this.$apply();
+			},
+			isSelected(id){
+				return this.selectCateIdArr.indexOf(id) !== -1;
+			},
+			toggleStatus(){},
+			toggleCateType(){},
+			hideFilter(){
+				this.$emit('showStateType', false)
+			},
+			toggleFilter(){
+				this.isHight = true;
+				this.imgSrc = this.isHight ? '/images/search/filter_h.png' : imgSrc;
+				this.toggleStatus = !this.toggleStatus;
+				this.$apply();
+				this.$emit('showStateType', this.toggleStatus)
+			},
+      resetSelf(){
+        this.selectCateIdArr = [];
+        this.status = '';
+        this.cateIdData.forEach((item) => {
+        	item.checked = false;
+        });
+        this.$emit('updateCondition', {
+      		cate_id: this.selectCateIdArr.join(),
+      		status: this.status,
+      	});
+      },
+      confirm(data){
+      	this.isHight = !!(data.dataInfo.length || data.law.length);
+      	this.imgSrc = this.isHight ? '/images/search/filter_h.png' : imgSrc;
+      	this.$apply();
+      	this.$emit('query', {
+      		intCls: data.dataInfo.join() || '',
+      		status: data.law.join() || '',
+      	});
+      	this.methods.hide.bind(this)();
+      },
+
+      selectStatus(e){
+      	let item = e.currentTarget.dataset.item;
+      	let isfilter = e.currentTarget.dataset.isfilter;
+        this.searchType = item.id;
+        app.aldstat.sendEvent(this.searchType == 1 ? '商标搜索-按商标名查看' : '商标搜索-按申请人查看');
+        if (isfilter) {
+          return;
+        }
+        this.$emit('query', {
+        	searchType: this.searchType
+        });
+      },
+      selectCateId(e){
+      	let index = e.currentTarget.dataset.index;
+      	let id = e.currentTarget.dataset.id;
+      	id = id<10 ? '0'+id : id+'';
+        //item.checked = !item.checked;
+        var arr = this.selectCateIdArr;
+        var idx = arr.indexOf(id);
+        if (idx !== -1) {
+          arr.splice(idx, 1);
+          this.cateIdData[index].checked = false;
+        }else{
+          arr.push(id);
+          this.cateIdData[index].checked = true;
+        }
+        console.log(arr)
+        console.log(this.cateIdData)
+        // this.query();
+      },
+    };
+    watch = {
+      filterVisible(){
+        if (this.filterVisible) {
+          setTimeout(() => {
+	    			this.showRight = true;
+	    			this.$apply();
+	    		}, 50)
+        }else{
+        	this.showRight = false;
+        	this.$apply();
+        }
+      },
+    };
+    mixins = [base];
+	}
+</script>
+
+<style lang='scss'>
+  @import "../../styles/variable";
+  .common_search_condition {
+    position: relative;z-index: 3;
+    .s_status{
+      width:100%;text-align: center;padding: 0 40rpx;height: 90rpx;box-sizing: border-box;background-color: #fff;
+      view{height: 40rpx;line-height: 40rpx;font-size: 28rpx;color: #666;background-color: #fff;}
+      view.cur{color: #4272FF; border-bottom: 4rpx solid #4272FF; height:86rpx; line-height:90rpx;}
+      .filter_entra{
+      	text{font-size: 28rpx;color: #666666;}
+      	image{width: 26rpx;height: 26rpx;margin-left: 5rpx;}
+      }
+      .hight{
+      	text{color: #4272FF;}
+      }
+    }
+	  .fixed{position:fixed;z-index:1000;top: 0;}
+  }
+  .bb{border-bottom: 1px solid #E5E5E5;}
+</style>

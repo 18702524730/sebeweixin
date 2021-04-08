@@ -1,0 +1,358 @@
+<template>
+  <Tips />
+  <view class="confirm" wx:if="{{init}}">
+  	<block wx:if="{{!isConfirmed && !noExist}}">
+	    <view class="photo_info">
+	      <!-- <view class="photo_wraps">
+	        <view class="photo_wrap">
+	          <image class="photo" src="/images/home/shop-logo.png"/>
+	        </view>
+	        <image class="symbol" src="/images/home/shop-logo.png"/>
+	        <view class="photo_wrap">
+	          <image class="photo" src="/images/home/shop-logo.png"/>
+	        </view>
+	      </view> -->
+	      <view class="photo_wraps">
+	        <image class="photo" src="{{orderInfo.inviteAvatar}}"/>
+	        <image class="symbol" src="/images/confirm/bridge.png"/>
+	        <image class="photo" src="{{userData.avatar || '/images/confirm/photo.png'}}"/>
+	      </view>
+	      <text>{{orderInfo.customer.invitePhone}}邀请您确认的订单信息</text>
+	    </view>
+
+	    <view class="order_body_wrap">
+	      <view class="order_body_inner">
+	        <view class="order_body_0">
+	        </view>
+	        <view class="order_body_1">
+	        </view>
+	        <view class="order_body">
+	          <view class="order_info more">
+	            <!-- <view class="sebe_h3">业务信息</view> -->
+	            <view class="order_title_wrap" style="{{'max-height:'+ maxH +'rpx'}}">
+	              <repeat for="{{orderInfo.asistantList}}" key="index" index="index" item="item">
+	                <view class="weui-flex order_title">
+	                  <view class="weui-flex__item weui-flex__item_3">{{item.productName}}</view>
+	                  <view class="weui-flex__item small">X{{item.productNum}}</view>
+	                  <view class="weui-flex__item last">¥{{item.standardPrice * item.productNum}}</view>
+	                </view>
+	              </repeat>
+	            </view>
+	            <view class="more_toggle" wx:if="{{orderInfo.asistantList && orderInfo.asistantList.length>6}}" @tap="toggle">
+	              <block wx:if="{{isWrap}}">
+	                <text>共{{orderInfo.asistantList && orderInfo.asistantList.length}}项，展开全部</text>
+	                <image class="arrow" src="/images/confirm/arrow.png"/>
+	              </block>
+	              <block wx:if="{{!isWrap}}">
+	                <text>共{{orderInfo.asistantList && orderInfo.asistantList.length}}项，收起列表</text>
+	                <image class="arrow" src="/images/confirm/down.png"/>
+	              </block>
+	            </view>
+	          </view>
+	          <view class="order_info">
+	            <view class="total">
+	              <view class="weui-cell__bd total_til">合计</view>
+	              <view class="weui-cell__ft total_amount">¥{{orderInfo.customer.productAmount}}</view>
+	            </view>
+	          </view>
+	          <view class="order_info memo">
+	            <view class="sebe_h3">备注信息</view>
+	            <!-- <view class="sebe_p mt20">
+	              备注信息备注信息备注备注信息备注信息备注备注信息备注信息备注备注信息备注信息备注备注信息备注信息备注备注信息备注信息备注备
+	            </view> -->
+	            <view class="sebe_p mt20">
+	              {{orderInfo.customer.remarks}}
+	            </view>
+	          </view>
+	          <view class="pay_type">
+	            <view class="pay_type_list">
+	              <image class="wx_icon" src="/images/confirm/weixin.png"/>
+	            </view>
+	          </view>
+	        </view>
+	      </view>
+	    </view>
+
+	    <button class="confirm-btn {{submited ? ' disabled' : ''}}" @tap="confirm">确认</button>
+    </block>
+    <block wx:if="{{isConfirmed}}">
+    	<view class="alreadyConfirm">
+		    <view class="mid">
+		      <image class="already" src="/images/confirm/already.png" />
+		      <text class="status">订单已经完成确认</text>
+		      <text class="jump" @tap="jump">点击查看当前订单</text>
+		    </view>
+		  </view>
+    </block>
+    <block wx:if="{{noExist}}">
+    	<view class="alreadyConfirm">
+		    <view class="mid">
+		      <image class="null" src="/images/login/null.png" />
+		      <text class="status">该订单已失效</text>
+		    </view>
+		  </view>
+    </block>
+  </view>
+
+  <Validate :show.sync="isNeedValidate" @back.user="back" @showAgreement.user="showAgreement" @showRegAgreement.user="showRegAgreement" :phone.sync="phone" :orderInfo.sync="orderInfo" @isConfirmed.user="showConfirmed"/>
+  <RegisterAgreement :show.sync="showRegAgreement" @back.user="hideRegisterAgreement" />
+  <ServiceAgreement :show.sync="showServiceAgreement" @back.user="hideServiceAgreement" :orderData.sync="orderData" @paySuccess.user="jump"/>
+
+</template>
+<script>
+  import wepy from 'wepy';
+  import interfaces from '../../interfaces'
+  import auth from '../../api/auth';
+  import confirm from '../../api/confirm';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import Tips from '../../utils/Tips';
+  import FormTips from '../../components/weui/tips';
+  import WxUtils from '../../utils/WxUtils';
+  import Event from '../../utils/Event';
+
+  import Validate from '../../components/confirm/validate';
+  import RegisterAgreement from '../../components/confirm/registerAgreement';
+  import ServiceAgreement from '../../components/confirm/serviceAgreement';
+
+  const singH = 57;
+  const num = 6;
+  export default class Confirm extends wepy.page {
+    def = {
+    	isConfirmed: false,
+    	noExist: false,
+      init: false,
+      userData: {},
+      isNeedValidate: false,
+      showRegAgreement: false,
+      showServiceAgreement: false,
+      isWrap: true,
+      maxH: singH * num,
+      orderInfo: {},
+      phone: '',
+      orderId: '',
+      orderData:{},
+      submited: false
+    };
+    data = {...this.def};
+    async onLoad (options) {
+    	console.log('options:',options)
+    	this.orderId = options.scene || 843229469;
+    	await interfaces.checkLogin();
+    	this.userData = wepy.getStorageSync('auth') || {};
+      this.orderInfo = await confirm.getInfo(this.orderId);
+      console.log(this.orderInfo)
+      // 订单已经确认
+      if (this.orderInfo.errorCode == '4003' || this.orderInfo.errorCode == '4004' || (this.orderInfo.errorCode == '4005' && this.orderInfo.order_fictitious_sn)) {
+      	this.isConfirmed = true;
+      	this.loaded();
+        return;
+      }
+
+      if (this.orderInfo.errorCode == '4005' && !this.orderInfo.order_fictitious_sn) {
+      	this.noExist = true;
+      	this.loaded();
+        return;
+      }
+
+      this.phone = this.orderInfo.customer.applyPhone;
+      console.log(this.orderInfo.customer.applyPhone)
+
+      // 当前登录账号和申请人手机号不匹配
+      if (this.userData.phone && (this.userData.phone != this.phone)) {
+      	this.submited = true;
+        this.$apply();
+      	Tips.modal('您当前微信的手机号与该订单申请人的手机号不匹配，请更换微信账号再试。')
+      }
+      this.$apply();
+      this.loaded();
+    }
+
+    showAgreement() {
+    	this.isNeedValidate = false;
+      this.showServiceAgreement = true;
+    }
+    methods = {
+    	jump(order_sn){
+    		wepy.redirectTo({
+          url: '/pages/order/orderDetail?orderFictitiousSn=' + (this.orderInfo.order_fictitious_sn || this.orderData.order_fictitious_sn || order_sn)
+        });
+    	},
+    	showConfirmed(){
+    		this.isNeedValidate = false;
+    		this.isConfirmed = true;
+        this.$apply();
+    	},
+    	showAgreement(orderData) {
+    		this.showServiceAgreement = true;
+    		this.isNeedValidate = false;
+	      this.orderData = orderData;
+	      this.$apply();
+      },
+      toggle(){
+        let len = this.orderInfo.asistantList.length;
+        var isWrap = this.maxH == singH * num;
+        this.maxH = isWrap ? singH * len : singH * num;
+        this.isWrap = !isWrap;
+        this.$apply();
+      },
+      showRegAgreement(){
+        this.showRegAgreement = true;
+      },
+      back() {
+        this.isNeedValidate = false;
+      },
+      hideRegisterAgreement() {
+        this.showRegAgreement = false;
+      },
+      hideServiceAgreement() {
+        this.showServiceAgreement = false;
+      },
+      async confirm({detail}) {
+      	if (this.submited) {
+      		return;
+      	}
+        if (this.orderInfo.belong === 1) {
+        	this.submited = true;
+        	this.$apply();
+          let createR;
+          try {
+            let data = {
+              asistantOrderCustomerId: this.orderInfo.customer.id,
+              resourceType: 2 // 1 pc 2 小程序端
+            };
+            Tips.loading();
+            this.orderData = await confirm.createOrder(data);
+            Tips.loaded();
+            this.submited = false;
+
+            // 4005订单已关闭  4006订单不属于你 4003订单已支付 4004订单不存在
+            if (this.orderData.errorCode == '4003' || this.orderData.errorCode == '4004' || this.orderData.errorCode == '4005') {
+            	this.isConfirmed = true;
+            	this.$apply();
+            	return;
+            }
+            this.$apply();
+            this.showAgreement();
+            this.loaded();
+          } catch (err) {
+          	Tips.loaded();
+          	this.submited = false;
+            this.tips('服务器繁忙，请稍候再试');
+          }
+        }else{
+          this.isNeedValidate = true;
+        }
+      },
+    };
+    mixins = [input, base];
+    config = {
+      navigationBarTitleText: '订单确认'
+    };
+    components = {
+    	Tips: FormTips,
+      Validate: Validate,
+      RegisterAgreement: RegisterAgreement,
+      ServiceAgreement: ServiceAgreement
+    };
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .confirm{
+    position: relative;box-sizing: border-box;width: 100%;min-height: 100%;padding-top: 60rpx;background-image: linear-gradient(-180deg, #10AEFF 0%, #78F3E3 54%, #52E5BB 100%);
+    .photo_info{
+      text-align:center;position: relative;
+      .photo_wraps{
+        display: flex;align-items: center;justify-content: center;flex-direction: row;padding-bottom: 20rpx;
+        /* .photo_wrap{
+          display: flex;align-items: center;justify-content: center;box-sizing: border-box;width: 120rpx;height: 120rpx;
+          .photo{
+            width: 100rpx;height: 100rpx;border-radius:100%;border:10rpx solid #5ACBFA;
+          }
+        } */
+        .photo{
+          width: 100rpx;height: 100rpx;border-radius:100%;border:10rpx solid #5ACBFA;
+        }
+        .symbol{height: 34rpx;width: 47rpx;display: inline-block;margin: 0 22rpx;}
+      }
+      text{
+        color: #fff;
+        font-size: $text-xs;
+      }
+    }
+
+    .order_body_wrap{
+      padding-bottom: 124rpx;position: relative;min-height: 800rpx;
+      .order_body_inner{
+        position: relative;margin:30rpx 13rpx 0;height: 100%;
+        .order_body_0{position: absolute;top: 70rpx;bottom: 70rpx;left: 0;right: 0;height: auto;background-color: #FFF;z-index: 1;border-radius: 16rpx;opacity: 0.4;box-shadow: 0 0 20px 0 rgba(183,183,183,0.36);}
+        .order_body_1{position: absolute;top: 35rpx;bottom: 35rpx;left: 14rpx;right: 14rpx;height: auto;background-color: #FFF;z-index: 1;border-radius: 16rpx;opacity: 0.6;box-shadow: 0 0 20px 0 rgba(183,183,183,0.36);}
+        .order_body{
+          position: relative;height: 100%;box-sizing: border-box;margin:0 27rpx;background-color: #FFF;z-index: 1;border-radius: 16rpx;box-shadow: 0 0 20px 0 rgba(183,183,183,0.36);padding-bottom: 120rpx;
+          .order_info{
+            padding:30rpx 0;margin:0 45rpx; border-bottom: $border-dash;
+            .sebe_h3{
+              font-size: $text-nm;color: #333333;line-height: 40rpx;
+            }
+            .order_title_wrap{
+              max-height: 342rpx;overflow: hidden;transition: max-height 0.2s ease-out;
+              .order_title{
+                margin-top:20rpx;height: 37rpx;
+                .weui-flex__item{font-size:$text-sm;color: #666666;}
+                .small{font-size: $text-xs;color: #888888;}
+                .weui-flex__item_3{-webkit-box-flex:3;-webkit-flex:3;flex:3;}
+                .last{text-align: right;}
+              }
+            }
+            .more_toggle{
+              position: relative;bottom:-39rpx;line-height: 20rpx;width: 256rpx;text-align: center;margin: 0 auto;background-color: #FFF;
+              text{display: inline-block;font-size: $text-xs;color: #888888;}
+              .arrow{position: relative;width: 20rpx;height: 14rpx;margin-left: 10rpx;display: inline-block;top:-1rpx;}
+            }
+            .total{
+              height: 37rpx;line-height: 37rpx;position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;
+              .total_til{font-size:$text-sm;color: #888888;display: inline-block;height: 42rpx;line-height: 42rpx;}
+              .total_amount{font-size:$text-lg;color: #10AEFF;display: inline-block;height: 42rpx;line-height: 42rpx;text-align: right;}
+            }
+            .sebe_p{font-size:$text-sm;color: #666666;line-height: 37rpx;word-break: break-all;}
+          }
+          .memo{border-bottom: 0;}
+          .pay_type{
+            position: absolute;left: 0;bottom:0;box-sizing: border-box;width: 100%;height: 120rpx;padding:0 45rpx;
+            .pay_type_list{
+              width: 100%;height: 100%;text-align: center;display: flex;align-items: center;justify-content: center;border-top: $border-dash;
+              .wx_icon{width: 180rpx;height: 41rpx;display: inline-block;}
+            }
+          }
+        }
+      }
+    }
+
+    /* .confirm-btn-area{
+      padding:40rpx 40rpx 60rpx;width: 100%;box-sizing: border-box;
+      button{background-color: #10AEFF;border-radius: 100px;height: 94rpx;line-height:94rpx;font-size: 30rpx;color: #fff;box-shadow: 0 8px 16px 0 rgba(0,89,135,0.06);}
+      button::after{border:0;}
+    } */
+    .confirm-btn{
+      position: fixed;bottom:0;left:0;z-index: 2;width: 100%;background: #10AEFF;box-shadow: 0 -8px 16px 0 rgba(0,89,135,0.06);height: 94rpx;line-height:94rpx;font-size: $text-xxl;color: #fff;border-radius:0;
+      &::after{border:0;}
+    }
+    .disabled{background: #ccc;}
+
+    .alreadyConfirm{
+	    position: relative;box-sizing: border-box;width: 100%;height: 1080rpx;display: flex;align-items: center;justify-content: center;
+	    .mid{
+	      text-align: center;
+	      .already{width: 220rpx;height: 438rpx;display: block;margin: 0 auto 50rpx;}
+	      .null{width: 422rpx;height: 384rpx;display: block;margin: 0 auto 50rpx;}
+	      .status{font-size: $text-lg;color: #FFFFFF;line-height: 42rpx;display: block;margin-bottom: 10rpx;}
+	      .jump{font-size: $text-sm;color: #FFFFFF;line-height: 37rpx;}
+	    }
+	    .tips{position: fixed;bottom: 30rpx;font-size: $text-xs;color: #FFFFFF;line-height: 33rpx;font-family: $font-family;}
+	  }
+
+
+  }
+</style>

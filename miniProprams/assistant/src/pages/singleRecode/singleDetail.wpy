@@ -1,0 +1,265 @@
+<template>
+	<view class="orderDetail" wx:if="{{init}}">
+		<view class="detail_list">
+			<text wx:if="{{infoDetail.status == 1}}" class="pay_ok">已付款</text>
+			<text wx:if="{{infoDetail.status == 2}}" class="noConfirm">待确认</text>
+			<text wx:if="{{infoDetail.status == 0}}" class="pay_null">待付款</text>
+			<text wx:if="{{infoDetail.status == -1}}" class="no_pay">已关闭</text>
+			<view class="lists" style="height:{{listH}}">
+				<repeat for="{{detailData}}" key="index" index="index" item="item" wx:if="{{index<num}}">
+					<view class="order_detail">
+						<view class="order_top">
+							<text>服务单号：{{item.orderSn}}</text>
+							<text class="service_name fr">{{item.idCode}}服务商</text>
+						</view>
+						<view class="order_tit mt20">
+							<text class="fl">{{item.productName}}</text>
+							<text class="fr">￥{{item.productPrice}}.00</text>
+						</view>
+						<view class="order_bottom mb20">
+							<text class="fr">x{{item.productNum}}</text>
+						</view>
+					</view>
+				</repeat>
+				<view class="weui-loadmore weui-loadmore_line"  wx:if="{{detailData.length > 3}}">
+					<view class="weui-loadmore__tips weui-loadmore__tips_in-line" @tap="anAll">
+						<text>共{{detailData.length}}项，{{allTxt}}</text>
+						<image class="ml10" src="{{imgSrc}}">
+					</view>
+				</view>
+				<view class="detail_bottom mt20 mb20">
+					<view class="detail_l">
+						<text>订单金额</text>
+					</view>
+					<view class="detail_r">
+					￥{{infoDetail.amount}}.00
+					</view>
+				</view>
+				<view class="detail_bottom">
+					<view class="detail_l">
+						<text>实付款</text>
+					</view>
+					<view class="detail_r_c">
+					￥{{infoDetail.actualAmount ||'0'}}.00
+					</view>
+				</view>
+			</view>
+		</view>
+		<view class="memo">
+			<text>备注信息</text>
+			<view class="txt mt20">{{infoDetail.remarks || '暂无备注信息'}}</view>
+		</view>
+		<view class="inviter">
+			<text>联系人信息</text>
+			<view class="inviter_info mt20">联系人：{{infoDetail.applyName}}</view>
+			<view class="inviter_info mt10">手机号：{{infoDetail.applyPhone}}</view>
+			<view wx:if="{{infoDetail.customerType == 1}}" class="inviter_info mt10">企业名称：{{infoDetail.companyName}}</view>
+		</view>
+		<view class="call" @tap="call">
+			<image src="/images/login/call.png" alt="">
+			<text class="ml20" @tap="call">联系客服</text>
+		</view>
+		<view class="order_bottom">
+			<view class="order_data">
+				<view class="txt">订单号：{{infoDetail.fictitiousSn}}</view>
+				<view class="txt">下单时间：{{createTime}}</view>
+				<view class="txt">商户订单号：{{infoDetail.paymentSn}}</view>
+				<view class="txt">支付时间：{{paymentTime}}</view>
+			</view>
+		</view>
+	</view>
+	<view class="footer">
+		<view wx:if="{{infoDetail.status == 2}}" class="footer_r mr20" @tap="viewLink({{infoDetail.id}})">
+			查看链接
+		</view>
+		<view class="footer_r mr20" @tap="again({{infoDetail}})">
+			再次下单
+		</view>
+	</view>
+</template>
+<script>
+	import wepy from 'wepy';
+	import base from '../../mixins/base';
+	import qs from 'qs';
+	import order from '../../api/order';
+	import FormTips from '../../components/weui/tips';
+	import filters from '../../utils/filters';
+	export default class HomeIndex extends wepy.page {
+		def = {
+			imgSrc: '',
+			allTxt: '展开全部',
+			orderBool: false,
+			num: 3,
+			detailData: [],
+			listH: '',
+			createTime: '',
+			paymentTime: '',
+			infoDetail: {},
+			init: false,
+			detailId: '',
+			fromCard: false //标志从卡片页面跳转过来
+		};
+		data = {...this.def};
+		async onLoad(option) {
+			this.detailId = option.id;
+			this.fromCard = !!option.fromCard;
+			this.$apply();
+		}
+
+		async onShow () {
+			let detailLists = await order.orderDetails(this.detailId, true);
+			this.detailData = detailLists.data.asistantProductVoList;
+			this.infoDetail = detailLists.data;
+			this.createTime = filters.TimeDaySeconds(detailLists.data.createTime);
+			this.paymentTime = filters.TimeDaySeconds(detailLists.data.paymentTime)
+			if (this.detailData.length <= 3) {
+				this.listH = this.detailData.length * 200 + 150 + 'rpx';
+			} else {
+				this.listH = 750 + 'rpx';
+				this.imgSrc = '/images/confirm/arrow.png';
+			}
+			this.loaded();
+			this.$apply();
+		}
+		/**
+		 * 加载更多
+		*/
+		onReachBottom(e) {
+			console.log(33333)
+		}
+
+		methods = {
+			again(item){
+				let arr = item.asistantProductVoList;
+				let temp = []
+				arr.forEach((it) => {
+					temp.push({
+						idCode: it.idCode,
+						name: it.productName,
+						productNum: it.productNum,
+						shopProductPriceId: it.shopProductPriceId,
+						standardPrice: it.productPrice
+					});
+				});
+				let data = {
+					applyName: item.applyName,
+					applyPhone: item.applyPhone,
+					companyName: item.companyName,
+					remarks: item.remarks.replace('企业名称：'+item.companyName+'，', '').replace('企业名称：'+item.companyName, ''),
+					customerType: item.customerType,
+					asistantOrderDtoList: temp
+				}
+				wepy.setStorageSync('createOrderData', data);
+				if (this.fromCard) {
+					wepy.reLaunch({
+						url: '/pages/createOrder/createOrder?fromOrder=1'
+					})
+				}else{
+					wepy.navigateTo({
+						url: '/pages/createOrder/createOrder?fromOrder=1'
+					});
+				}
+			},
+			viewLink(id){
+				if (this.fromCard) {
+					wepy.navigateBack({
+						delta: 1
+					});
+				}else{
+					wepy.navigateTo({
+						url: '/pages/placeUrl/placeUrl?'+qs.stringify({id: id})
+					});
+				}
+			},
+			anAll() {
+				if(this.num == this.detailData.length){
+					this.allTxt = '展开全部';
+					this.imgSrc = '/images/confirm/arrow.png';
+					this.num = 3;
+					this.listH = 750 + 'rpx';
+					this.$apply();
+				}else{
+					this.allTxt = '点击收起';
+					this.imgSrc = '/images/confirm/down.png';
+					this.num = this.detailData.length;
+					this.listH = this.detailData.length * 200 + 150 + 'rpx';
+					this.$apply();
+				}
+			},
+			loadMore() {
+				console.log(222222)
+			},
+			call() {
+				wepy.makePhoneCall({
+					phoneNumber: '4000315426'
+				})
+			}
+		};
+		components = {
+			Tips: FormTips
+		};
+		config = {
+			navigationBarTitleText: '推单详情'
+		};
+		mixins = [base];
+	}
+</script>
+
+<style lang="scss">
+@import "../../styles/variable";
+.orderDetail{background-color:#f8f8f8;height:100%;
+	.fr{float:right}
+	.fl{float:left}
+	.detail_list{width:690rpx;background: #FFFFFF;box-shadow: 0 8rpx 16rpx 0 rgba(0,89,135,0.06);border-radius: 10rpx;position: relative;margin: 30rpx auto 0;padding-top:30rpx;
+		>text{display:inline-block;color:#fff;width:128rpx;height:50rpx;font-size:$text-sm;line-height: 50rpx;border-radius:0 25rpx 25rpx 0;padding-left: 30rpx;}
+		.no_pay{background: #ccc;}
+		.pay_ok{background: #09BB07;}
+		.pay_null{background: #F64744;}
+		.noConfirm{background: #2f80f6;}
+		.lists{padding:0 30rpx 30rpx;overflow: hidden;;transition:height 1s;
+			.order_detail{background: #FFFFFF;box-sizing:border-box;border-bottom:1rpx dashed #ddd;padding-top:30rpx;height:200rpx;
+				.order_top{color: #999999;
+					text{color: #8795a8;line-height:33rpx;font-size:$text-nm;}
+					.service_name{color:#B3BFD0;;font-size:$text-xs;}
+				}
+				.order_tit{font-size:$text-nm;color: #515F71;line-height:40rpx;text-align:left;display:block;overflow: hidden;
+					text{color: #515F71;}
+				}
+				.order_bottom{font-size:$text-nm;color: #999999;align-items:center;overflow: hidden;padding-top:10rpx;box-sizing:border-box;line-height:30rpx;
+					text{font-size:20rpx;color: #8795A8;}
+				}
+			}
+		}
+		.detail_bottom{overflow:hidden;
+			.detail_l{
+				text{font-size:$text-nm;color: #8795A8;;float: left;line-height:40rpx;}
+			}
+			.detail_r{font-size:$text-nm;color: #515F71;;float: right;line-height:40rpx;}
+			.detail_r_c{font-size:$text-lg;color: #F64744;float: right;line-height:40rpx;}
+		}
+	}
+	.memo{width:690rpx;background: #FFFFFF;box-shadow: 0 8rpx 16rpx 0 rgba(0,89,135,0.06);border-radius: 10rpx;position: relative;margin: 20rpx auto 0;padding:30rpx 30rpx;font-size:$text-nm;color: #515F71;;line-height:37rpx;box-sizing:border-box;
+		.txt{color:#8795A8;;font-size:$text-sm;line-height:37rpx;word-break:break-all;}
+	}
+	.inviter{width:690rpx;background: #FFFFFF;box-shadow: 0 8rpx 16rpx 0 rgba(0,89,135,0.06);border-radius: 10rpx;position: relative;margin: 20rpx auto 0;padding:30rpx 30rpx;font-size:$text-nm;color: #515F71;;line-height:37rpx;box-sizing:border-box;
+		.inviter_info{color: #8795A8;font-size:$text-nm;line-height:40rpx;}
+	}
+	.call{width:690rpx;height:88rpx;background: #FFFFFF;box-shadow: 0 8rpx 16rpx 0 rgba(0,89,135,0.06);border-radius: 10rpx;margin: 20rpx auto 0;box-sizing:border-box;text-align:center;padding-top:19rpx;
+		image{width:50rpx;height:50rpx;vertical-align: top;}
+		text{font-size:$text-nm;color: #333;vertical-align: top;line-height: 50rpx;display:inline-block;}
+	}
+	.order_bottom{padding-bottom: 136rpx;}
+	.order_data{width:690rpx;background: #FFFFFF;border-radius: 10rpx;margin: 20rpx auto 0rpx;box-sizing:border-box;text-align:center;text-align:left;padding:30rpx;
+		.txt{font-size:$text-sm;color: #8795a8;}
+	}
+	.weui-loadmore_line{border-top:1rpx dashed #e5e5e5;background-color:#fff;margin-top: -1rpx;margin-bottom:-20rpx;
+}
+	.weui-loadmore__tips_in-line{background-color:#fff;
+		text{vertical-align: middle;color: #888888;font-size: $text-xs;}
+		image{width:20rpx;height:14rpx;vertical-align: middle;}
+	}
+}
+.footer{width:100%;height:116rpx;position: fixed;bottom:0;background-color:#fff;box-shadow: 0 -8rpx 16rpx 0 rgba(0,89,135,0.06);box-sizing:border-box;overflow: hidden;padding-top:24rpx;
+	.footer_r{float: right;border: 1rpx solid #2F80F6;border-radius: 8rpx;width:180rpx;height:68rpx;text-align:center;line-height:66rpx;color: #2F80F6;font-size:$text-sm;}
+}
+</style>

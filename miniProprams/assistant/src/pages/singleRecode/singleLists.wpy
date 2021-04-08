@@ -1,0 +1,252 @@
+<template>
+<view class="list_info" wx:if="{{init}}">
+  <view class="tab weui-flex" :class="{'boxShow':scrollY}">
+    <view class="ml30 mr30 weui-flex__item" :class="{'bdc':status == 99}" catchtap="statusChange(99)">全部</view>
+    <view class="weui-flex__item mr30" :class="{'bdc':status == 2}" catchtap="statusChange(2)">待确认</view>
+    <view class="weui-flex__item mr30" :class="{'bdc':status == 0}" catchtap="statusChange(0)">待付款</view>
+    <view class="weui-flex__item mr30" :class="{'bdc':status == 1}" catchtap="statusChange(1)">已付款</view>
+    <view class="weui-flex__item mr30" :class="{'bdc':status == -1}" catchtap="statusChange(-1)">已关闭</view>
+  </view>
+  <view style="height:94rpx;"></view>
+  <scroll-view scroll-y="true" style="height: {{scrollH}};box-sizing:border-box;" wx:if="{{dataLists && dataLists.length}}" bindscroll="scrollT" bindscrolltolower="addLists" scroll-top="{{indexTop}}">
+    <repeat for="{{dataLists}}" key="index" index="index" item="item">
+      <view class="single_info {{index == 0 ? 'mt20' : ''}}" style="box-sizing:border-box;" catchtap="goDetail({{item}})">
+        <view class="info_top weui-flex">
+          <view class="info_l weui-flex__item">{{item.companyName || item.applyName}}</view>
+          <view wx:if="{{item.status == 2}}" class="pay_state noConfirm">待确认</view>
+          <view wx:if="{{item.status == 0}}" class="pay_state noPay">待付款</view>
+          <view wx:if="{{item.status == 1}}" class="pay_state paySuc">已付款</view>
+          <view wx:if="{{item.status == -1}}" class="pay_state payNull">已关闭</view>
+        </view>
+        <view class="info_time weui-flex mt10">
+          <view class="weui-flex__item">{{item.createTime}}</view>
+        </view>
+        <view class="info_top mt30 weui-flex">
+          <view class="info_l weui-flex__item">{{item.productNames}}</view>
+        </view>
+        <view class="info_num weui-flex mt20">
+          <view class="weui-flex__item" :class="{'noPay':item.status == 0,'payNull':item.status == -1,'paySuc':item.status == 1,'noConfirm':item.status == 2}">￥{{item.productAmount}}</view>
+        </view>
+        <view wx:if="{{item.status == 2}}" class="info_btn mt20">
+          <view class="btn" catchtap="goWechat" id="{{item.id}}">查看链接</view>
+        </view>
+      </view>
+    </repeat>
+    <view class="bottom_gif row-center" wx:if="{{gifInfo}}">
+      <image src="/images/gif/homePage.gif"></image>
+      <text>加载中...</text>
+    </view>
+
+    <view class="footer mb30" wx:if="{{nullInfo}}">到底啦~</view>
+  </scroll-view>
+  <!-- 没订单 -->
+  <view class="null_single" wx:else>
+    <image class="portrait" src="/images/login/null.png"></image>
+    <view wx:if="{{status == 99}}" class="txt mb40">您还未创建过订单哦～</view>
+    <view wx:if="{{status == 0}}" class="txt mb40">没有未付款订单～</view>
+    <view wx:if="{{status == 1}}" class="txt mb40">没有已付款订单～</view>
+    <view wx:if="{{status == 2}}" class="txt mb40">没有待确认订单～</view>
+    <view wx:if="{{status == -1}}" class="txt mb40">没有已关闭订单～</view>
+    <view class="btn" @tap="goHome">
+      <image class="portrait" src="/images/icons/money.png"></image>
+      我要推单
+    </view>
+  </view>
+</view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import order from '../../api/order';
+  import qs from 'qs';
+   /*
+  过滤器
+   */
+  import filters from '../../utils/filters';
+  export default class extends wepy.page {
+    def = {
+      nullInfo: false,
+      gifInfo: false,
+      page: 1,
+      status: 99,
+      dataLists: {},
+      totalsize: 1,
+      init: false,
+      scrollY: false,
+      again:true,
+      indexTop:0,
+      scrollH:0
+  };
+  data = {...this.def};
+  async onLoad (option) {
+    this.status = option.status;
+    let self = this;
+    wx.getSystemInfo({
+      success: function(res) {
+        self.scrollH = (res.windowHeight - 57) +'px';
+      }
+    })
+    try {
+      let infoLists = await order.orderLists(1, this.status, true);
+      this.dataLists = filters.TimeToDay(infoLists.data);
+      this.totalsize = infoLists.totalsize;
+      if(this.totalsize>10) {
+        this.gifInfo = true;
+      }
+    } catch (e) {
+      this.dataLists = {};
+    }
+    this.loaded();
+    this.$apply();
+  }
+  async onShow () {
+    try {
+      let infoLists = await order.orderLists(1, this.status, true);
+      this.dataLists = filters.TimeToDay(infoLists.data);
+      this.totalsize = infoLists.totalsize;
+      if(this.totalsize>10) {
+        this.gifInfo = true;
+        this.nullInfo = false;
+      }
+    } catch (e) {
+      this.dataLists = {};
+    }
+    this.loaded();
+    this.$apply();
+  }
+  methods = {
+    async addLists() {
+      let pageAll = this.totalsize / 10;
+      this.gifInfo = true;
+      let self = this;
+      if(this.page < pageAll) {
+        self.page += 1;
+        let lists = await order.orderLists(self.page, this.status, true);
+        this.totalsize = lists.totalsize;
+        for(var i = 0; i < filters.TimeToDay(lists.data).length; i++){
+          self.dataLists.push(lists.data[i]);
+        }
+        self.gifInfo = false;
+      } else {
+        self.gifInfo = false;
+        self.nullInfo = true;
+      }
+      self.$apply();
+    },
+    async scrollT(e){
+      console.log(e.detail)
+      if(e.detail.scrollTop > 10){
+        this.scrollY = true;
+      }else{
+        this.scrollY = false;
+      }
+      this.$apply();
+    },
+    goHome() {
+      wepy.switchTab(
+        {
+          url: '/pages/home/index'
+        }
+      )
+    },
+    async statusChange(num) {
+      this.setData({
+        indexTop:0
+      })
+      this.status = num;
+      this.scrollY = false;
+      this.nullInfo = false;
+      this.page = 1;
+      if(this.again){
+        this.again = false;
+      }else{
+        return;
+      }
+      try {
+        let infoLists = await order.orderLists(1, this.status);
+        this.totalsize = infoLists.totalsize;
+        if(infoLists){
+          this.dataLists = filters.TimeToDay(infoLists.data);
+        }else{
+          this.dataLists = {};
+        }
+        if(infoLists.totalsize<10){
+          this.gifInfo = false;
+        }
+        this.again = true;
+      } catch (e) {
+        this.dataLists = {};
+        this.again = true;
+      }
+      this.$apply();
+    },
+    goWechat(e){
+      console.log(e)
+      wepy.navigateTo({
+        url: '/pages/placeUrl/placeUrl?'+qs.stringify({detailId: e.target.id})
+      });
+    },
+    goDetail(data) {
+      console.log(data)
+      wepy.navigateTo(
+        {
+          url: '/pages/singleRecode/singleDetail?id='+data.id
+        }
+      )
+    }
+  };
+  components = {
+    // Tips: FormTips
+  };
+  config = {
+    navigationBarTitleText: '推单记录'
+  };
+  mixins = [base];
+}
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.list_info{background-color:#f8f8f8;height:100%;}
+.tab{height:94rpx;background-color:#fff;position: fixed;top:0;width:750rpx;z-index: 100;border-bottom:1rpx solid #e0e5ec;
+  .bdc{border-bottom:4rpx solid #2F80F6;color: #2F80F6;}
+  view{text-align: center;line-height:94rpx;box-sizing:border-box;color: #515F71;font-size: $text-nm;}
+}
+.boxShow{box-shadow: 0 6px 12px 0 rgba(47,128,246,0.09), inset 0 0 0 0 #E0E5EC;box-sizing:border-box;}
+.mt120{margin-top:120rpx;}
+.single_info{box-sizing:border-box;width:690rpx;margin-left:auto;margin-right: auto;margin-bottom: 20rpx;padding:30rpx;background-color:#fff;box-shadow: 0 6rpx 12rpx 0 rgba(47,128,246,0.09);border-radius: 8rpx;z-index:1;position:relative;
+  .info_top{box-sizing:border-box;
+    .info_l{color: #515F71;font-size:$text-lg;line-height:50rpx;}
+    .payNullTxt{color: #8795A8;}
+    .pay_state{width:128rpx;height:50rpx;border-radius:50rpx 0 0 50rpx;color:#fff;text-align: center;line-height:50rpx;margin-right: -29rpx;}
+    .noConfirm{background: #2f80f6;}
+    .noPay{background: #F64744;}
+    .paySuc{background: #09BB07;}
+    .payNull{background: #D3DFEF;}
+  }
+  .info_time{border-bottom:1rpx solid #E5E5E5;padding-bottom:30rpx;
+    view{color: #B3BFD0;font-size:$text-xs;line-height:33rpx;}
+  }
+  .info_num{
+    view{color: #B3BFD0;font-size:$text-lg;line-height:33rpx;}
+    .noConfirm{color:#2f80f6;}
+    .noPay{color: #F64744;}
+    .paySuc{color: #09BB07;}
+    .payNull{color: #8795A8;}
+  }
+  .info_btn{text-align:right;overflow: hidden;
+    .btn{border: 1rpx solid #2F80F6;border-radius: 6rpx;width:140rpx;height:60rpx;background-color:#fff;line-height:60rpx;font-size:$text-sm;color:#2F80F6;text-align:center;float: right;border-radius: 6rpx;}
+  }
+}
+.null_single{text-align: center;padding-top: 265rpx;font-size:0;
+  image{width:422rpx;height:384rpx;}
+  .txt{color: #999999;font-size: $text-nm;}
+  .btn{width:220rpx;height:70rpx;background-image: linear-gradient(-90deg, #FF9500 4%, #FFA200 100%);box-shadow: 0 8rpx 16rpx 0 rgba(0,89,135,0.06);border-radius: 100rpx;margin:0 auto;color:#fff;line-height:70rpx;font-size: $text-lg;
+    image{width:38rpx;height:44rpx;vertical-align: middle;}
+  }
+}
+.bottom_gif{text-align:center;padding-bottom:20rpx;
+  image{width:70rpx;height:70rpx;}
+  text{font-size: $text-nm;color:#b3bfd0;}
+}
+.footer{color:#999;font-size:$text-sm;text-align:center;}
+</style>

@@ -1,0 +1,178 @@
+<template>
+	<Tips />
+	<view class="search_home">
+		<view class="topfixed {{top!=0 ? 'shadow' : ''}}" style="top:{{top}}px;" catch:touchmove="preventdefault">
+			<image class="bg" src="../../images/search/top_bg.png"></image>
+			<searchBox :autoFocus.sync="autoFocus" :placeholder.sync="placeholder" :content.sync="content" @blurAction.user="blurAction" @focusAction.user="focusAction" @query.user="query"/>
+		</view>
+		<!-- <NetError :show.sync="showNetError" @refresh.user="refresh"/> -->
+		<searchHistory :show.sync="historyVisible" :type.sync="type" @changedTab.user="changedTab"/>
+		<searchSuggest :show.sync="suggestVisible" :resultList.sync="suggestList" :type.sync="type" />
+	</view>
+
+</template>
+
+
+<script>
+	import wepy from 'wepy';
+	import interfaces from '../../interfaces';
+	import FormTips from '../../components/weui/tips';
+	import VCode from '../../components/weui/vcode';
+	import searchBox from '../../components/search/searchBox';
+	import searchCondition from '../../components/search/searchCondition';
+	import searchHistory from '../../components/search/searchHistory';
+	import searchSuggest from '../../components/search/searchSuggest';
+	import searchApi from '../../api/search';
+	import companyApi from '../../api/company';
+	import base from '../../mixins/base';
+	import input from '../../mixins/input';
+	import Tips from '../../utils/Tips';
+	import NetError from '../../components/common/net_error';
+	export default class searchPage extends wepy.page {
+		components = {
+			Tips: FormTips,
+			searchBox,
+			searchCondition,
+			searchHistory,
+			searchSuggest,
+			NetError,
+		};
+		def = {
+			init: false,
+			isErr: false,
+			showNetError: true,
+
+			type:1, //1搜商标、2搜企业
+			autoFocus: true, //是否自动聚焦
+			historyVisible: true, //控制搜索历史记录的显示
+			suggestList:[], //搜索建议（只针对企业名称）
+			suggestVisible: false,//控制搜索建议的显示
+			conditionVisible: false,//控制筛选条件的显示
+			selectedTMArr:[],//选择的托管商标
+			placeholder: '请输入商标名',
+
+			content:'', //搜索内容
+			intCls: '', //商标类别
+			size: 10, //每页数量
+			searchType: 1, //搜索类型 1 商标名称、 2注册号、3申请人
+			top:0,
+		};
+		data = {...this.def};
+
+
+		onLoad (options) {
+			this.type = options.applicationType-0 || 1;
+			console.log(this.type)
+			this.loaded();
+			//Tips.modal('请不要重复设置“我的企业”')
+			/*Tips.confirm('确定将该关注企业更换为我的企业？')
+			.then(() => {
+				console.log(11);
+			})*/
+			this.$apply();
+		}
+
+		methods = {
+			changedTab(tab){
+				this.placeholder = tab == 0? '请输入商标名' : '请输入企业名称';
+				wepy.setNavigationBarTitle({
+					title: tab == 0 ? '搜商标' : '搜企业'
+				});
+				this.$apply();
+			},
+			resetSuggest(){
+				this.suggestVisible = false;
+				this.suggestList = [];
+				this.$apply();
+			},
+			//查询
+			async query(params = {}){
+				this.methods.resetSuggest.bind(this)();
+				wepy.navigateTo({
+					url: `/pages/search/${this.type == 1 ? 'searchTm' : 'searchCompany'}?content=${this.content}`
+				})
+			},
+			//获取焦点回调
+			focusAction(){
+				this.autoFocus = true;
+				this.historyVisible = true;
+				this.resultVisible = false;
+				this.conditionVisible = false;
+				this.trusteeVisible = false;
+				this.$apply();
+			},
+			//失去焦点回调
+			blurAction(){
+				this.autoFocus = false;
+				//this.historyVisible = true;
+			},
+			preventdefault(){},
+		}
+
+		async companyNameSuggest(name){
+			let resp = await companyApi.companyNameList(name, true);
+			if (resp.total) {
+				this.suggestVisible = true;
+				//this.historyVisible = false;
+				if (resp.data.length) {
+					resp.data.forEach( (item) => {
+						let arr = item.ENTNAME.split('');
+						arr.forEach( (str, j) => {
+							if (this.content.indexOf(str.toLowerCase()) >= 0) {
+								arr[j] = '<b style="font-weight:normal;color:#4272FF;">'+str+ '</b>'
+							}
+						})
+						item.sName = arr.join('');
+					})
+					this.suggestList = resp.data;
+				}
+				else{
+					this.suggestList = [];
+				}
+			}
+			else{
+				this.suggestList = [];
+			}
+			this.$apply();
+		}
+
+		watch = {
+			content(){
+				let v = this.content;
+				if(this.type == 1 && v.length >= 4 && /[\u4E00-\u9FA5]|[\uFE30-\uFFA0]/.test(v)) { //4个字及以上，且包含中文
+					this.companyNameSuggest(v);
+				}
+				else if (this.type == 2 && v.length >= 4 && /[\u4E00-\u9FA5]|[\uFE30-\uFFA0]/.test(v)) {  //4个字及以上，切包含中文
+					this.companyNameSuggest(v);
+				}
+				else{
+					this.suggestVisible = false;
+				}
+			}
+		}
+
+		config = {
+			navigationBarTitleText: '搜商标',
+			onReachBottomDistance: 100,
+			//enablePullDownRefresh: true,
+		};
+		mixins = [input, base];
+	}
+</script>
+
+<style lang="scss">
+@import "../../styles/variable";
+.search_home{
+	background-color:#f8f8f8;height:100%;
+	.topfixed{
+		position: relative;left: 0;top: 0;width: 100%;z-index: 1000; width:100%; height: 178rpx;
+		.bg {position: absolute; width: 100%; height: 100%; left: 0; top: 0;}
+		.serach_box {position: absolute; }
+	}
+	.shadow{box-shadow: 0 6px 12px 0 rgba(47,128,246,0.09), inset 0 0 0 0 #E0E5EC;box-sizing:border-box;}
+	.topPadding{padding-top: 108px;}
+	.topPaddingSm{padding-top: 59px;}
+	.bottomPadding{padding-bottom: 206rpx;}
+}
+
+</style>

@@ -1,0 +1,212 @@
+<template>
+<view style="overflow:{{overflow}};height:100%;background-color:#f8f8f8">
+  <searchBox :placeholder="placeholder" :autoFocus="autoFocus" :richText.sync="richText" :content.sync="content" @query.user="query"/>
+  <stateTypeDetail class="stateH" :imgB="imgB" :topH.sync="topH" :show.sync="isErr" :styleType.sync="styleType" @clickFixed.user="clickFixed" @shutDown.user="shutDown" @confirmData.user="confirmData" :SubjectId="SubjectId" :windowH.sync="windowH"/>
+  <searchResult class="{{topH == -32 ? 'paddingTop' : 'topPadding'}}" wx:if="{{numindex == 1 && firstBol}}" :noMoreData.sync="noMoreData" :show.sync="isErr" :resultList.sync="resultList" :host="host"/>
+  <confirm :showModal.sync="showModal" :title.sync="modalTitle" :content.sync="modalContent" :minorContent.sync="minorContent" :options.sync="modalOptions" />
+  <btnmodal :myModal.sync="modalObj" :selectItem.user="selectItem"></btnmodal>
+</view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import auth from '../../api/auth';
+  import base from '../../mixins/base';
+  import stateTypeDetail from '../../components/stateType/stateTypeDetail';
+  import searchBox from '../../components/search/searchBox';
+  import searchResult from '../../components/search/searchResultEnterprise';
+  import confirm from '../../components/common/confirm_model';
+  import btnmodal from '../../components/common/btn_model';
+  export default class enterpriseDetail extends wepy.page {
+    components = {
+      stateTypeDetail:stateTypeDetail,
+      searchBox,
+      searchResult,
+      confirm,
+      btnmodal
+    };
+    def = {
+      overflow:'',
+      imgB:true,
+      showModal:false,
+      modalTitle: '为您托管该企业旗下<b style="font-weight:normal;color:#F64744;">19999</b>个商标大约需要<b style="font-weight:normal;color:#F64744;">5-10</b>分钟',
+      modalContent: '您可以进行其他操作，后台自动为您继续托管，托管完毕将会通知您',
+      minorContent:'',
+      modalOptions:{
+        //showCancel: false,
+        confirmText: '确定'
+      },
+
+      content:'',
+      richText:'',
+      autoFocus:true,
+      placeholder:'请输入商标名称',
+
+      topH:0,
+      isErr:true,
+      styleType:false,
+
+      resultList:[],
+      isErr:true,
+      numindex:1,
+      page:'',
+      clickFixed:false,
+
+      modalObj: {
+        showModal: false,
+        title: '设置企业',
+        info: '请将此企业设置为',
+        content: [
+          {name:'我的企业', active: false},
+          {name:'关注企业', active: true}
+        ],
+        showCancel: true,
+        cancelText: '取消',
+        cancelColor: '#000000',
+        confirmText: '确定',
+        confirmColor: '#4272FF'
+      },
+      untrusteeship:'',//商标托管状态
+      status:'',//商标状态 == 法律状态
+      intCls:'',//45大类
+      noMoreData:false,
+      companyName:'',//企业名称
+      SubjectId:'',
+      firstBol:false,//初次进入，不显示空页面
+      size:10,
+      windowH:0
+    };
+    data = {...this.def};
+    async onLoad(option) {
+      let self = this;
+      this.companyName = option.name;
+      this.SubjectId = option.stewardSubjectId;
+      wx.getSystemInfo({
+        success: function(res) {
+          self.windowH = res.windowHeight;
+          console.log(self.windowH)
+          self.$apply();
+        }
+      })
+      // this.methods.queryList.bind(this)();
+      this.$apply();
+    }
+    //上拉加载更多数据
+    onReachBottom(e){
+      if (!this.noMoreData) {
+        this.methods.queryList.bind(this)({
+          isLoadMore: true
+        });
+      }
+    }
+    methods = {
+      selectItem(){//设置企业弹框
+
+      },
+      confirmData(data){
+        console.log(data)
+        this.overflow = "";
+        if(data.dataInfo){
+          this.intCls = data.dataInfo;
+        }else{
+          this.intCls = "";
+        }
+        if(data.host){
+          this.untrusteeship = data.host;
+        }else{
+          this.untrusteeship = 0;
+        }
+        if(data.law){
+          this.status = data.law;
+        }else{
+          this.status = '';
+        }
+        this.$apply();
+        this.methods.queryList.bind(this)({
+          isLoadMore: false
+        });
+      },
+      async query(){
+        this.methods.queryList.bind(this)({
+          isLoadMore: false
+        });
+      },
+      async queryList(params = {}){
+        let self = this;
+        self.noMoreData = false;
+        if (params.isLoadMore) {
+          this.page += 1;
+        }else{
+          this.page = 1;
+        }
+        let data = {
+          stewardSubjectId:self.SubjectId,//企业id
+          intCls:self.intCls,//大类
+          untrusteeship:self.untrusteeship,//商标托管状态
+          status:self.status,//商标状态 == 法律状态
+          keyword:self.companyName,//企业名称
+          filterKeyword:this.content,//查询内容
+          trademarkName:this.content,//查询企业名称
+          searchType:1,
+          page:self.page,
+          size:10
+        }
+        try{
+          let result = await auth.trademarkFilter(data);
+          let docs = result.data || [];
+          this.firstBol = true;
+
+          if (params.isLoadMore) {
+            if (docs.length < this.size) {
+              this.noMoreData = true;
+            }else{
+              this.noMoreData = false;
+            }
+            this.resultList = this.resultList.concat(docs);
+          }else{
+            if (docs.length < this.size) {
+              this.noMoreData = true;
+            }else{
+              this.noMoreData = false;
+            }
+            this.resultList = docs;
+          }
+          self.$apply();
+        }
+        catch(err){
+          self.resultList = [];
+          this.firstBol = true;
+          self.$apply();
+        }
+      },
+      //查询
+      // async query(params = {}){
+      //   wepy.navigateTo({
+      //     url: `/pages/search/${this.type == 1 ? 'searchTm' : 'searchCompany'}?content=${this.content}`
+      //   })
+      // },
+      clickFixed(){
+        // this.top = this.oldScrollTop;
+        this.overflow = "hidden";
+        this.clickFixed = true;
+        console.log(11111111)
+        this.$apply();
+      },
+      shutDown(){
+        this.clickFixed = false;
+        this.overflow = "";
+        this.$apply();
+      }
+    };
+    mixins = [base];
+    config = {
+      navigationBarTitleText: '企业详情',
+      onReachBottomDistance: 100,
+      enablePullDownRefresh: false,
+    };
+  }
+</script>
+
+<style lang="scss">
+@import "../../styles/variable";
+.stateH{height:90rpx;position: relative;z-index:1;}
+</style>

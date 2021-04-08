@@ -1,0 +1,175 @@
+<template>
+<view class="confirm">
+  <view class="order_detail">
+    <view class="order_name mb20">{{createInfo.productName}}</view>
+    <view class="order_price weui-flex">
+      <view class="order_all weui-flex__item">¥{{price}}</view>
+      <view class="order_num">x{{infoDetail.number}}</view>
+    </view>
+    <view class="idcode mt20" wx:if="{{infoDetail.idCode}}">
+      已指定{{infoDetail.idCode}}服务商
+    </view>
+  </view>
+  <view class="wechat mt20">
+    <image src="/images/confirm/weixin.png">
+  </view>
+  <view class="tobar">
+    <view class="txt mb30">支付成功后可在【我的订单】中查看详情</view>
+    <view class="gopay_btn weui-flex">
+      <view class="gopay_all weui-flex__item"><text class="mr20">合计</text>¥{{payorder.standardPrice}}</view>
+      <view class="gopay_pay" @tap="showAgreement">去支付</view>
+    </view>
+  </view>
+</view>
+<ServiceAgreement :show.sync="showServiceAgreement" @back.user="hideServiceAgreement" :orderData.sync="orderData" @paySuccess.user="paySuccess"/>
+</template>
+<script>
+  import wepy from 'wepy';
+  import auth from '../../api/auth';
+  import baseApi from '../../api/base';
+  /*
+  过滤器
+   */
+  import Lang from '../../utils/Lang';
+  import input from '../../mixins/input';
+  import base from '../../mixins/base';
+
+  import order from '../../api/order';
+  import Tips from '../../utils/Tips';
+  import Filters from '../../utils/filters';
+  import FormTips from '../../components/weui/tips';
+  import ServiceAgreement from '../../components/confirm/serviceAgreement';
+
+  export default class orderList extends wepy.page {
+    def = {
+      orderData: {},
+      showServiceAgreement:false,
+      createInfo:{},
+      infoDetail:{},
+      payorder:{},
+      InfoList:{},
+      price:''
+    };
+    data = {...this.def};
+    async onLoad (option) {
+      Tips.loading();
+      let price = JSON.parse(option.data).price;
+      this.price = Filters.filters.priceformat(price);
+      let create = await order.createOrder(JSON.parse(option.data));
+      this.infoDetail = JSON.parse(option.data);
+      if(create.code == 'success'){
+        Tips.loaded();
+        this.InfoList = create.data;
+        this.createInfo = create.data.productOrder[0];
+        this.payorder = create.data.payOrder[0];
+        if (this.payorder) {
+          this.payorder.standardPrice = Filters.filters.priceformat(this.payorder.standardPrice);
+        }
+      }else if(create.code == '0100001'){
+        wepy.navigateTo(
+          {
+            url: '/pages/login/login'
+          }
+        )
+      }else if(create.status == '401'){
+        wepy.navigateTo(
+          {
+            url: '/pages/login/login'
+          }
+        )
+      }else{
+        Tips.loaded();
+        wepy.navigateBack();
+      }
+      this.$apply();
+      console.log(create)
+    }
+
+    // 获取订单列表
+    async getOrderList () {
+    }
+    methods = {
+      paySuccess(){
+        Tips.loading();
+        this.showServiceAgreement = false;
+        this.$apply();
+        setTimeout(() => {
+          wepy.switchTab(
+            {
+              url: '/pages/order/orderList'
+            }
+          )
+        }, 300);
+      },
+      async showAgreement() {
+        Tips.loading();
+        const userData = wepy.getStorageSync('auth');
+        if(!this.payorder.orderNum){
+          wepy.navigateTo(
+            {
+              url: '/pages/login/login'
+            }
+          )
+        }
+        let item = await order.orderDetail(this.payorder.orderNum)
+        if (item.isLogin) {
+          Tips.loaded();
+        }else{
+          Tips.loaded();
+        }
+        var ret = {
+          phone: userData.phone,
+          order_fictitious_sn: this.payorder.orderNum,
+          payment_sn: this.payorder.paymentSn,
+          amount: this.payorder.payMoney,
+          service: item.fictitious.orderName,
+          order_sn: item.fictitious.orderSns,
+        }
+        console.log(ret)
+        this.orderData = ret;
+        this.showServiceAgreement = true;
+        this.$apply();
+      },
+      hideServiceAgreement() {
+        this.showServiceAgreement = false;
+        this.$apply();
+        wepy.navigateBack({
+          delta: 1
+        })
+      },
+    };
+    config = {
+      navigationBarTitleText: '拾贝微商城'
+    };
+    mixins = [input,base];
+    components = {
+      ServiceAgreement: ServiceAgreement
+    };
+  }
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.confirm{padding:20rpx;box-sizing:border-box;background-color:#f8f8f8;height:100%;
+  .order_detail{background: #FFFFFF;border-radius: 4rpx;padding:20rpx;box-sizing:border-box;
+    .order_name{color: #333333;font-size:$text-lg;line-height:42rpx;}
+    .order_price{justify-content: center;align-items: center;
+      .order_all{font-size: 40rpx;color: #F64744;line-height: 56rpx;text-align:left;}
+      .order_num{font-size: $text-sm;color: #888888;}
+    }
+    .idcode{border-top:1rpx dashed #ddd;padding-top:20rpx;font-size: $text-nm;color:#333;}
+  }
+  .wechat{background-color:#fff;border-radius: 4rpx;text-align:center;padding:20rpx;box-sizing:border-box;font-size:0;
+    image{height:45rpx;width:200rpx;}
+  }
+  .tobar{position: fixed;bottom: 0;width:100%;left:0;
+    .txt{font-size: $text-sm;color: #DDDDDD;text-align:center;}
+    .gopay_btn{box-shadow: 0 -8rpx 16rpx 0 rgba(0,89,135,0.06);background-color:#fff;width:100%;height:94rpx;justify-content: center;align-items: center;
+      .gopay_all{color: #F64744;font-size: $text-xxl;padding-left:30rpx;
+        text{color: #888888;font-size: $text-nm;}
+      }
+      .gopay_pay{width:300rpx;background: #F64744;font-size: $text-xxl;color: #FFFFFF;height:94rpx;line-height:94rpx;text-align:center;}
+    }
+  }
+}
+
+</style>

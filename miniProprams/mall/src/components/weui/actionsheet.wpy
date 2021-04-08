@@ -1,0 +1,155 @@
+<template>
+	<view class="weui-actionsheet-wrap" wx:if="{{show}}">
+		<view class="weui-mask" id="iosMask" style="opacity: 1;" @tap="canel"></view>
+		<view class="weui-actionsheet" :class="{'weui-actionsheet_toggle': showUp}" id="iosActionsheet">
+	    <view class="weui-actionsheet__title">
+	      <rich-text class="weui-actionsheet__title-text" nodes="{{title}}"></rich-text>
+	    </view>
+	    <view class="weui-actionsheet__menu">
+	    	<repeat for="{{dataList}}" key="index" index="index" item="item">
+		      <view class="weui-actionsheet__cell" @tap="selectItem({{item}})">{{item.label}}</view>
+		    </repeat>
+	    </view>
+	    <view class="weui-actionsheet__action">
+	      <view class="weui-actionsheet__cell" id="iosActionsheetCancel" @tap="canel">取消</view>
+	    </view>
+	  </view>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  export default class Picker extends wepy.component {
+    props = {
+      show: {
+      	type: Boolean,
+        default: false
+      },
+      title: {
+      	type: String,
+        default: '请选择'
+      },
+      dataList: {
+      	type: Array,
+      	default: []
+      },
+    };
+    data = {
+    	showUp: false
+    };
+    computed = {
+
+    };
+    methods = {
+    	canel(e){
+    		this.showUp = false;
+    		this.$apply();
+    		this.$emit('setVisible', false);
+    	},
+      selectItem(item) {
+      	this.showUp = false;
+      	this.$apply();
+        this.$emit('setSelectedItem', item);
+        this.$emit('setVisible', false);
+      }
+    };
+    watch = {
+    	show(){
+    		if (this.show) {
+	    		setTimeout(() => {
+	    			this.showUp = true;
+	    			this.$apply();
+	    		}, 50)
+    		}
+    	}
+    }
+    events = {};
+  }
+</script>
+
+<style lang='scss'>
+  @import "../../styles/variable";
+  .weui-actionsheet-wrap{
+	  .weui-mask {
+	    position: fixed;
+	    z-index: 1000;
+	    top: 0;
+	    right: 0;
+	    left: 0;
+	    bottom: 0;
+	    background: rgba(0, 0, 0, 0.6);
+		}
+		.weui-actionsheet {
+	    position: fixed;
+	    left: 0;
+	    bottom: 0;
+	    transform: translate(0, 100%);
+	    backface-visibility: hidden;
+	    z-index: 5000;
+	    width: 100%;
+	    background-color: #EFEFF4;
+	    transition: transform .3s;
+	    .weui-actionsheet__title {
+		    position: relative;
+		    height: 130rpx;
+		    padding: 45rpx 20rpx;
+		    box-sizing: border-box;
+		    line-height: 1.4;
+		    display: -webkit-box;
+		    display: -webkit-flex;
+		    display: flex;
+		    -webkit-box-pack: center;
+		    -webkit-justify-content: center;
+		    justify-content: center;
+		    -webkit-box-orient: vertical;
+		    -webkit-box-direction: normal;
+		    -webkit-flex-direction: column;
+		    flex-direction: column;
+		    text-align: center;
+		    font-size: 28rpx;
+		    background: #FCFCFD;
+		    .weui-actionsheet__title-text {
+		    	color: #888;
+			    overflow: hidden;
+			    text-overflow: ellipsis;
+			    display: -webkit-box;
+			    -webkit-box-orient: vertical;
+			    -webkit-line-clamp: 2;
+				}
+			}
+			.weui-actionsheet__menu {
+		    background-color: #FCFCFD;
+			}
+			.weui-actionsheet__action {
+		    margin-top: 12rpx;
+		    background-color: #FCFCFD;
+			}
+			.weui-actionsheet__cell {
+				height: 100rpx;
+		    position: relative;
+		    padding: 25rpx 0;
+		    text-align: center;
+		    font-size: 36rpx;
+		    height: 50rpx;
+		    line-height: 50rpx;
+			}
+			.weui-actionsheet__cell:before {
+		    content: " ";
+		    position: absolute;
+		    left: 0;
+		    top: 0;
+		    right: 0;
+		    height: 1px;
+		    border-top: 1px solid #e5e5e5;
+		    color: #e5e5e5;
+		    -webkit-transform-origin: 0 0;
+		    transform-origin: 0 0;
+		    -webkit-transform: scaleY(0.5);
+		    transform: scaleY(0.5);
+			}
+	  }
+	  .weui-actionsheet_toggle {
+	    transform: translate(0, 0);
+		}
+	}
+</style>

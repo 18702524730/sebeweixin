@@ -1,0 +1,456 @@
+<template>
+  <view class="company_list">
+    <!-- 企业列表（非空） -->
+    <swiper class="swiper_wrap" :class="{'setIndex':!numPosition}" hidden="{{ myList.length==0 }}" @change="swiperChangeFn" indicator-dots="{{ swiperOpt.indicatorDots }}"
+      autoplay="{{ swiperOpt.autoplay }}" duration="{{ swiperOpt.duration }}" circular="{{ swiperOpt.circular }}" previous-margin="{{ swiperOpt.previousMargin }}" next-margin="{{ swiperOpt.nextMargin }}" current="{{ current }}">
+      <block wx:for="{{ myList }}" wx:for-index="idx" wx:for-item="item" wx:key="unique">
+        <swiper-item class="s_item" @tap="allPageFn({{ item }})">
+          <view class="swiper_item" :class="{'active':idx==current}">
+            <view class="company_name">
+              <text class="text">{{ item.applicationName }}</text>
+              <text wx:if="{{ showStatus }}" class="status">在业</text>
+            </view>
+            <view class="info_item" catchtap="goPageFn({{ item }}, 0)">
+              <text class="num">{{ item.trademarkNumber }}</text>
+              <text class="typename">企业商标</text>
+            </view>
+            <view class="info_item" catchtap="centerPageFn({{ item }})">
+              <text class="num">{{ item.depositeNumber }}</text>
+              <text class="typename">已托管商标</text>
+            </view>
+            <view class="info_item" catchtap="goPageFn({{ item }}, 1)">
+              <text class="num">{{ (item.trademarkNumber - item.depositeNumber) >= 0 ? (item.trademarkNumber - item.depositeNumber) : 0}}</text>
+              <text class="typename">未托管商标</text>
+            </view>
+            <view class="list_num" :class="{'list_right':numPosition}">{{ current+1 }}/{{ myList.length }}</view>
+            <view class="delete_btn" catchtap="deleteCompanyFn({{ item }})" wx:if="{{ canSet }}"><image src="../../images/icons/delete.png"></image></view>
+            <view class="set_index" wx:if="{{ canSet && !item.showIndex }}" catchtap="setIndexFn({{idx}})" >设置为首页展示</view>
+            <view class="set_index seted" wx:if="{{ canSet && item.showIndex }}"  >首页展示</view>
+          </view>
+        </swiper-item>
+      </block>
+    </swiper>
+
+
+		<!-- 企业列表（空）首页使用 -->
+		<view class="null_company"  wx:if="{{ myList.length==0 && styleType==1 }}" >
+			<view class="text">{{ emptyObj.title }}</view>
+			<view class="detail_btn" @tap="addCompanyFn">{{ emptyObj.urlText }}  <image class="icon_go" src="../../images/icons/___.png" ></image></view>
+		</view>
+
+    <!-- 企业列表（空）非首页使用 -->
+    <view class="null_company"  wx:if="{{ myList.length==0 && styleType==0 }}" >
+      <view class="text">{{ emptyObj.title }}</view>
+      <view class="detail_btn" @tap="goIndexFn">{{ emptyObj.urlText }}  <image class="icon_go" src="../../images/icons/more_blue.png" ></image></view>
+    </view>
+
+	</view>
+
+
+</template>
+
+
+<script>
+	import wepy from 'wepy';
+	import interfaces from '../../interfaces';
+	import FormTips from '../../components/weui/tips';
+	import VCode from '../../components/weui/vcode';
+	import trustee from '../../components/search/trustee';
+
+	import base from '../../mixins/base';
+	import input from '../../mixins/input';
+	import Tips from '../../utils/Tips';
+	import NetError from '../../components/common/net_error';
+	export default class companyList extends wepy.component {
+
+		components = {
+			Tips: FormTips,
+		};
+
+    events = {
+      // 接收父级广播过来的参数
+      'changeCompanyList': (v) => {
+        let self = this;
+        self.myList = v;
+        if (self.myList.length) {
+          if (self.idSearch) {
+            self.current = 0;
+          }
+          self.selectCompanyData = self.myList[self.current];
+          self.myList.forEach( (item) => {
+            item.showIndex = false;
+          })
+          self.myList[0].showIndex = true;
+        }
+        self.$apply();
+      }
+    }
+
+    props = {
+      myList: {   //滑动数据列表
+        type: Array,
+        default: [],
+      },
+      swiperOpt: {   //滑动相关配置
+        type: Object,
+        default: {
+          circular: true, //衔接滑动
+          indicatorDots: false,  //是否显示面板指示点
+          autoplay: false,
+          duration: 200,  //滑动动画时长
+          previousMargin: '26rpx',
+          nextMargin: '26rpx',
+        }
+      },
+      emptyObj: {   //数据为空时的相关内容
+        type: Object,
+        default: {
+          title: '管家在手，商标无忧',
+          urlText: '去托管我的商标',
+          urlLink: '/'
+        }
+      },
+      canSet: {  //是否可以设置
+        type: Boolean,
+        default: false
+      },
+      showStatus: {   //是否显示公司状态
+        type: Boolean,
+        default: false
+      },
+      companyType: {   //企业类型 0.我的企业 1.关注企业
+        type: Number,
+        default: 0
+      },
+      current: {   //默认选择的
+        type: Number,
+        default: 0
+      },
+      idSearch: {   //是否是搜索出来的列表
+        type: Boolean,
+        default: false
+      },
+      isIndex: {  //是否是首页使用
+        type: Boolean,
+        default: false
+      },
+      numPosition: {   //页数位置
+        type: Boolean,
+        default: false
+      },
+      styleType: {
+        type: Number,
+        default: 0
+      }
+    };
+
+		data = {
+			selectCompanyData: {},  //选择的企业数据
+		};
+
+    async onLoad () {
+      
+    }
+
+    methods = {
+      // 去首页
+      goIndexFn () {
+        wepy.switchTab({
+          url: '/pages/home/home'
+        })
+      },
+      //  设置我的企业
+      async addCompanyFn () {
+        let self = this;
+        let data = await interfaces.checkLogin();
+        let url_ = '';
+        let key_ = wepy.getStorageSync('key');
+        if (data.isLogin) {
+          if (key_) {
+            if (self.companyType == 0) {   //我的企业
+              url_ = '/pages/company/setMy'
+            }
+            else if (self.companyType == 1) {  //关注企业
+              url_ = '/pages/company/setConcered'
+            }
+          }
+          else {
+            url_ = '/pages/login/login'
+          }
+        }
+        wepy.navigateTo({
+          url: url_
+        })
+      },
+      // 删除企业
+      deleteCompanyFn (item) {
+        this.$emit('deleteFn', item);
+      },
+      // 去企业详情页
+      goCompanyDetailFn (item, type) {
+        let self = this;
+        let applicationType = parseInt(self.companyType) + parseInt(1);
+        let type_ = type || '';
+        wepy.navigateTo({
+          url: `/pages/detail/enterpriseDetail?companyName=${item.applicationName}&applicationType=${applicationType}&companyId=${item.id}&hostType=${type_}`
+        })
+      },
+      // 去我的企业或者关注企业列表页
+      gpCompanyListFn (item) {
+        let self = this,
+            url_ = '';
+            console.log(self.current)
+        if (self.companyType == 0) {  //我的企业
+          url_ = '/pages/userCompany/myCompany?index=' + self.current;
+        }
+        else if (self.companyType == 1) {  //关注企业
+          url_ = '/pages/userCompany/followCompany?index=' + self.current;
+        }
+        wepy.removeStorageSync('selectTmList');  //清除已选择的商标
+        wepy.navigateTo({
+          url: url_
+        })
+      },
+      // 点击整个面板
+      allPageFn (item) {
+        let self = this;
+        if (self.isIndex) {
+          self.methods.gpCompanyListFn.bind(self)(item);
+        }
+        else {
+          self.methods.goCompanyDetailFn.bind(self)(item);
+        }
+      },
+      // 点击企业商标和未托管商标
+      goPageFn (item, type) {
+        let self = this;
+        if (self.isIndex) {
+          self.methods.gpCompanyListFn.bind(self)(item);
+        }
+        else{
+          self.methods.goCompanyDetailFn.bind(self)(item, type);
+        }
+      },
+      // 点击已托管商标
+      centerPageFn (item) {
+        let self = this;
+        if (self.isIndex) {
+          self.methods.gpCompanyListFn.bind(self)(item);
+        }
+        else{
+          self.methods.goCompanyDetailFn.bind(self)(item);
+        }
+      },
+    	swiperChangeFn (event) {
+        let self = this;
+        if (event.detail.source === 'touch') {   //由用户触摸引起的操作
+          self.current = event.detail.current;
+          wepy.removeStorageSync('selectTmList');
+          wepy.setStorageSync('current', self.current);
+          self.selectCompanyData = self.myList[self.current];
+          self.$emit('selectCompany', self.selectCompanyData);
+          wepy.setStorageSync('selectCompany', self.selectCompanyData)
+        }
+      },
+      setIndexFn (idx) {    //设为首页展示
+        this.myList.forEach( (item) => {
+          item.showIndex = false;
+        })
+        this.myList[idx].showIndex = true;  //在首页展示
+        this.$emit('setIndexFn',idx)
+      }
+    }
+
+
+		config = {
+			navigationBarTitleText: '商标管家',
+			onReachBottomDistance: 100,
+			enablePullDownRefresh: true,
+		};
+		mixins = [base];
+	}
+</script>
+
+<style lang="scss">
+
+  @import "../../styles/variable";
+  .serach_box {
+    background: none;
+  }
+  .company_list {
+    .swiper_wrap {
+      height: 310rpx;
+      box-shadow: 0 10px 24px 0 rgba(66,114,255,0.07);
+      margin-bottom: 12rpx;
+      .swiper_item {
+        padding: 55rpx 40rpx 30rpx 45rpx;
+        box-sizing: border-box;
+        background: #fff;
+        border-radius: 8rpx;
+        display: -webkit-flex;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        margin: 0 5rpx;
+        // width: 610rpx !important;
+        box-shadow: 0 10px 24px 0 rgba(66,114,255,0.07);
+        overflow: hidden;
+        position: relative;
+        .list_num {
+          position: absolute;
+          width: 60rpx;
+          height: 30rpx;
+          color: #999;
+          text-align:center;
+          bottom: 15rpx;
+          right: 50%;
+          margin-right: -30rpx;
+          font-size: 22rpx;
+        }
+        .list_right {
+          margin-right: 0;
+          right: 30rpx;
+        }
+        .delete_btn {
+          position: absolute;
+          width: 136rpx;
+          height: 132rpx;
+          bottom: -66rpx;
+          border-radius: 100%;
+          left: -68rpx;
+          background-image: linear-gradient(54deg, #FBB879 10%, #FF8852 93%);
+          z-index: 9999;
+          image {
+            width:28rpx;
+            height: 30rpx;
+            position: absolute;
+            right: 24rpx;
+            top: 20rpx;
+          }
+        }
+        .set_index {
+          position: absolute;
+          width: 240rpx;
+          height: 66rpx;
+          line-height: 66rpx;
+          text-align:center;
+          right: 0;
+          bottom: 0;
+          background-image: linear-gradient(54deg, #FBB879 10%, #FF8852 93%);
+          border-top-left-radius: 100rpx;
+          color: #fff;
+          font-size: 26rpx;
+          z-index: 9999;
+        }
+        .seted {
+          width: 173rpx;
+          background: #FFF7EE;
+          border: 1px solid #FFDFBE;
+          border-right: none;
+          border-bottom: none;
+          color: #FF9A2F;
+          box-sizing: border-box;
+          padding-left:20rpx;
+        }
+        .company_name {
+          width: 100%;
+          margin-bottom: 40rpx;
+          text-align: center;
+          display: block;
+          .text {
+            max-width: 480rpx;
+            color: #333;
+            font-size: 32rpx;
+            display: inline-block;
+            overflow:hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+          }
+          .status {
+            display: inline-block;
+            width: 100rpx;
+            height: 46rpx;
+            line-height: 46rpx;
+            margin-left:10rpx;
+            background: #E9EEFF;
+            border-radius: 100px;
+            font-family: PingFangSC-Regular;
+            font-size: 26rpx;
+            color: #4272FF;
+            text-align: center;
+            vertical-align: middle;
+          }
+        }
+        .info_item {
+          width: 160rpx;
+          height: 130rpx;
+          text-align: center;
+          border-radius: 14rpx;
+          .num {
+            display: block;
+            color: #4272FF;
+            font-size: 38rpx;
+            height: 54rpx;
+            line-height: 54rpx;
+            margin: 0 0 15rpx 0;
+            font-family: PingFangSC-Regular;
+          }
+          .typename {
+            display: block;
+            color: #666666;
+            font-size: 26rpx;
+            font-family: PingFangSC-Regular;
+          }
+        }
+      }
+    }
+    .setIndex {
+      height: 340rpx;
+      .swiper_item {
+        padding: 55rpx 40rpx 60rpx 45rpx;
+      }
+    }
+    .null_company {
+      width: 690rpx;
+      height: auto;
+      background: #fff;
+      box-shadow: 0 10px 24px 0 rgba(66,114,255,0.07);
+      border-radius: 8rpx;
+      padding: 70rpx 0;
+      margin: 0 auto 20rpx auto;
+      position: relative;
+      .text {
+        font-family: PingFangSC-Regular;
+        font-size: 32rpx;
+        color: #333333;
+        text-align: center;
+      }
+      .detail_btn {
+        width: 510rpx;
+        margin: 40rpx auto 0 auto;
+        background: #4272FF;
+        border-radius: 100rpx;
+        height: 86rpx;
+        line-height: 86rpx;
+        font-family: PingFangSC-Regular;
+        font-size: 32rpx;
+        color: #FFFFFF;
+        text-align:center;
+        padding: 0 10rpx;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        .icon_go {
+          width: 30rpx;
+          height: 14rpx;
+          margin: 0 0 2rpx 14rpx;
+        }
+      }
+    }
+    .null_opacity {
+      display:none;
+    }
+  }
+
+
+</style>

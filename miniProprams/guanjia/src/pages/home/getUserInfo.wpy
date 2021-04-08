@@ -1,0 +1,104 @@
+<template>
+  <view class="userinfo_page">
+    <image class="bg" src="../../images/home/user_info.png"></image>
+    <view class="center_box">
+      <view class="title">商标管家申请获得以下权限</view>
+      <view class="info">推单助手将获得你的公开信息（昵称、头像等）</view>
+      <view class="btn_box">
+        <view class="btn btn_w" @tap="goHonePageFn">拒绝</view>
+        <button class="btn btn_b" open-type="getUserInfo" bindgetuserinfo="getUserInfoFn">允许</button>
+      </view>
+    </view>
+
+    <!-- 底部 -->
+    <indexFooter  />
+
+  </view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import interfaces from '../../interfaces';
+  import NetError from '../../components/common/net_error';
+  import FormTips from '../../components/weui/tips';
+  import Tips from '../../utils/Tips';
+  import homeApi from '../../api/home';
+  import indexFooter from '../../components/common/index_footer';
+
+  export default class getUserInfoPage extends wepy.page {
+    components = {
+      Tips: FormTips,
+      NetError: NetError,
+      indexFooter
+    };
+
+    data = {
+      init: false,
+      isErr: false,
+
+    }
+
+    methods = {
+      // 去管家首页
+      goHonePageFn () {
+        wepy.redirectTo({
+          url: '/pages/home/home'
+        })
+      },
+      async getUserInfoFn (data) {
+        let res = data.detail;
+        let userInfo = await interfaces.decodeUserInfo(wepy.$instance.globalData.sessionId, res.encryptedData, res.iv);
+        interfaces.syncStore(userInfo);
+        wepy.redirectTo({
+          url: '/pages/home/home'
+        })
+      }
+    }
+
+    async onShow () { // 在Page和Component共用的生命周期函数
+      let self = this;
+
+      self.loaded();
+      try {
+        wepy.removeStorageSync('createOrderData');
+        wepy.removeStorageSync('customerData');
+      } catch (e) {
+      }
+      await self.loadInit();
+
+    }
+
+
+    // 初始化 检查登录态
+    async loadInit(){
+    	await interfaces.checkLogin()
+    }
+
+    mixins = [base];
+    config = {
+      navigationBarTitleText: '商标管家'
+    };
+
+
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  $itemHeight: 190rpx;
+  .userinfo_page {
+    height: 100%; background:#F8F8F8; position:relative;
+    .bg {width:100%; height: 660rpx;}
+    .center_box {
+      width:670rpx; height:390rpx; background: #fff; border-radius:5rpx; margin-top: -300rpx; margin-bottom: 100rpx; position:relative; left:40rpx;
+      .title {font-size:26rpx; color:#333; text-align:center; width:100%; padding-top:68rpx;}
+      .info {width:100%; text-align:center; color: #8F8F8F; font-size:26rpx; margin-top:20rpx;}
+      .btn_box {
+        width:100%; display:flex; justify-content: center; align-items:center; height: 62rpx; margin-top:70rpx; 
+        .btn {width:150rpx; height:62rpx; line-height:62rpx; text-align:center; border-radius: 5rpx; margin: 0 16rpx; font-size:26rpx;}
+        .btn_w {background:#fff; color: #4272FF; border: 1px solid #4272FF; }
+        .btn_b {background:#4272FF; color: #fff;}
+      }
+    }
+  }
+</style>

@@ -1,0 +1,133 @@
+<template>
+	<Tips />
+	<view class="select_big" wx:if="{{show}}" @tap="close">
+		<view class="select_big_form" style="height: {{formH}}" catchtap="preventDefault">
+			<view class="con">
+				<repeat for="{{cateIdData}}" key="item" index="index" item="item">
+					<view class="list {{item.checked ? 'cur' : ''}}  {{index%2!==0 ? 'even' : ''}}" catchtap="checkCateId({{item}}, {{index}})">
+						<text>{{item.id > 9 ? item.id : '0' + item.id}}类 {{item.goodsname}}</text>
+						<text class="hook"></text>
+					</view>
+				</repeat>
+			</view>
+			<view class="btn-wrap">
+        <view class="btn-cancel" catchtap="reset">重置</view>
+        <view class="btn-confirm" catchtap="confirm">确认</view>
+			</view>
+		</view>
+	</view>
+</template>
+<script>
+	import wepy from 'wepy';
+	import base from '../../mixins/base';
+	import Data from '../../utils/tmTypeData' //45商品类别
+	export default class select_big extends wepy.component {
+		def = {
+			cateIdData: Data.cateIdData,
+			formH: '564rpx'
+		};
+		data = {...this.def};
+		props = {
+			show: {
+				type: Boolean,
+				twoWay: true,
+				default: false
+			},
+		};
+
+		methods = {
+			preventDefault(){},
+			close(){
+				this.show = false;
+				this.methods.confirm.bind(this)();
+				this.$apply();
+			},
+			checkCateId(item, index){//选中的选项
+				console.log(item, index)
+				item.checked = !item.checked;
+				this.cateIdData[index] = item;
+				this.$apply();
+      },
+			reset() {
+				this.cateIdData.forEach((item) => {
+					item.checked = false;
+				});
+				this.$emit('reset');
+			},
+			confirm() {
+				let arr = [];
+				let nameArr = [];
+				this.cateIdData.forEach((item) => {
+					if (item.checked) {
+						arr.push(item.id<10? '0'+item.id : item.id);
+						nameArr.push(item.id + '类 ' +item.goodsname);
+					}
+				});
+				console.log({
+					arr, nameArr,
+				});
+				this.$emit('confirm', {
+					arr, nameArr,
+				});
+			},
+		};
+		watch = {
+			show(){
+				this.formH = this.show ? '564rpx' : '0';
+				this.$apply();
+			}
+		}
+		mixins = [base];
+		components = {
+		};e
+	}
+</script>
+
+<style lang="scss">
+	@import "../../styles/variable";
+	.select_big{
+		position: fixed;top: 0;left: 0;width: 100%;height: 100%;background: rgba(0,0,0,0.50);z-index: 3;
+		.select_big_form{width: 100%;height: 0;padding-top: 50rpx;padding-bottom: 86rpx;position: absolute;bottom:0;background-color: #FFF;border-top-left-radius:10rpx;border-top-right-radius:10rpx; transition: height 0.2s ease-out;
+			text,view{font-family: $font-family;}
+			.con{
+				height: 564rpx;overflow: auto;box-sizing: border-box;padding: 0 30rpx 30rpx;
+				.list{
+					position: relative;float: left;box-sizing: border-box;width: 48%;margin-top: 20rpx;padding:10rpx 10rpx 10rpx 20rpx;border-bottom: 1rpx solid #FFF;
+					text{font-size: 26rpx;color: #666666;}
+        	.hook{
+        		box-sizing: content-box;content: "";border: 1px solid #fff;border-left: 0;border-top: 0;height: 18rpx;right: 20rpx;position: absolute;top: 20rpx;width: 8rpx;transition: transform .1s cubic-bezier(.71,-.46,.88,.6) .05s;transform-origin: center;transform: rotate(45deg) scaleY(0);
+        	}
+				}
+				.even{margin-left: 4%;}
+				.cur{
+					border-bottom: 1rpx solid #4272FF;
+					text{color: #4272FF;}
+					.hook{
+			    	transform: rotate(45deg) scaleY(1);border-color: #4272FF;
+					}
+				}
+			}
+		}
+	}
+	.btn-wrap {
+    display: flex;
+	  flex-direction: row;
+	  align-items: center;
+    height: 86rpx;
+    line-height: 86rpx;
+    .btn-cancel {
+    	width: 50%;
+      text-align: center;
+      font-size: 30rpx;
+      border-top: 1px solid #E5E5E5;
+      line-height: 85rpx;
+    }
+    .btn-confirm {
+    	width: 50%;
+    	background-image: linear-gradient(180deg, #4272FF 3%, #237CFF 97%);
+      font-size: 30rpx;
+      color: #fff;
+      text-align: center;
+    }
+  }
+</style>

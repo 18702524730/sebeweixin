@@ -1,0 +1,258 @@
+<template>
+  <view class="my_message_intel" wx:if="{{init && !isErr}}" style="background: #f8f8f8;">
+
+    <view class="top_nav_wrap">
+      <view class="msg_type">
+        <view class="li" wx:for="{{ typeTabList }}" wx:key="{{ index }}" :class="{'active': item.id==selectTypeTabId}" @tap="selectTypeTabFn({{ item }})"><text class="t_name">{{ item.name }}</text></view>
+        <view class="li" @tap="showCpmpanyListFn">筛选<image src="../../images/search/filter.png"></image></view>
+      </view>
+    </view>
+
+    <!-- 侧边栏展示企业列表 -->
+    <siderBar :myList.sync="companyList" :isShow.sync="isShowSiderBox" :titleType.sync="titleType" @selectCompany.user="selectCompanyFn" ></siderBar>
+
+    <!-- 商标列表 -->
+    <brandList :show.sync="showList" :selectEditType.sync="editType" :resultList.sync="resultList" :noMoreData.sync="noMoreData" :loading.sync="loading" :showType.sync="brandShowType" :messageType.sync="messageType" :selectTypeTabId.sync="selectTypeTabId"/>
+
+
+    <NetError :show="isErr"  />
+
+  </view>
+</template>
+
+<script>
+
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import NetError from '../../components/common/net_error';
+  import FormTips from '../../components/weui/tips';
+  import Tips from '../../utils/Tips';
+  import interfaces from '../../interfaces';
+  import brandList from '../../components/brandList/brandList';
+  import homeApi from '../../api/home';
+  import footerNav from '../../components/common/footer_nav';  //底部导航
+  import siderBar from '../../components/home/siderBar';   //侧边栏
+
+  export default class intelligenceMessage extends wepy.page {
+    components = {
+      Tips: FormTips,
+      brandList,
+      NetError,
+      footerNav,
+      siderBar
+    }
+
+    data = {
+      footerActive: 2,  //底部导航高亮下标
+      init: false,
+      isErr: false,
+      editType: 0,  //是否可编辑 0.不可以 1.取消托管 2.设置核心商标 3.添加企业 4.删除
+      showStatus: true,
+      companyList: [],  //企业列表
+      resultList: [],
+      showList: true,
+
+      activeIndex: 0,
+      sliderOffset: 0,
+      sliderLeft: 0,
+      tabs: [
+        {name: '紧急待办', id:1},
+        {name: '潜在隐患', id:2},
+      ],
+      selectTab: 0,
+      selectTypeTabId: '',
+      myEmptyObj: {
+        title: '管家在手，商标无忧',
+        urlText: '回到首页',
+        urlLink: '/'
+      },
+      swiperOne: {
+        circular: true, //衔接滑动
+        indicatorDots: false,  //是否显示面板指示点
+        autoplay: false,
+        duration: 300,  //滑动动画时长
+        previousMargin: '20rpx',
+        nextMargin: '20rpx'
+      },
+      selectCompanyData: {},  //选中的公司数据
+      brandShowType: 1,  //消息形式展现
+      messageType: 3,  //消息展示类型
+
+      current: 0,
+      placeholder: '搜索托管中的企业或商标',
+      searchType: -1,  //搜索类型
+      content: '',
+      autoFocus: false,
+
+      loading: false, //结果加载状态控制
+      selectStatus: 0,  //全部
+      noMoreData: false,  //上啦加载更多数据
+      page: 1,  //当前页数
+      msgId: '',  //消息ID
+      typeTabList: [
+        {name: '全部', id: 0},
+        {name: '可异议', id: 1},
+        {name: '可撤三', id: 2},
+        {name: '未续展', id: 3},
+        {name: '可无效', id: 4}
+      ],
+      isShowSiderBox: false,  //显示企业列表
+      titleType: 2,  //1.主体企业 2.竞品企业
+      stewardSubjectId: '',  //选择的企业ID
+    }
+
+    onReachBottom (e) {
+      if (!this.noMoreData) {
+        let isLoadMore = true;
+        this.methods.getLawMsgFn.bind(this)(this.selectTypeTabId, isLoadMore);  //查询已托管商标列表
+      }
+    }
+
+    methods = {
+      // 选择企业
+      selectCompanyFn (data) {
+        console.log(data)
+        this.stewardSubjectId = data.id;
+        this.methods.getLawMsgFn.bind(this)('');
+        this.isShowSiderBox = false;
+        this.$apply();
+      },
+      // 展示企业列表
+      showCpmpanyListFn () {
+        this.isShowSiderBox = true;
+        this.$apply();
+      },
+      async getCompanyListFn () {     // 默认加载公司列表
+        let self = this;
+        let params = {
+          applicationType: 2,
+          page: 1,
+          size: 100
+        }
+        // 默认加载公司列表
+        try {
+          let company_ = await homeApi.findCompanyList(params, true);
+          self.companyList = company_.data;
+          if(self.companyList.length > 0) {
+            self.selectCompanyData = self.companyList[0];   //默认选择的企业
+            self.currentCompany = 0;
+            self.$apply();
+          }
+          else{
+            self.companyList = [];
+          }
+          self.$apply();
+        }
+        catch (e) {
+        }
+      },
+      // 切换类型导航
+      selectTypeTabFn (item) {
+        this.selectTypeTabId = item.id;
+      },
+      callFn () {
+        wepy.makePhoneCall({
+          phoneNumber: '15168455893'
+        })
+      },
+      async getLawMsgFn (id, isLoadMore) {   //查询情报消息列表
+        let self = this;
+        let type_ = parseInt(self.activeIndex) + parseInt(1)
+        if (isLoadMore) {
+          self.page += 1
+        }
+        else {
+          self.page = 1
+        }
+        let params = {
+          stewardSubjectId: self.stewardSubjectId,
+          newsType: 3, //2风险预警
+          typeClassification: id, //1变更风险,2被异议风险，3被撤三风险，4到期风险,5相同近似
+          page: self.page,
+          size: 3
+        }
+        self.loading = true;
+        try {
+          let resp = await homeApi.findNews(params);
+          let docs = resp.data || [];
+          let allPage = Math.ceil(resp.total/params.size);  //最大页数
+          self.loading = false;
+          if (self.page == allPage || allPage==1 || docs.length==0) {
+            self.noMoreData = true;
+          }
+          else if(self.page < allPage){
+            self.noMoreData = false;
+          }
+          if (isLoadMore) {
+            self.resultList = self.resultList.concat(docs);  //托管商标列表
+          }
+          else {
+            self.resultList = docs;  //托管商标列表
+          }
+          self.$apply();
+          //self.$broadcast('changeResultList', self.resultList);
+        }
+        catch (e) {}
+      }
+    };
+
+    watch = {
+      selectTypeTabId(){
+        this.methods.getLawMsgFn.bind(this)(this.selectTypeTabId);
+      }
+    }
+
+    async onLoad (opts) {
+      // 默认加载情报消息
+      this.methods.getLawMsgFn.bind(this)(this.selectTypeTabId);
+      this.methods.getCompanyListFn.bind(this)();  //查询企业列表
+    }
+
+    async onShow () {
+      this.loaded();
+    }
+
+    mixins = [base];
+    config = {
+      navigationBarTitleText: '情报情况'
+    };
+
+  }
+
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  @import "../../styles/pub";
+  .my_message_intel {
+    height:100%;
+    .top_nav_wrap {
+      width: 100%; height: 180rpx; background: #fff; padding-top:10rpx; 
+      .top_tab {
+        margin: 0 30rpx; height: 100rpx; line-height: 100rpx; background: #fff; display: flex; justify-content:space-around; align-items:center; border-bottom: 1px solid #eee;
+        .tab_item {
+          width: 50%; text-align: center;
+          .tab_name {color: #666; font-size: 28rpx; }
+          &.active {
+            .tab_name {color: #4272FF; height: 60rpx; line-height: 60rpx; border-bottom: 4rpx solid #4272FF; display: inline-block;}
+          }
+        }
+      }
+      .msg_type {
+        height: 70rpx; line-height: 100rpx; background: #fff; display: flex; justify-content:flex-start; align-items:center;padding: 0 30rpx; flex-wrap:wrap;
+        .li {
+          width: 33%; text-align: center; height: 70rpx; box-sizing:border-box;
+          .t_name {color: #666; font-size: 28rpx; height: 50rpx; line-height: 50rpx; padding:0 40rpx;display: inline-block;}
+          &.active {
+            .t_name {background: #4272FF; border-radius: 30rpx; color: #fff;}
+          }
+          image {width: 26rpx; height:25rpx; vertical-align:middle; margin-left:6rpx;}
+        }
+      }
+    }
+
+  }
+
+
+
+</style>

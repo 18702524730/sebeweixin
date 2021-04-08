@@ -1,0 +1,372 @@
+<template>
+	<view class="detail_type" wx:if="{{show}}">
+		<view wx:if="{{tabState > 0}}" class="mask" @tap="Initialize" style="height:{{windowH}}px"></view>
+		<view class="bgc {{tabState > 0 ? '' : ''}}">
+			<view class="type_tab" style="height:{{H}}rpx">
+				<view class="tab_btn weui-flex">
+					<view class="{{tabState == 1 ? 'bdr' : 'state_btn'}} weui-flex__item mr15" catchtap="tabChange(1)">
+						商标类别
+						<image class="ml10" src="/images/icons/ToBottom.png"></image>
+					</view>
+					<view class="{{tabState == 2 ? 'bdr' : 'state_btn'}} weui-flex__item ml15" catchtap="tabChange(2)">
+						法律状态
+						<image class="ml10" src="/images/icons/ToBottom.png"></image>
+					</view>
+					<view class="{{tabState == 3 ? 'bdr' : 'state_btn'}} weui-flex__item ml15" catchtap="tabChange(3)">
+						托管状态
+						<image class="ml10" src="/images/icons/ToBottom.png"></image>
+					</view>
+				</view>
+				<view wx:if="{{tabState > 0}}">
+				<!-- 选项 -->
+					<!-- 商标 -->
+					<scroll-view scroll-y style="height: 150px;" wx:if="{{tabState == 1}}">
+					<view class="tab_lists">
+						<repeat for="{{dataInfo}}" key="item" index="index" item="item">
+							<view class="{{item.selected ? 'bdt' : ''}} {{item.id < 3 ? 'mt30' : ''}} row-center ml30 mb30" catchtap="ObjApply({{item}})">
+								<text class="inline">{{item.id > 9 ? item.id : '0' + item.id}}类 {{item.goodsname}}</text>
+								<icon wx:if="{{item.selected}}" type="success_no_circle" color="#4272FF" size="10"/>
+							</view>
+						</repeat>
+					</view>
+					</scroll-view>
+					<!-- 法律 -->
+					<view class="tab_lists" wx:if="{{tabState == 2}}">
+						<repeat for="{{law}}" key="item" index="index" item="item">
+							<view class="{{item.selected ? 'bdt' : ''}} {{item.id < 2 ? 'mt30' : ''}} row-center ml30 mb30" catchtap="RadioApply({{item}})">
+								<text class="inline">{{item.name}}</text>
+								<icon wx:if="{{item.selected}}" type="success_no_circle" color="#4272FF" size="10"/>
+							</view>
+						</repeat>
+					</view>
+					<!-- 托管 -->
+					<view class="tab_lists" wx:if="{{tabState == 3}}">
+						<repeat for="{{host}}" key="item" index="index" item="item">
+							<view class="{{item.selected ? 'bdt' : ''}} {{item.id < 3 ? 'mt30' : ''}} row-center ml30 mb30" catchtap="hostApply({{item}})">
+								<text class="inline">{{item.name}}</text>
+								<icon wx:if="{{item.selected}}" type="success_no_circle" color="#4272FF" size="10"/>
+							</view>
+						</repeat>
+					</view>
+					<!-- 底部按钮 -->
+					<view class="operation_btn weui-flex">
+						<view class="reset weui-flex__item row-center" catchtap="reset">重置</view>
+						<view class="confirm weui-flex__item row-center" catchtap="confirmInfo">确认</view>
+					</view>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+<script>
+	import wepy from 'wepy';
+	import base from '../../mixins/base';
+	import Data from '../../utils/tmTypeData' //45商品类别
+	const app = getApp();
+	const law = [
+		{
+			id: 0,
+			name: '已销亡'
+		},
+		{
+			id: 1,
+			name: '待审中'
+		},
+		{
+			id: 2,
+			name: '已注册'
+		},
+		{
+			id: 3,
+			name: '已驳回'
+		},
+		{
+			id: 4,
+			name: '已初审'
+		}
+	]
+	const allLaw = [
+		{
+			id: 0,
+			name: '已销亡'
+		},
+		{
+			id: 1,
+			name: '待审中'
+		},
+		{
+			id: 2,
+			name: '已注册'
+		},
+		{
+			id: 3,
+			name: '已驳回'
+		},
+		{
+			id: 4,
+			name: '已初审'
+		},
+		{name:'注册满3年', id: 6},
+    {name:'注册满5年', id: 7},
+    {name:'注册满10年', id: 8}
+	]
+	const hosting = [
+		{
+			id: 1,
+			name: '未托管'
+		},
+		{
+			id: 2,
+			name: '已托管'
+		}
+	]
+	export default class stateType extends wepy.component {
+		props = {
+			show: {
+				type: Boolean,
+				default: false
+			},
+			imgB:{
+				type: Boolean,
+				default: false
+			},
+			styleType: {//高度是否需要动效，父标签写死
+				type: Boolean,
+				default: false
+			},
+			companyName: {//高度是否需要动效，父标签写死
+				type: String,
+				default: ''
+			},
+			SubjectId: {//企业id
+				type: String,
+				default: ''
+			},
+			hostType: {//托管状态
+				type: String,
+				default: ''
+			},
+			windowH:{//屏幕高度
+				type: String,
+				default: ''
+			}
+		};
+		def={
+			dataInfo: Data.cateIdData,
+			confirmArray:{
+				dataInfo:'',
+				law:'',
+				host:''
+			},
+			tabState:0,
+			H:0,
+			law:law,
+			host:hosting
+		};
+		data = {...this.def}
+		async onLoad() {
+			console.log(this.show)
+			let self = this;
+			console.log('屏幕高度',this.windowH)
+			//初始化
+			for(let item of this.dataInfo){
+				if(item.selected){
+					item.selected = false;
+					self.$apply();
+				}
+			}
+			for(let item of this.law){
+				if(item.selected){
+					item.selected = false;
+					self.$apply();
+				}
+			}
+			for(let item of this.host){
+				if(item.selected){
+					item.selected = false;
+					self.$apply();
+				}
+			}
+			if(this.show){
+				self.H = 90;
+				self.$apply();
+			}
+			if(this.hostType == 1){//未托管
+				console.log('未托管操作')
+				let data = {
+					id: 2,
+					name: '已托管'
+				}
+				this.methods.hostApply.bind(this)(data);
+			}
+		}
+		methods = {
+			toQuery(){
+				app.aldstat.sendEvent('企业详情搜索');
+				wepy.navigateTo({
+					url: `/pages/detail/enterpriseSearch?name=${this.companyName}&stewardSubjectId=${this.SubjectId}`
+				})
+				// this.$emit('toQuery');
+			},
+			Initialize() {//初始化
+				this.tabState = 0;
+				this.H = 90;
+				this.$apply();
+				this.$emit('shutDown');
+			},
+			tabChange(index) {//tab切换
+				if (index == 3) {
+					app.aldstat.sendEvent('企业详情托管状态筛选');
+				}
+				let self = this;
+				this.tabState = index;
+				if(this.tabState > 0 && self.H <= 90){
+					self.H = 475;
+					this.$apply();
+				}
+				this.$apply();
+				this.$emit('clickFixed');
+			},
+			ObjApply(data){//选中的选项
+				let self = this;
+				for(let item of this.dataInfo){
+					if(item.id === data.id){
+						if(item.selected){
+							item.selected = false;
+						}else{
+							item.selected = true;
+						}
+						self.$apply();
+					}
+				}
+			},
+			RadioApply(data){//法律状态
+				let self = this;
+				for(let item of this.law){
+					if(item.id === data.id){
+						item.selected = true;
+						self.confirmArray.law = item.id;
+						self.$apply();
+					}else{
+						item.selected = false;
+						self.$apply();
+					}
+				}
+			},
+			hostApply(data){//托管
+				let self = this;
+				for(let item of this.host){
+					if(item.id === data.id){
+						item.selected = true;
+						self.confirmArray.host = item.id;
+						if (data.id == 2) {   //已托管
+							self.law = allLaw;   //已托管的时候法律状态可以选择所有可能性
+						}
+						else{
+							self.law = law;
+						}
+						self.$apply();
+					}else{
+						item.selected = false;
+						self.$apply();
+					}
+				}
+			},
+			confirmInfo() {//确认按钮
+				let self = this;
+				this.tabState = 0;
+				this.H = 90;
+				// 商标
+				let confirm = []
+				for(let item of this.dataInfo){
+					if(item.selected){
+						confirm.push(item.id < 10 ? '0' + item.id : item.id);
+					}
+				}
+				self.confirmArray.dataInfo = confirm.join(',');
+				self.$apply();
+				console.log(self.confirmArray)
+				this.$emit('confirmData',self.confirmArray)
+			},
+			reset() {//重置
+				let self = this;
+				self.confirmArray = [];
+				if(this.tabState == 1){
+					for(let item of this.dataInfo){
+						if(item.selected){
+							item.selected = false;
+							self.$apply();
+						}
+					}
+				}else if(this.tabState == 2){
+					for(let item of this.law){
+						if(item.selected){
+							item.selected = false;
+							self.$apply();
+						}
+					}
+				}else if(this.tabState == 3){
+					for(let item of this.host){
+						if(item.selected){
+							item.selected = false;
+							self.$apply();
+						}
+					}
+				}
+			}
+		};
+		watch = {
+			show(){//判断显示方式动效显示还是固定高度
+				let self = this;
+				console.log(this.styleType,'测试')
+				console.log(self.show)
+				if (!self.show) {
+					self.H = 477;
+				}
+				else{
+					self.H = 90;
+				}
+				self.$apply();
+			}
+		}
+		mixins = [base];
+		components = {
+		};
+	}
+</script>
+
+<style lang="scss">
+	@import "../../styles/variable";
+	.detail_type{position: relative;
+		.mask{background: rgba(0,0,0,0.50);width:750rpx;position: absolute;top:476rpx;z-index:1}
+		.bgc{width:750rpx;box-sizing:border-box;
+			.type_tab{height:477rpx;background-color:#fff;box-sizing:border-box;
+				.tab_btn{height:90rpx;padding: 0 30rpx 0;box-sizing:border-box;border-bottom:1px solid #e5e5e5;
+					>view{font-size:$text-sm;color:#666;text-align: center;margin-top: 17rpx;
+						image{width:14rpx;height:10rpx;vertical-align:middle;}
+					}
+					.bdr{height:74rpx;border: 1rpx solid #E5E5E5;border-radius:10rpx 10rpx 0 0;border-bottom:1rpx solid #fff;line-height:54rpx;width:188rpx;box-sizing:border-box;}
+					.state_btn{border:1rpx solid #f8f8f8;background: #F8F8F8;width:190rpx;height:56rpx;border-radius: 100rpx;line-height:56rpx;box-sizing:border-box;}
+					.search{width:60rpx;height:56rpx;border-radius: 100rpx;background-color:#f8f8f8;
+						image{width:30rpx;height:30rpx;vertical-align:middle;}
+					}
+				}
+				.tab_lists{height:300rpx;box-sizing:border-box;overflow: scroll;
+					.bdt{border-bottom-color:#4272FF;
+						icon{font-size:1;vertical-align:bottom;line-height:14rpx;}
+						text{color: #4272FF;margin-right:0;border-radius: 100rpx;}
+					}
+					>view{width:330rpx;float:left;text-align:left;line-height: 37rpx;height:50rpx;box-sizing:border-box;border-bottom:1rpx solid #fff;
+						icon{font-size:1;vertical-align:bottom;line-height:14rpx;}
+						text{width:280rpx;display:line-block;font-size:$text-sm;margin-right:20rpx;}
+					}
+				}
+			}
+			.operation_btn{box-sizing:border-box;
+				view{font-size:$text-lg;box-sizing:border-box;}
+				.reset{border: 1px solid #E5E5E5;color: #666666;height:86rpx;background-color:#fff;}
+				.confirm{background-image: linear-gradient(-180deg, #4272FF 3%, #237CFF 97%);color:#fff;}
+			}
+		}
+	}
+</style>

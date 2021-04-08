@@ -1,0 +1,528 @@
+<template>
+  <!-- 自定义弱提示框-成功 -->
+  <successTips />
+  <!-- 自定义弱提示框-失败 -->
+  <Tips />
+
+  <view class="search_tm" id="search_tm">
+  	<view class="topfixed {{top!=0 ? 'shadow' : ''}}" style="top:{{top}}px;" catch:touchmove="preventdefault">
+	    <searchBox placeholder="请输入商标名" :content.sync="content" :autoFocus.sync="autoFocus" :richText.sync="resultRichText" @focusAction.user="focusAction" @blurAction.user="blurAction" @query.user="query"/>
+	    <searchCondition :searchType.sync="searchType" :show.sync="conditionVisible" @showStateType.user="showStateType" @query.user="query" />
+    </view>
+    <searchSuggestNew :show.sync="suggestVisible" :resultList.sync="suggestList" :isSelf.sync="isSelf" @query.user="query" />
+    <searchResult class="{{trusteeImiVisible ? 'bottomPadding' : ''}}" :optionType.sync="optionType" :topPadding.sync="topPadding"  :show.sync="resultVisible" :resultList.sync="resultList" :searchType.sync="searchType" :selectMode.sync="selectMode" :noMoreData.sync="noMoreData" :loading.sync="loading" :showCompany.sync="showCompany" @select.user="selectTm" @addHost.user="addHostFn" @deleteHost.user="deleteHostFn" />
+
+    <view class="footer_trustee" wx:if="{{trusteeImiVisible}}">
+    	<view class="row-center selected">
+    		<text>您已选择</text>
+    		<text>{{selectedTMArr.length}}个商标</text>
+    	</view>
+    	<button class="im_btn" @tap="imiTrustee">立即托管</button>
+    </view>
+
+    <confirmM :showModal.sync="showModal" :title.sync="modalTitle" :content.sync="modalContent" :options.sync="modalOptions" />
+    <confirm1 :showModal.sync="showModal1" :title.sync="modalTitle1" :content.sync="modalContent1" :minorContent.sync="minorContent1" :options.sync="modalOptions1" @confirmBtn.user="contact"/>
+  </view>
+
+</template>
+
+
+<script>
+  import wepy from 'wepy';
+  import interfaces from '../../interfaces';
+  import FormTips from '../../components/weui/tips';
+  import mask from '../../components/common/mask';
+  import searchBox from '../../components/search/searchBox';
+  import searchCondition from '../../components/search/searchCondition';
+  import searchResult from '../../components/search/searchResult';
+  import stateType from '../../components/stateType/stateType';
+  import searchHistory from '../../components/search/searchHistory';
+  import searchSuggest from '../../components/search/searchSuggest';
+  import confirmM from '../../components/common/confirm_model';
+  import searchApi from '../../api/search';
+  import companyApi from '../../api/company';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import Tips from '../../utils/Tips';
+  import successTips from '../../components/weui/success_tips';
+  import NetError from '../../components/common/net_error';
+  const app = getApp();
+  const RichText = '搜索到<b style="font-weight:normal;color:#FF9A2F;">@@@</b>个商标';
+  export default class searchTm extends wepy.page {
+  	components = {
+      Tips: FormTips,
+      searchBox,
+      searchCondition,
+      searchResult,
+      stateType,
+      //searchHistoryNew: searchHistory,
+      searchSuggestNew: searchSuggest,
+      mask,
+      confirmM,
+      confirm1: confirmM,
+      successTips
+    };
+    def = {
+      init: false,
+      isErr: false,
+
+      isFreshing: false, //是否在下拉刷新中
+      isPullToDown: false, //是否拉到底了
+
+      showModal: false, //弹出对话框
+			modalTitle: '托管成功！',
+			modalContent: '已将该商标所属企业添加至“关注企业”中',
+			modalOptions:{
+				showCancel: false,
+				confirmText: '知道了'
+			},
+
+      suggestList:[], //搜索建议（只针对企业名称）
+      isSelf: true, //控制搜索后的跳转
+      fromSuggest: false, //搜索建议列表点击后控制是否再显示建议列表
+      suggestVisible: false,//控制搜索建议的显示
+      historyVisible: false, //控制搜索历史记录的显示
+      conditionVisible: false,//控制筛选条件的显示
+      resultVisible: false, //控制查询结果的显示
+      trusteeVisible: false, //控制去托管的显示
+      trusteeImiVisible: false, //控制立即托管的显示
+      selectedTMArr:[],//选择的托管商标
+
+      content:'', //搜索内容
+      intCls: '', //商标类别
+      status:'', //法律状态
+      size: 10, //每页数量
+      searchType: 1, //搜索类型 1 商标名称、 2注册号、3申请人
+      page: 1, //当前页码
+      resultList: [], //结果数据
+      selectMode: false, //可选择状态
+      noMoreData: false,//上拉加载无更多数据
+      loading: false, //结果加载状态控制
+
+      autoFocus: false, //自动获取焦点
+      resultRichText:'', //'共<b style="font-weight:normal;color:#FF9A2F;">111</b>结果',
+      oldScrollTop: 0, //上一次滚动的scrollTop值
+      top: 0,  //固定头部时的top值
+      topH: 0, //搜索框的高度
+      topPadding:0, //搜索结果容器的padding-top
+      allH: 0, //滚动的最大高度
+      containerH: 0, //视窗高度
+
+      showModal1:false,
+      modalTitle1: '您的商标托管数量不足<br>已托管<b style="font-weight:normal;color:#F64744;">@@@</b>个，托管上限<b style="font-weight:normal;color:#F64744;">###</b>个',
+      modalContent1: '您可前往拾贝网（www.ipsebe.com）升级会员扩展托管数量或联系客服详细咨询',
+      minorContent1:'注意：已托管数量包括拾贝网用户中心数据',
+      modalOptions1:{
+        showCancel: false,
+        confirmText: '咨询客服'
+      },
+      showCompany: true,  //商标信息是否展示企业信息
+      optionType: 4,  //操作类型 1.取消核心商标 2.设置核心商标 3.取消托管 4.搜索结果
+      similar: false,  //是否来自近似商标
+    };
+    data = {...this.def};
+
+
+    async onLoad (options) {
+    	let self = this;
+    	this.content = options.content;
+      // 来自近似商标查询，类型统一确定为商标名
+      if (options.similar) {
+        this.similar = true;
+      }
+    	this.methods.query.bind(this)({});
+
+      //设置容器的高度
+	    wx.getSystemInfo({
+	      success: function(res) {
+	        self.containerH = res.windowHeight;
+	        console.log('containerH:',self.containerH);
+	        let q = wepy.createSelectorQuery();
+			    q.select('#searchbox').boundingClientRect();
+			    q.exec(function (res) {
+			    	self.topH = res[0].height;
+			    	self.topPadding = self.topH*(90+108)/108;
+			    	self.$apply();
+			    	console.log('topH:',self.topH);
+			    });
+	      }
+	    })
+      this.$apply();
+    }
+
+    onShow () {
+    	app.aldstat.sendEvent('商标搜索页面');
+    }
+
+    // 页面滚动头部固定
+    onPageScroll(e){
+    	//加载过程、上拉加载更多时直接返回
+    	if (this.loading) {
+    		return;
+    	}
+    	const topH = this.topH;
+    	const scrollTop = e.scrollTop;
+    	console.log('oldScrollTop+scrollTop:',this.oldScrollTop,e.scrollTop)
+    	if (scrollTop>=0 && !this.isFreshing) {
+	    	//下拉时
+	    	if (this.oldScrollTop>scrollTop) {
+	    		//iphone下scrollTop会大于页面的高度，此时不做处理
+	    		if (this.allH && scrollTop > this.allH) {return}
+	    		console.log('下拉')
+	    		console.log(this.top)
+	    		if (this.top<0) {
+	    			let top = this.top;
+	    			top += (this.oldScrollTop-scrollTop);
+	    			this.top = top>=0 ? 0 : top;
+	    		}else{
+	    			this.top = 0;
+	    		}
+	    		console.log(this.top)
+	    	}else{ //上拉时
+	    		console.log('上拉')
+	    		console.log(this.top)
+	    		if (this.top>-topH) {
+	    			let top = this.top;
+	    			top += (this.oldScrollTop-scrollTop);
+	    			this.top = top>=-topH ? -topH : top;
+	    		}else{
+	    			this.top = -topH;
+	    		}
+	    		console.log(this.top)
+	    	}
+	    	this.oldScrollTop = scrollTop;
+    	}else{
+    		// iphone下scrollTop会小于0
+    		this.top=0;
+    	}
+    	this.$apply();
+    }
+
+    //上拉加载更多数据
+    onReachBottom(e){
+    	let self = this;
+    	this.isPullToDown = true;
+    	if (!this.noMoreData) {
+	    	this.methods.query.bind(this)({
+	    		isLoadMore: true
+	    	});
+    	}else{
+    		let q = wepy.createSelectorQuery();
+		    q.select('#common_search').boundingClientRect();
+		    q.exec(function (res) {
+		    	//页面高度-视窗高度 = 滚动的最大高度
+		    	self.allH = res[0].height - self.containerH;
+		    	self.$apply();
+		    	console.log('----allH:',self.allH);
+		    });
+    	}
+    }
+
+    //下拉刷新
+    onPullDownRefresh(e){
+    	this.isFreshing = true;
+    	this.$apply();
+    	this.methods.query.bind(this)({});
+    	this.top = 0;
+    	this.selectMode = false;
+			this.selectedTMArr = [];
+			wepy.setStorageSync('selectedTMArr', []);
+			this.trusteeImiVisible = false;
+			this.trusteeVisible = true;
+			this.$apply();
+    	wx.stopPullDownRefresh();
+    }
+
+    // 判断搜索类型 todo: 写成公用
+    getSearchType(){
+    	return 1;
+    }
+
+    methods = {
+    	//咨询客服
+      contact(){
+      	wepy.makePhoneCall({
+          phoneNumber: '15168455893'
+        })
+      },
+    	hideGuide(){
+    		this.serachTmIsFirst = false;
+    		wepy.setStorageSync('serachTmIsFirst', false);
+    	},
+    	//选择托管的商标回调
+    	selectTm(arr){
+    		this.selectedTMArr = arr;
+    		console.log(this.selectedTMArr)
+    		this.$apply();
+    	},
+    	//查询
+    	async query(params = {}){
+    		if (!this.selectMode) {
+    			wepy.setStorageSync('selectedTMArr', []);
+    		}
+    		this.fromSuggest = params.fromSuggest || false;
+    		this.content = params.content || this.content;
+    		this.page = params.page || this.page;
+    		this.intCls = params.intCls !== undefined ? params.intCls : this.intCls;
+    		this.status = params.status !== undefined ? params.status : this.status;
+    		this.size = params.size || this.size;
+    		if (params.isLoadMore) {
+		    	this.page += 1;
+		    }else{
+		    	this.page = 1;
+		    	this.selectMode = false;
+    			this.trusteeImiVisible = false;
+    			this.selectedTMArr = [];
+					wepy.setStorageSync('selectedTMArr', []);
+    			this.$apply();
+		    }
+
+		    let v = this.content;
+		    //为默认参数时，才自动识别
+		    if (this.searchType == 1) {
+			    if (v.length > 4 && /\d{4,}/.test(v.slice(1))) { //6个字及以上，且第2位开始都是数字
+	    			this.searchType = 2;
+	    		} else if(v.length > 4 && /[\u4E00-\u9FA5]|[\uFE30-\uFFA0]/.test(v)) { //5个字及以上，且包含中文
+	    			this.searchType = 3;
+	    		} else{
+	    			this.searchType = 1;
+	    		};
+    		}
+        // 如果来自近似商标
+        if (this.similar) {
+          this.searchType = 1;
+        }
+
+    		//params参数传递过来的优先
+    		this.searchType = params.searchType || this.searchType;
+
+    		let data = {
+		  		keyword:  v,
+		  		searchType: this.searchType,
+		  		intCls: this.intCls,
+		  		status: this.status,
+		  		page: this.page,
+		  		size: this.size
+		  	}
+		  	this.historyVisible = false;
+		  	this.loading = true;
+    		let resp = await searchApi.findTrademark(data, params.noShowLoading);
+    		this.resultRichText = resp.total ? RichText.replace('@@@', resp.total) : '';
+    		this.loading = false;
+    		console.log(resp)
+    		let docs = resp.data || [];
+    		let contentArr = v.split('');
+    		docs.forEach((item, i) => {
+          item.isAdded = false;//用于判断是否被勾选
+          item.tm_name_temp = item.tmName;
+        })
+        if (this.searchType == 1) {
+	        //高亮关键字 且不区分大小写
+	        docs.forEach((item, k) => {
+	          var tmName = item.tm_name_temp;
+	          var tmNameArr = tmName.split('');
+	          contentArr.forEach((str, i) => {
+	            tmNameArr.forEach((tm, j) => {
+	              if (tm == str.toUpperCase() || tm == str.toLowerCase()) {
+	                tmNameArr[j] = '<b style="font-weight:normal;color:#4272FF;">'+tm+ '</b>';
+	              }
+	            });
+	          });
+	          item.tm_name_temp = tmNameArr.join('');
+	        });
+        }
+    		if (params.isLoadMore) {
+        	if (docs.length < this.size) {
+            this.noMoreData = true;
+          }else{
+            this.noMoreData = false;
+          }
+        	this.resultList = this.resultList.concat(docs);
+        }else{
+        	if (docs.length < this.size) {
+            this.noMoreData = true;
+          }else{
+            this.noMoreData = false;
+          }
+        	this.resultList = docs;
+        	this.$apply();
+        }
+        console.log(this.resultList)
+    		this.resultVisible = true;
+    		this.conditionVisible = true;
+    		this.suggestVisible = false;
+    		this.trusteeVisible = !!this.resultList.length;
+    		if (!this.resultList.length) {
+    			this.trusteeImiVisible = false;
+    		}
+    		if (this.trusteeVisible && wepy.getStorageSync('serachTmIsFirst') !== false) {
+    			this.serachTmIsFirst = true;
+    		}
+    		this.loaded();
+    		this.fromSuggest = false;
+    		this.isFreshing = false;
+    		this.$apply();
+    	},
+    	//获取焦点回调
+    	focusAction(){
+    		this.autoFocus = true;
+    		/*this.historyVisible = true;
+    		this.resultVisible = false;
+    		this.conditionVisible = false;
+    		this.trusteeVisible = false;*/
+    		this.$apply();
+    	},
+    	//失去焦点回调
+    	blurAction(){
+    		this.autoFocus = false;
+    		//this.historyVisible = true;
+    	},
+    	preventdefault(){},
+    	//显示筛选条件
+    	showStateType(v){
+    		if (v) {
+    			this.config.enablePullDownRefresh = false;
+    		}else{
+    			this.config.enablePullDownRefresh = true;
+    		}
+    	},
+      // 添加托管
+      async addHostFn (data) {
+        console.log(data)
+        let params = {
+          applicationType: data.applicationType || data.hostType,  //1.我的企业 2.竞品企业
+          trademarkKey: data.applicantOther2,
+          intCls: data.intCls+'',
+          applicationName: data.applicantCn
+        }
+        if (data.hostType) {
+          params.applicationType = data.hostType;
+        }
+        let typeName_ = '';  //1.我的商标 2.竞品商标
+        if (params.applicationType == 1) {
+          typeName_ = '"我的商标"';
+        }
+        else if (params.applicationType == 2) {
+          typeName_ = '"竞品商标"';
+        }
+        try {
+          let resp = await searchApi.addStewardTm(params);
+          console.log(resp)
+          if (resp.status == 201) {
+            this.successTips('成功设置为'+typeName_);
+            this.selectMode = false;
+            this.selectedTMArr = [];
+            this.resultList.forEach( (item) => {  //更新视图，不刷新接口
+              if (item.applicantOther2 == data.applicantOther2) {
+                item.state = 1;
+                item.applicationType = params.applicationType;
+              }
+            })
+          }else if(resp.status == 401){
+            wepy.navigateTo({
+              url: '/pages/login/login'
+            });
+          }else if(resp.status == 409){
+            this.modalTitle1 = this.modalTitle1.replace('@@@', resp.msg.used).replace('###', resp.msg.usable);
+            this.showModal1 = true;
+            this.$apply();
+          }else if(!resp.status){
+            Tips.success('托管成功');
+            this.selectMode = false;
+            this.selectedTMArr = [];
+            wepy.setStorageSync('selectedTMArr', []);
+            this.trusteeImiVisible = false;
+            this.trusteeVisible = true;
+            this.methods.query.bind(this)({
+              noShowLoading: true
+            });
+          }else{
+            Tips.error('托管失败');
+          }
+          this.$apply();
+        }
+        catch(e){
+          Tips.error('托管失败');
+        }
+      },
+      // 取消托管
+      async deleteHostFn (data) {
+        console.log(data)
+        let params = {
+          trademarkIds: [].concat(data.id),
+        }
+        try {
+          let resp = await searchApi.deleteStewardTm(params);
+          this.resultList.forEach( (item) => {
+            if (item.id == data.id) {
+              item.state = 0;
+            }
+          })
+          this.$apply();
+        }
+        catch(e){
+          Tips.error('取消托管失败');
+        }
+      },
+    }
+
+    async companyNameSuggest(name){
+    	console.log(11,this.init)
+    	let resp = await companyApi.companyNameList(name, true);
+    	if (resp.total) {
+    		this.suggestVisible = true;
+    		//this.historyVisible = false;
+    		this.suggestList = resp.data;
+    		this.$apply();
+    	}
+    }
+
+    watch = {
+    	content(){
+    		if (this.fromSuggest) {
+    			return;
+    		}
+    		let v = this.content;
+    		//4个字及以上，且包含中文
+	  		if((this.init && this.searchType == 3 && v.length >= 4) || (this.init && v.length >= 4 && /[\u4E00-\u9FA5]|[\uFE30-\uFFA0]/.test(v))) {
+    			this.companyNameSuggest(v);
+    		}
+        else{
+          this.suggestVisible = false;
+        }
+    	}
+    }
+
+    config = {
+      navigationBarTitleText: '搜索结果',
+      onReachBottomDistance: 100,
+      enablePullDownRefresh: true,
+    };
+    mixins = [input, base];
+  }
+</script>
+
+<style lang="scss">
+@import "../../styles/variable";
+.search_tm{
+	background-color:#f8f8f8;height:100%;
+	.topfixed{
+    position: fixed;left: 0;top: 0;width: 100%;z-index: 1000;
+    .serach_box {margin:0; padding:20rpx 30rpx; height: 108rpx; background:linear-gradient(180deg,rgba(66,114,255,1),rgba(35,141,255,1)); width: 100%;}
+  }
+	.shadow{box-shadow: 0 6rpx 12rpx 0 rgba(47,128,246,0.09), inset 0 0 0 0 #E0E5EC;box-sizing:border-box;}
+	//.topPadding{padding-top: 108px;}
+	//.topPaddingSm{padding-top: 59px;}
+	.bottomPadding{padding-bottom: 206rpx;}
+	.footer_trustee{
+		position: fixed;bottom: 0;left: 0;height: 206rpx;background-color: #fff;box-shadow: 0 -10px 30px 0 rgba(47,128,246,0.09);
+		width:100%;text-align:center;
+		.selected{
+			padding:25rpx 0; height: 42rpx;text-align: center;font-size: 30rpx;color: #666666;
+			text:last-child{color:#FF9A2F; }
+		}
+	  button{width:690rpx;height:90rpx;border-radius: 8rpx;margin:0 auto;color:#fff;line-height:90rpx;background-image: linear-gradient(90deg, #4272FF 0%, #237CFF 100%);font-size: 34rpx;}
+	}
+}
+
+</style>

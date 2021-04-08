@@ -1,0 +1,204 @@
+<template>
+<view class="homePage">
+	<view class="homepage_top mt30">
+		<image src="/images/home/homepageIcon.jpg" alt="">
+		<view class="page_lists weui-flex">
+			<view class="weui-flex__item" style="text-align:left;" @tap="goQuery">
+				<image src="/images/home/trademark.png" alt="">
+			</view>
+			<!-- <web-view src="{{}}" class="weui-flex__item">
+				<image src="/images/home/aboutSebe.png" alt="">
+			</web-view> -->
+			<view class="weui-flex__item" @tap="goAbout">
+				<image src="/images/home/aboutSebe.png" alt="">
+			</view>
+			<view @tap="call" class="weui-flex__item" style="text-align:right;">
+				<image src="/images/home/contact.png" alt="">
+			</view>
+		</view>
+	</view>
+	<view class="homepage_tit">
+		<text class="tit">商标服务 · 品牌起航</text>
+		<text class="txt mt20">注册公司后，没有什么比注册商标更重要，200+国家/地区拥有长期、稳定、专业的合作机构</text>
+	</view>
+	<view class="homapage_lists mt30">
+		<repeat for="{{countriesLists}}" key="index" index="index" item="item">
+			<view class="list weui-flex" @tap="goDetail({{item}})">
+				<text class="left mr30">{{item.logo}}</text>
+				<text class="middle_txt weui-flex__item">{{item.name}}</text>
+				<text class="pay_money mr25">¥{{item.number}}</text>
+				<image class="" src="/images/home/right.png" alt="">
+			</view>
+		</repeat>
+	</view>
+	<view class="bottom mt30">
+		更多业务板块正在陆续上线中……
+	</view>
+</view>
+
+</template>
+<script>
+	import wepy from 'wepy';
+	import auth from '../../api/auth';
+	/*
+	过滤器
+	 */
+	import Lang from '../../utils/Lang';
+
+	import base from '../../mixins/base';
+
+	import order from '../../api/order';
+	import Tips from '../../utils/Tips';
+	import interfaces from '../../interfaces'
+	import ServiceAgreement from '../../components/confirm/serviceAgreement';
+
+	export default class orderList extends wepy.page {
+		components = {
+			ServiceAgreement: ServiceAgreement
+		};
+		def = {
+			countriesLists:[
+				{
+					logo:'中',
+					name:'国内商标申请',
+					number:'669',
+					id:1
+				},
+				{
+					logo:'美',
+					name:'美国商标实际使用申请',
+					number:'6300',
+					id:10
+				},
+				{
+					logo:'美',
+					name:'美国商标意向使用申请',
+					number:'8300',
+					id:9
+				},
+				{
+					logo:'英',
+					name:'英国商标注册申请',
+					number:'6000',
+					id:69
+				},
+				{
+					logo:'韩',
+					name:'韩国商标注册申请',
+					number:'6000',
+					id:77
+				},
+				{
+					logo:'法',
+					name:'法国商标注册申请',
+					number:'7000',
+					id:105
+				},
+				{
+					logo:'日',
+					name:'日本商标注册申请',
+					number:'8500',
+					id:11
+				},
+				{
+					logo:'俄',
+					name:'俄罗斯商标注册申请',
+					number:'10000',
+					id:76
+				},
+				{
+					logo:'欧',
+					name:'欧盟商标注册申请',
+					number:'11000',
+					id:106
+				}
+			],
+			init: false,
+		};
+		data = {...this.def};
+		async onShow () {
+			if (this.init) {
+				return;
+			}
+			await this.loadInit();
+		}
+		// 初始化 检查登录态
+		async loadInit(){
+			const sessionRes = await interfaces.checkLogin();
+			console.log(sessionRes)
+			if (sessionRes.code == '10013') {
+				this.isDisabled = true;
+				this.$apply();
+				this.loaded();
+				return;
+			}
+			const userData = wepy.getStorageSync('auth');
+			this.userData = userData;
+			this.loaded();
+		}
+
+		onUnload () {
+			this.init = false;
+		}
+		onHide () {
+			this.init = false;
+		}
+		methods = {
+			call() {
+				wepy.makePhoneCall({
+					phoneNumber: '4000315426'
+				})
+			},
+			async goDetail(item) {
+				wepy.navigateTo(
+					{
+						url: '/pages/home/detail?id=' + item.id
+					}
+				)
+			},
+			async goQuery() {
+				wepy.navigateTo(
+					{
+						url: '/pages/tradmarkQuery/tradmarkQuery'
+					}
+				)
+			},
+			async goAbout() {
+				wepy.navigateTo(
+					{
+						url: '/pages/home/aboutSebe'
+					}
+				)
+			}
+		};
+		config = {
+			navigationBarTitleText: '拾贝微商城'
+		};
+		mixins = [base];
+	}
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.homePage{background-color:#f8f8f8;padding-bottom: 30rpx;}
+.homepage_top{text-align:center;font-size:0;
+	image{width:690rpx;height:340rpx;}
+	.page_lists{width:690rpx;margin:20rpx auto 0;height:176rpx;
+		view{font-size:0;box-shadow: 0 8rpx 16rpx 0 rgba(0,89,135,0.06);box-sizing:border-box;height:132rpx;width:230rpx;background-color:#f8f8f8;}
+		image{border-radius:10rpx;width:220rpx;height:132rpx;}
+	}
+}
+.homepage_tit{width:596rpx;margin:0 auto;
+	text{display:block;text-align:center;}
+	.tit{font-size:36rpx;color:#333;line-height:50rpx;}
+	.txt{font-size:$text-sm;color:#999;line-height: 37rpx;}
+}
+.homapage_lists{
+	.list{width:690rpx;background: #FFFFFF;box-shadow: 0 8rpx 16rpx 0 rgba(0,89,135,0.06);border-radius: 10rpx;height:130rpx;margin:0 auto 20rpx;padding:25rpx;box-sizing:border-box;justify-content:center;align-items:center;
+		.left{width:80rpx;height:80rpx;background-image: linear-gradient(-180deg, #10AEFF 0%, #3D95FA 100%);border-radius: 80rpx;display:block;font-size: 40rpx;color:#FFF;text-align:center;line-height:80rpx;}
+		.middle_txt{font-size:$text-lg;color:#333;line-height:80rpx;}
+		.pay_money{font-size:$text-lg;color: #10AEFF;line-height:80rpx;}
+		image{width:14rpx;height:25rpx;}
+	}
+}
+.bottom{color: #DDDDDD;font-size:$text-sm;text-align:center;line-height:37rpx;}
+</style>

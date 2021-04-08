@@ -1,0 +1,33 @@
+<template>
+  <!-- 未登录 -->
+  <view class="null_login" >
+    <image class="img" src="../../images/icons/null_company.png"></image>
+    <view class="text">您还没有登录账号，无法获取数据哦</view>
+    <view class="btn btn_login" @tap="loginFn">登录账号</view>
+  </view>
+
+</template>
+
+<script>
+  import wepy from 'wepy'
+  export default class nullLogin extends wepy.component {
+
+    methods = {
+      loginFn () {
+        wepy.navigateTo({
+          url: '/pages/login/login'
+        })
+      }
+    }
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .null_login {
+    width: 750rpx; height:auto; padding-top: 200rpx; text-align: center; padding-bottom: 200rpx;
+    .img {width: 506rpx; height:346rpx; margin: 0 auto;}
+    .text {width:100%; text-align: center; color: #999; font-size: 24rpx; margin-top: 30rpx;}
+    .btn_login {width: 310rpx; height: 60rpx; line-height: 60rpx; border-radius: 30rpx; background:linear-gradient(90deg,rgba(66,114,255,1),rgba(35,124,255,1)); color: #fff; font-size: 28rpx; text-align: center; margin-top: 30rpx; margin: 30rpx auto;}
+  }
+</style>

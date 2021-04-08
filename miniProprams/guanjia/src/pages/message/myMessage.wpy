@@ -1,0 +1,510 @@
+<template>
+  <view class="my_message" wx:if="{{init && !isErr}}" style="background: #f8f8f8;">
+
+    <view class="null_company" wx:if="{{ noCompany }}" @tap="setMyCompanyFn">
+      <text class="text">您还未设置“我的企业”哦，快去设置吧</text>
+      <image src="/images/icons/remove.png" catchtap="hideTheBoxFn"></image>
+    </view>
+
+    <view class="type_wrap">
+      <view class="type_item" @tap="goDetailFn(1)">
+        <view class="img_bg">
+          <image class="img" src="/images/icons/msg_1.png"></image>
+        </view>
+        <view class="type_name">法律状态</view>
+        <view class="num" wx:if="{{ typeListObj1.statistics>0 }}">{{ typeListObj1.statistics > 99 ? '99+' :  typeListObj1.statistics}}</view>
+      </view>
+      <view class="type_item" @tap="goDetailFn(2)">
+        <view class="img_bg img_bg_1">
+          <image class="img" src="/images/icons/msg_2.png"></image>
+        </view>
+        <view class="type_name">风险预警</view>
+        <view class="num" wx:if="{{ typeListObj2.statistics>0 }}">{{ typeListObj2.statistics > 99 ? '99+' :  typeListObj2.statistics }}</view>
+      </view>
+      <view class="type_item" @tap="goDetailFn(3)">
+        <view class="img_bg img_bg_2">
+          <image class="img" src="/images/icons/msg_3.png"></image>
+        </view>
+        <view class="type_name">情报中心</view>
+        <view class="num" wx:if="{{ typeListObj3.statistics>0 }}">{{ typeListObj3.statistics > 99 ? '99+' :  typeListObj3.statistics }}</view>
+      </view>
+      <view class="type_item" @tap="goDetailFn(4)">
+        <view class="img_bg img_bg_3">
+          <image class="img" src="/images/icons/msg_4.png"></image>
+        </view>
+        <view class="type_name">近似商标</view>
+        <view class="num" wx:if="{{ typeListObj4.statistics>0 }}">{{ typeListObj4.statistics > 99 ? '99+' :  typeListObj4.statistics }}</view>
+      </view>
+    </view>
+
+    <view class="warm_tips">
+      <image class="img_lef" src="../../images/message/tips_lef.jpg"></image>
+      <text class="tips_title">温馨提示</text>
+      <text class="tips_content line1">风险包含被异议、被撤三、变更、到期等情况</text>
+      <text class="tips_content line2">情报包含可异议、可撤三、未续展注销等情况</text>
+      <image class="img_rig" src="../../images/message/tips_rig.png"></image>
+    </view>
+
+    <view class="kefu pub_flx">
+      <view class="img_box">
+        <image src="../../images/icons/kefu.jpg"></image>
+      </view>
+      <view class="text">
+        <text class="title">我是客服小贝，有问题请找我哟！</text>
+        <text class="info">周一至周五  8:30-18:00</text>
+      </view>
+      <button open-type="contact" class="kefu_btn" />
+    </view>
+
+    <repeat for="{{ msgList }}">
+      <view class="msg_item pub_flx" @tap="goDeyailFn({{ item }})">
+        <view class="img_box">
+          <image src="{{ item.tmImg }}"></image>
+        </view>
+        <view class="text">
+          <text class="title" wx:if="{{ item.newsType==1 }}">您的商标"{{ item.tmName }}"有法律状态更新，快去看看吧！</text>
+          <text class="title" wx:if="{{ item.newsType==2 }}">您的商标"{{ item.tmName }}"有风险，请尽快查看！</text>
+          <text class="title" wx:if="{{ item.newsType==3 }}">为您发现了商标"{{ item.tmName }}"的重要情报，请查收！</text>
+
+          <!-- <text class="title" wx:if="{{ item.newsType==2 && item.typeClassification==1 }}">您的商标"{{ item.tmName }}"工商信息有变更，商标著录项目信息未同步</text>
+          <text class="title" wx:if="{{ item.newsType==2 && item.typeClassification==2 }}">您的商标"{{ item.tmName }}"处于初审公告期，可能有第三方异议风险</text>
+          <text class="title" wx:if="{{ item.newsType==2 && item.typeClassification==3 }}">您的商标"{{ item.tmName }}" 已满三年，可能有第三方撤三风险</text>
+          <text class="title" wx:if="{{ item.newsType==2 && item.typeClassification==4 }}">您的商标"{{ item.tmName }}"即将到期，请尽快办理续展</text>
+          <text class="title" wx:if="{{ item.newsType==3 && item.typeClassification==1 }}">商标"{{ item.tmName }}", 此商标正处于初审公告期</text>
+          <text class="title" wx:if="{{ item.newsType==3 && item.typeClassification==2 }}">商标"{{ item.tmName }}", 此商标注册已满三年</text>
+          <text class="title" wx:if="{{ item.newsType==3 && item.typeClassification==3 }}">商标"{{ item.tmName }}", 此商标未续展注销已满一年</text> -->
+
+          <text class="title" wx:if="{{ item.newsType==4 }}">您的商标"{{ item.tmName }}"有近似商标消息更新</text>
+          <text class="title" wx:if="{{ item.newsType==5 }}">您有一个商标"{{ item.tmName }}"注册已满5年，可以申请驰名商标了，快咨询专家吧！</text>
+          <text class="title" wx:if="{{ item.newsType==6 }}">您有企业一键托管完成了，快去看看吧！</text>
+          <text class="info info_lef" wx:if="{{ item.applicationType == 1 }}">来自我的企业</text>
+          <text class="info info_lef" wx:if="{{ item.applicationType == 2 }}">来自关注企业</text>
+          <text class="info info_rig">{{ item.updateTime }}</text>
+        </view>
+      </view>
+    </repeat>
+
+
+  </view>
+
+</template>
+
+<script>
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import NetError from '../../components/common/net_error';
+  import FormTips from '../../components/weui/tips';
+  import Tips from '../../utils/Tips';
+  import interfaces from '../../interfaces';
+  import homeApi from '../../api/home';
+  import filter from '../../utils/filters';
+
+
+  export default class myMessagePage extends wepy.page {
+
+    components = {
+      Tips: FormTips,
+      NetError: NetError,
+    };
+
+    data = {
+      init: false,
+      isErr: false,
+      noCompany: false,  //未设置我的企业
+      typeList: [],  //类型列表
+      msgList: [],
+      companyList: [],  //我的企业列表
+      typeListObj1: {},
+      typeListObj2: {},
+      typeListObj3: {},
+      typeListObj4: {},
+      loading: false,
+      noMoreData: false,  //上啦加载更多数据
+      page: 1,  //当前页数
+    }
+
+    onReachBottom (e) {
+      if (!this.noMoreData) {
+        let isLoadMore = true;
+        this.methods.findNewsListFn.bind(this)(isLoadMore);  //查询已托管商标列表
+      }
+    }
+
+    methods = {
+      async goDeyailFn (item) {
+        let type = item.newsType;
+        let url_ = '';
+        if(type == 1) {   //法律状态
+          url_ = `/pages/message/lawMessage?id=${item.id}&applicationType=${item.applicationType}&stewardSubjectId=${item.stewardSubjectId}`;
+        }
+        else if (type == 2) {   //风险预警
+          url_ = `/pages/message/warmMessage?id=${item.id}&stewardSubjectId=${item.stewardSubjectId}`;
+        }
+        else if (type == 3) {  //情报中心
+          url_ = `/pages/message/intelligenceMessage?id=${item.id}&stewardSubjectId=${item.stewardSubjectId}`;
+        }
+        else if (type == 4) {   //近似商标
+          url_ = `/pages/message/similarMessage?id=${item.id}&applicationType=${item.applicationType}&stewardSubjectId=${item.stewardSubjectId}`;
+        }
+        else if (type == 5) {  //去商标详情
+          await homeApi.readNews({id: item.id});
+          url_ = `/pages/detail/trademarkDetail?trademarkId=${item.trademarkId}`;
+        }
+        else if (type == 6) {  //去企业详情
+          await homeApi.readNews({id: item.id});
+          url_ = `/pages/detail/enterpriseDetail?companyName=${item.tmName}&applicationType=${item.applicationType}&companyId=${item.stewardSubjectId}`;
+        }
+        wepy.navigateTo({
+          url: url_
+        })
+      },
+      setMyCompanyFn () {  //去设置我的企业页面
+        wepy.navigateTo({
+          url: '/pages/company/setMy'
+        })
+      },
+      hideTheBoxFn () {
+        this.noCompany = false;
+      },
+      goDetailFn (type) {
+        let url_ = '';
+        if(type == 1) {   //发来吧状态
+          url_ = `/pages/message/lawMessage?newsType=${type}`;
+        }
+        else if (type == 2) {   //风险预警
+          url_ = `/pages/message/warmMessage?newsType=${type}`;
+        }
+        else if (type == 3) {  //情报中心
+          url_ = `/pages/message/intelligenceMessage?newsType=${type}`;
+        }
+        else if (type == 4) {   //近似商标
+          url_ = `/pages/message/similarMessage?newsType=${type}`;
+        }
+        wepy.navigateTo({
+          url: url_
+        })
+      },
+      // 查询我的消息
+      async statisticsNewsFn () {
+        let self = this;
+        let params = {}
+        try {
+          let data = await homeApi.statisticsNews(params, true);
+          self.typeList = data.data;
+          if (self.typeList.length > 0) {
+            self.typeList.forEach(function(item){
+              if (item.newsType == 1) {
+                self.typeListObj1 = item;
+              }
+              else if (item.newsType == 2) {
+                self.typeListObj2 = item;
+              }
+              else if (item.newsType == 3) {
+                self.typeListObj3 = item;
+              }
+              else if (item.newsType == 4) {
+                self.typeListObj4 = item;
+              }
+            })
+          }
+          self.$apply();
+        }
+        catch (e) {}
+      },
+      // 查询我的企业信息
+      async findMyCompanyFn () {
+        let self = this;
+        let params = {
+          applicationType: 1,
+          page: 1,
+          size: 20
+        }
+        try {
+          let resp = await homeApi.findCompanyList(params, true);
+          self.companyList = resp.data;
+          if (self.companyList.length > 0) {
+            self.noCompany = false;
+          }
+          else {
+            self.noCompany = true;
+          }
+          self.$apply();
+        }
+        catch(e) {}
+      },
+      async findNewsListFn (isLoadMore, noShowLoading) {
+        let self = this;
+        if (isLoadMore) {
+          self.page += 1
+        }
+        else {
+          self.page = 1
+        }
+        let params = {
+          page: self.page,
+          size: 10
+        };
+        self.loading = true;
+        try {
+          let resp = await homeApi.findNewsList(params, noShowLoading);
+          let docs = resp.data || [];
+          let allPage = Math.ceil(resp.total/params.size);  //最大页数
+          self.loading = false;
+          if (self.page == allPage || allPage==1 || docs.length==0) {
+            self.noMoreData = true;
+          }
+          else if(self.page < allPage){
+            self.noMoreData = false;
+          }
+          if (isLoadMore) {
+            self.msgList = self.msgList.concat(docs);  //托管商标列表
+          }
+          else {
+            self.msgList = docs;  //托管商标列表
+          }
+          self.msgList.forEach(function(item){
+            item.tmName = item.tmName || '图形';
+            item.updateTime = filter.dateFormateYMD(item.updateTime);
+            item.updateTime = item.updateTime.replace(/(\d{4}).(\d{2}).(\d{2})/, '$1-$2-$3'); //兼容IOS下显示问题
+          })
+          self.$apply();
+        }
+        catch(e){}
+      }
+    }
+
+    async onLoad () { // 在Page和Component共用的生命周期函数
+    	this.loaded();
+    }
+
+    async onShow () {
+    	this.loaded();  //base中的公共方法
+
+    	wx.showNavigationBarLoading();
+      await Promise.all([this.methods.statisticsNewsFn.call(this), this.methods.findNewsListFn.call(this, false, true), this.methods.findMyCompanyFn.call(this)]);
+      wx.hideNavigationBarLoading();
+
+    	// this.methods.statisticsNewsFn.call(this);   //查询各类消息数量
+      // this.methods.findNewsListFn.call(this, false, true);  //查询消息列表
+      // this.methods.findMyCompanyFn.call(this);  //查询我的企业列表
+    }
+
+    // 初始化 检查登录态
+    async loadInit(){
+    	await interfaces.checkLogin()
+    }
+
+    mixins = [base];
+    config = {
+      navigationBarTitleText: '我的消息'
+    };
+
+    onShareAppMessage () {
+      const title = '拾贝商标管家';
+      const url = '/pages/home/home';
+      return Tips.share(title, url, title);
+    }
+
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .my_message{
+    min-height: 100%;
+    .null_company {
+      height: 80rpx;
+      background: #FFFFFF;
+      border-bottom: 1px solid rgba(229,229,229,0.50);
+      padding: 0 30rpx;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      .text {
+        font-family: PingFangSC-Regular;
+        font-size: 28rpx;
+        color: #4272FF;
+        line-height: 80rpx;
+      }
+      image {
+        width: 20rpx;
+        height: 20rpx;
+        padding: 20rpx 0 20rpx 20rpx;
+      }
+    }
+    .type_wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20rpx;
+      background: #fff;
+      .type_item {
+        width: 110rpx;
+        height: auto;
+        margin: 35rpx 33rpx;
+        position: relative;
+        text-align: center;
+        .img_bg {
+          width: 100rpx;
+          height: 100rpx;
+          border-radius: 50%;
+          background-image: linear-gradient(133deg, #47C1FF 3%, #659AFF 92%);
+          text-align: center;
+          line-height: 100rpx;
+          margin: 0 auto;
+          position: relative;
+          .img {
+            width: 36rpx;
+            height: 36rpx;
+            position: absolute;
+            left:50%;
+            top:50%;
+            margin-left: -18rpx;
+            margin-top: -18rpx;
+          }
+        }
+        .img_bg_1 {
+          background-image: linear-gradient(90deg, #FFA31A 7%, #FFC136 94%);
+        }
+        .img_bg_2 {
+          background-image: linear-gradient(122deg, #B8DF73 3%, #A6CD67 93%);
+        }
+        .img_bg_3 {
+          background-image: linear-gradient(139deg, #FF7575 5%, #FF6939 93%);
+        }
+        .type_name {
+          font-family: PingFangSC-Regular;
+          font-size: 26rpx;
+          color: #333333;
+          margin-top: 25rpx;
+          max-width: 110rpx;
+          overflow: hidden;
+        }
+        .num {
+          position: absolute;
+          right: -18rpx;
+          top: 0;
+          min-width: 40rpx;
+          box-sizing: border-box;
+          padding:0 8rpx;
+          height: 40rpx;
+          background: #FF4743;
+          border: 2px solid #FFFFFF;
+          border-radius: 40rpx;
+          font-size: 20rpx;
+          line-height: 34rpx;
+          text-align: center;
+          color: #fff;
+        }
+      }
+    }
+    .warm_tips {
+      width: 100%;
+      height: 110rpx;
+      background: #fff;
+      margin-bottom: 20rpx;
+      position: relative;
+      .img_lef {
+        width: 115rpx;
+        height:110rpx;
+        position: absolute;
+        left:0;
+        top:0;
+      }
+      .img_rig {
+        width:91rpx;
+        height:110rpx;
+        position:absolute;
+        right:0;
+        top:0;
+      }
+      .tips_title {
+        width:53rpx;
+        height:68rpx;
+        line-height: 34rpx;
+        font-size: 26rpx;
+        color: #4272FF;
+        position: absolute;
+        top:21rpx;
+        left:30rpx;
+        font-family: PingFangSC-Regular;
+      }
+      .tips_content {
+        width: 500rpx;
+        text-align:left;
+        position:absolute;
+        font-size: 24rpx;
+        color: #666666;
+      }
+      .line1 {
+        top: 18rpx;
+        left: 50%;
+        margin-left: -250rpx;
+      }
+      .line2 {
+        top:59rpx;
+        left: 50%;
+        margin-left: -250rpx;
+      }
+    }
+    .pub_flx {
+      padding: 30rpx;
+      display: flex;
+      justify-content: flex-start;
+      align-items: flex-statrt;
+      background: #fff;
+      margin-bottom: 20rpx;
+      position: relative;
+      overflow:hidden;
+      .kefu_btn {
+        position: absolute;
+        left:0;
+        top:-2rpx;
+        width:750rpx;
+        height:102%;
+        background: none;
+        border:none;
+        opacity: 0;
+      }
+      .img_box {
+        width: 90rpx;
+        height: 90rpx;
+        border: 1px solid #E5E5E5;
+        border-radius: 6rpx;
+        image {
+          width: 100%;
+          height: 100%;
+        }
+      }
+      .text {
+        width: 570rpx;
+        margin-left: 30rpx;
+        font-family: PingFangSC-Regular;
+        .title {
+          width: 100%;
+          display: block;
+          font-size: 30rpx;
+          color: #333333;
+          margin-bottom: 10rpx;
+        }
+        .info {
+          font-size: 26rpx;
+          color: #999999;
+        }
+        .info_lef {
+          float:left;
+        }
+        .info_rig {
+          float: right;
+        }
+      }
+    }
+    .kefu {
+      .img_box {
+        border: none;
+      }
+    }
+  }
+
+
+
+</style>

@@ -1,0 +1,216 @@
+<template>
+	<Tips />
+	<view class="setMy setConcered">
+		<view class="topfixed {{scrollTop!=0 ? 'shadow' : ''}}" catch:touchmove="preventdefault">
+			<searchBox placeholder="请输入企业名称" :content.sync="content" :autoFocus.sync="autoFocus" :richText.sync="resultRichText"  @focusAction.user="focusAction" @blurAction.user="blurAction" @query.user="query"/>
+		</view>
+		<searchResult wx:if="{{showResult}}" :topPadding.sync="topPadding" :show.sync="showResult" :resultList.sync="resultList" :selectMode.sync="selectMode" :noMoreData.sync="noMoreData" :loading.sync="loading" :applicationType.sync="applicationType" />
+		<view wx:if="{{!showResult}}" class="column-center tip_wrap">
+			<image src="/images/setCompany/cC.png"></image>
+			<view class="tip_m">请搜索并关注其他企业</view>
+			<view class="tip">以便全方位了解Ta的商标近况哦~</view>
+		</view>
+		<confirmM :showModal.sync="showModal" :title.sync="modalTitle" :content.sync="modalContent" :minorContent.sync="minorContent" :options.sync="modalOptions" />
+	</view>
+
+</template>
+
+
+<script>
+	import wepy from 'wepy';
+	import interfaces from '../../interfaces';
+	import FormTips from '../../components/weui/tips';
+	import searchBox from '../../components/search/searchBox';
+	import searchResult from '../../components/search/searchCompanyResult';
+	import confirmM from '../../components/common/confirm_model';
+	import companyApi from '../../api/company';
+	import base from '../../mixins/base';
+	import Tips from '../../utils/Tips';
+	import NetError from '../../components/common/net_error';
+	const resultStr = '共<b style="font-weight:normal;color:#FF9A2F;">@@@</b>家企业';
+	export default class setConcered extends wepy.page {
+		components = {
+			Tips: FormTips,
+			searchBox,
+			searchResult,
+			confirmM,
+		};
+		def = {
+			content:'',
+
+			showModal: false, //弹出对话框
+			modalTitle: '共<b style="font-weight:normal;color:#4272FF;">20</b>条结果',
+			modalContent: '您好，每个企业只能设置<b style="font-weight:normal;color:#4272FF;">5</b>个核心商标，该企业的核心商标已满',
+			minorContent:'您好，每个企业只能设置<b style="font-weight:normal;color:#4272FF;">5</b>个核心商标，该企业的核心商标已满',
+			modalOptions:{
+				//showCancel: false,
+				confirmText: '去编辑'
+			},
+
+			applicationType: 2, //1表示我的企业 2表示关注企业
+			showResult: false,
+			resultList: [], //结果数据
+			page:1,
+			size:10,
+			selectMode: false, //可选择状态
+			noMoreData: false,//上拉加载无更多数据
+			loading: false, //
+			topPadding: 0,
+      scrollTop:0,
+
+			autoFocus: false, //是否自动获得焦点
+			resultRichText:'', //右上角结果数量
+		};
+		data = {...this.def};
+
+
+		async onLoad () {
+			let self = this;
+			this.loaded();
+			//设置容器的高度
+	    wx.getSystemInfo({
+	      success: function(res) {
+	        self.containerH = res.windowHeight;
+	        console.log('containerH:',self.containerH);
+	        let q = wepy.createSelectorQuery();
+			    q.select('#searchbox').boundingClientRect();
+			    q.exec(function (res) {
+			    	self.topPadding = res[0].height;
+			    	self.$apply();
+			    });
+	      }
+	    })
+		}
+
+		// 页面滚动头部固定
+    onPageScroll(e){
+    	this.scrollTop = e.scrollTop;
+    	this.$apply();
+    }
+
+		//上拉加载更多数据
+		onReachBottom(e){
+			if (!this.noMoreData) {
+				this.methods.query.bind(this)({
+	    		isLoadMore: true
+	    	});
+			}
+		}
+
+		//下拉刷新
+		onPullDownRefresh(e){
+			this.methods.query.bind(this)({});
+    	wx.stopPullDownRefresh();
+		}
+
+		getStatus(status){
+  		let ret = '';
+  		if (status==1) {
+  			ret = '在营';
+  		}else if(status==2){
+  			ret = '吊销';
+  		}else if(status==3){
+  			ret = '注销';
+  		}else if(status==4){
+  			ret = '迁出';
+  		}else if(status==5){
+  			ret = '撤销';
+  		}else if(status==6){
+  			ret = '临时';
+  		}else if(status==7){
+  			ret = '';
+  		}else if(status==8){
+  			ret = '停业';
+  		}else if(status==9){
+  			ret = '其他';
+  		}
+  		return ret;
+  	}
+
+		methods = {
+			//查询
+    	async query(params = {}){
+    		this.content = params.content || this.content;
+    		this.page = params.page || this.page;
+    		if (params.isLoadMore) {
+		    	this.page += 1;
+		    }else{
+		    	this.page = 1;
+		    }
+    		let data = {
+		  		companyName:  this.content,
+		  		page: this.page,
+		  	}
+		  	this.loading = true;
+    		let resp = await companyApi.companyInfoList(data);
+    		this.loading = false;
+    		console.log(resp)
+    		let docs = resp.data || [];
+        docs.forEach((item, k) => {
+          item.statusT = this.getStatus(item.status);
+        });
+    		if (resp.total) {
+    			this.resultRichText = resultStr.replace('@@@', resp.total || resp.toatal);
+    		}
+    		if (params.isLoadMore) {
+        	if (docs.length < this.size) {
+            this.noMoreData = true;
+          }else{
+            this.noMoreData = false;
+          }
+        	this.resultList = this.resultList.concat(docs);
+        }else{
+        	if (docs.length < this.size) {
+            this.noMoreData = true;
+          }else{
+            this.noMoreData = false;
+          }
+        	this.resultList = docs;
+        }
+    		this.showResult = true;
+    		this.$apply();
+    	},
+    	// 设置查询内容
+			setValue(v){
+				this.content = v;
+				this.$apply();
+			},
+			//获取焦点回调
+    	focusAction(){
+    		this.autoFocus = true;
+    		this.$apply();
+    	},
+    	//失去焦点回调
+    	blurAction(){
+    		this.autoFocus = false;
+    		this.$apply();
+    	},
+			preventdefault(){},
+		}
+
+		config = {
+			navigationBarTitleText: '关注其他企业',
+			onReachBottomDistance: 100,
+			enablePullDownRefresh: true,
+		};
+		mixins = [base];
+	}
+</script>
+
+<style lang="scss">
+@import "../../styles/variable";
+.setMy{
+	background-color:#f8f8f8;height:100%;
+	.topfixed{position: fixed;left: 0;top: 0px;width: 100%;z-index: 1000;}
+	.shadow{box-shadow: 0 6px 12px 0 rgba(47,128,246,0.09), inset 0 0 0 0 #E0E5EC;box-sizing:border-box;}
+	.tip_wrap{
+		position: absolute;;top: 108rpx;left: 0;bottom: 0;right: 0;width:100%;
+		image{
+			width: 300rpx;height: 300rpx;
+		}
+		.tip_m{font-size: 32rpx;color: #999999;line-height: 45rpx;margin: 30rpx 0 15rpx;}
+		.tip{font-size: 24rpx;color: #999999;height: 33rpx;line-height: 33rpx;}
+	}
+}
+
+</style>

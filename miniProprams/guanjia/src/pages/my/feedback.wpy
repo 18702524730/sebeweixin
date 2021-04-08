@@ -1,0 +1,203 @@
+<template>
+  <!-- 自定义弱提示框-失败 -->
+  <Tips />
+
+  <view class="my_feedback" wx:if="{{init}}" style="background: #F8F8F8;">
+    <view class="title" >详情描述</view>
+    <view class="feedback_box">
+      <view class="textarea">
+        <textarea class="content" placeholder="如果您对我们有什么建议、想法和期望，请告诉我们" value="{{ feedbackContent }}" @blur="textAreaBlurFn"  />
+      </view>
+      <view class="uploader">
+        <view class="upload_item" wx:for="{{ imgList }}" wx:key="{{ index }}" @tap="previewFn({{ item }})"><image class="img" src="{{ item }}"></image></view>
+        <view class="upload_item" @tap="showPickListFn"><image class="img" src="../../images/icons/upload.png"></image></view>
+      </view>
+    </view>
+    <view class="submit_btn" @tap="submitFn">提交</view>
+
+    <!-- 咨询客服 -->
+    <view class="kefu">
+      咨询客服
+      <button open-type="contact" style="border:none; background:none; height:100%;" />
+    </view>
+    
+    <!-- 选择图片上传方式 -->
+    <pickList :list.sync="list" :showList.sync="showPick" @select.user="selectFn" />
+
+
+
+  </view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import auth from '../../api/auth';
+  import pickList from '../../components/common/pick_list';
+  //import Lang from '../../utils/Lang';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import Tips from '../../utils/Tips';
+  import WxUtils from '../../utils/WxUtils';
+  import interfaces from '../../interfaces'
+  import homeApi from '../../api/home';
+  import phoneKefu from '../../components/common/phone_kefu';
+  import indexFooter from '../../components/common/index_footer';
+  import footerNav from '../../components/common/footer_nav';
+  import FormTips from '../../components/weui/tips';
+
+  export default class myFeedback extends wepy.page {
+  	components = {
+      phoneKefu,
+      indexFooter,
+      footerNav,
+      pickList,
+      Tips: FormTips,
+    };
+    def = {
+      init: false,
+      feedbackContent: '',  //意见反馈内容
+      feedbackUrl: '',  //意见反馈图片地址
+      list: [
+        {title: '拍照', id: 1},
+        {title: '从手机相册选择', id: 2}
+      ],
+      imgList: [],  //待上传的图片列表
+      showPick: false,
+      showCamera: false,  //显示相机
+    };
+    data = {...this.def};
+    async onShow () {
+    	if (this.init) {
+    		return;
+    	}
+    	await this.loadInit();
+    }
+    onUnload () {
+    	this.init = false;
+    }
+    onHide () {
+    	this.init = false;
+    }
+
+    // 初始化 检查登录态
+    async loadInit(){
+      this.init = true;
+    }
+
+    onLoad () {
+
+    }
+
+    methods = {
+      // 输入结束时给变量赋值
+      textAreaBlurFn (e) {
+        this.feedbackContent = e.detail.value;
+      },
+      // 点击上传按钮
+      showPickListFn () {
+        this.showPick = true;
+        this.$apply();
+      },
+      // 选择图片来源
+      selectFn (data) {
+        let self = this;
+        let sourceType = ['camera'];
+        if (data.id == 1) {  //拍照
+          sourceType = ['camera'];
+        }
+        else if (data.id == 2) {   //从手机相册选择
+          sourceType = ['camera', 'album'];
+        }
+        wx.chooseImage({
+          count: 1,
+          sourceType: sourceType,
+          success: function(res) {
+            console.log(res)
+            self.imgList = self.imgList.concat(res.tempFilePaths);
+            self.showPick = false;
+            let tempFilePaths = res.tempFilePaths;
+            wx.uploadFile({
+              url: `${wepy.$instance.globalData.baseUrl}/steward/FileController/uploadData`, //仅为示例，非真实的接口地址
+              filePath: tempFilePaths[0],
+              name: 'fileData',
+              formData:{
+                'user': 'test'
+              },
+              success: function(res){
+                let respData = JSON.parse(res.data);
+                self.feedbackUrl = respData.url;
+                self.$apply();
+              }
+            })
+           }
+        }) 
+      },
+      // 预览图片
+      previewFn (item) {
+        let urlList = this.imgList.map((info) => {
+          return info.path
+        })
+        console.log(urlList)
+        wx.previewImage({
+          current: item.path, // 当前显示图片的http链接
+          urls: urlList // 需要预览的图片http链接列表
+        })
+      },
+      // 提交
+      async submitFn () {
+        let params = {
+          opinionContent: this.feedbackContent,
+          opinionImage: this.feedbackUrl
+        }
+        if (!params.opinionContent) {
+          this.tips('请填写详情描述');
+          return
+        }
+        let resp = await homeApi.addOpinionFeedback(params);
+        Tips.success('提交成功');
+        setTimeout(function(){
+          wepy.navigateTo({
+            url: '/pages/my/my',
+          })
+        }, 3000)    
+      }
+    };
+
+    config = {
+      navigationBarTitleText: '意见反馈'
+    };
+    mixins = [base, input];
+    onShareAppMessage () {
+      const title = '拾贝商标管家';
+      const url = '/pages/home/home';
+      return Tips.share(title, url, title);
+    }
+  }
+</script>
+
+<style lang="scss">
+@import "../../styles/variable";
+@import "../../styles/pub";
+.my_feedback {
+  height: 100%;
+  .title { height: 74rpx; line-height: 74rpx; box-sizing:border-box; padding-left: 30rpx; color: #999; font-size: 28rpx;}
+  .feedback_box {
+    width: 100%; height: auto; background: #fff; padding-top: 30rpx;
+    .textarea {
+      margin: 0 30rpx; 
+      .content {font-size: 28rpx; width: 100%;}
+    }
+    .uploader {
+      height: 188rpx; border-top: 1px solid #E5E5E5; box-sizing:border-box; padding: 30rpx 0; margin: 0 30rpx; display: flex; justify-content:flex-start; align-items:center; 
+      .upload_item {
+        width: 134rpx; height: 128rpx; background: #eee; margin-right: 20rpx;
+        .img {width: 100%; height: 100%;}
+      }
+    }
+  }
+  .submit_btn {width: 690rpx; height: 86rpx; line-height: 86rpx; background:linear-gradient(90deg,rgba(66,114,255,1),rgba(35,124,255,1)); border-radius: 5rpx; color: #fff; font-size: 30rpx; text-align: center; margin: 30rpx auto;  }
+  .kefu {
+    width: 100%; text-align: center; color: #4272FF; font-size: 32rpx; margin-top: 200rpx; position: relative; 
+    button {position: absolute; width: 100%; height: 100%; left: 0; top: 0; opacity: 0;}
+  }
+}
+</style>

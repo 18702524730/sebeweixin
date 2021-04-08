@@ -1,0 +1,324 @@
+<template>
+	<Tips />
+  <view class="report">
+		<image class="topbg" src="/images/my/bg01.jpg" style="width: 750rpx;height: 395rpx;"/>
+		<view class="container">
+			<image class="main_til" src="/images/my/title.png" style="width: 619rpx;height: 80rpx;"	/>
+	  	<text class="sec_til">大数据分析  助力品牌起航</text>
+	  	<view class="wraps tm">
+	  		<view class="tmName">
+	    		{{trademarkName}}
+	    	</view>
+	    	<view class="til">
+	    		已注册“{{trademarkName}}”商标总数为<text>{{allData.tadeMarkTotals}}</text>个
+	    	</view>
+		    <view class="pie">
+		    	<canvas canvas-id="pieCanvas" class="canvas" style="min-height:270px; width:100%;" bindtouchstart="touchHandler"></canvas>
+		    	<view class="title">
+		    		<text class="left"></text>
+		    		<view>已注册“{{trademarkName}}”商标的法律状态分布图</view>
+		    		<text class="right"></text>
+		    	</view>
+		    </view>
+	    </view>
+	    <view class="wraps no_reg">
+	    	<view class="til">
+	    		未注册类别<text>{{allData.unregistered}}个</text>
+	    	</view>
+	    	<view class="cateList {{isUnregisterWrap ? 'maxHer' : 'maxH'}}" style="{{allData.unregistered==0 ? 'padding-top:15rpx;':''}}">
+	    		<view wx:if="{{allData.unregistered == 1}}" class="single" wx:for="{{allData.unIntCls}}" wx:key="{{index}}">{{item > 9 ? item : '0' + item}}类-{{cateIdData[item-1].goodsname}}</view>
+	    		<view wx:if="{{allData.unregistered > 1}}" class="{{index%2!=0 ? 'even': ''}}" wx:for="{{allData.unIntCls}}" wx:key="{{index}}">{{item > 9 ? item : '0' + item}}类-{{cateIdData[item-1].goodsname}}</view>
+		    </view>
+				<view wx:if="{{allData.unregistered>10}}" class="row-center more_wrap">
+		    	<view wx:if="{{isUnregisterWrap}}" class="more" @tap="moreToggle('isUnregisterWrap')">共{{allData.unregistered}}项，收起全部<text class="up"></text></view>
+		    	<view wx:if="{{!isUnregisterWrap}}" class="more" @tap="moreToggle('isUnregisterWrap')">共{{allData.unregistered}}项，展开全部<text></text></view>
+		    </view>
+	    </view>
+	    <view class="wraps reg">
+	    	<view class="til">
+	    		已注册类别<text>{{allData.registered}}个</text>
+	    	</view>
+		    <view class="cateList {{isRegisterWrap? 'maxHer' : 'maxH'}}" style="{{allData.registered==0 ? 'padding-top:15rpx;':''}}">
+		    	<view wx:if="{{allData.registered == 1}}" class="single" wx:for="{{allData.intCls}}" wx:key="{{index}}">{{item > 9 ? item : '0' + item}}类-{{cateIdData[item-1].goodsname}}</view>
+		    	<view wx:if="{{allData.registered > 1}}" class="{{index%2!=0 ? 'even': ''}}" wx:for="{{allData.intCls}}" wx:key="{{index}}">{{item > 9 ? item : '0' + item}}类-{{cateIdData[item-1].goodsname}}</view>
+		    </view>
+		    <view wx:if="{{allData.registered>10}}" class="row-center more_wrap">
+		    	<view wx:if="{{isRegisterWrap}}" class="more" @tap="moreToggle('isRegisterWrap')">共{{allData.registered}}项，收起全部<text class="up"></text></view>
+		    	<view wx:if="{{!isRegisterWrap}}" class="more" @tap="moreToggle('isRegisterWrap')">共{{allData.registered}}项，展开全部<text></text></view>
+		    </view>
+	    </view>
+	    <view class="wraps registor">
+	    	<view class="til">
+	    		已注册“{{trademarkName}}”商标的申请人<text>{{allData.companyNumber}}个</text>
+	    	</view>
+		    <view class="registorList {{isWrap? 'regMaxHer' : 'regMaxH'}}">
+		    	<view wx:if="{{index<200}}" wx:for="{{allData.companyList}}" wx:key="{{index}}">{{index+1}}.{{item}}</view>
+		    </view>
+		    <view wx:if="{{allData.companyNumber>5}}" class="row-center more_wrap">
+		    	<view wx:if="{{isWrap}}" class="more" @tap="moreToggle('isWrap')">共{{allData.companyNumber}}项，收起全部<text class="up"></text></view>
+		    	<view wx:if="{{!isWrap && allData.companyNumber>200}}" class="more" @tap="moreToggle('isWrap')">共{{allData.companyNumber}}项，展开前200条<text></text></view>
+		    	<view wx:if="{{!isWrap && allData.companyNumber<=200}}" class="more" @tap="moreToggle('isWrap')">共{{allData.companyNumber}}项，展开全部<text></text></view>
+		    </view>
+	    </view>
+	    <view class="footer">
+	    注意：申请商标注册事项繁多，需要具备较专业的商标知识，建议注册前咨询商标专业人员，调高申请成功率，为您减少不必要的麻烦。
+	    </view>
+    </view>
+    <view class="column-center call" @tap="call">
+    	<image src="/images/icons/phoneBig.png">
+    </view>
+    <button open-type="share" plain="true" class="share">分享商标注册查询报告</button>
+  </view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import qs from 'qs';
+  import auth from '../../api/auth';
+  import FormTips from '../../components/weui/tips';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import Tips from '../../utils/Tips';
+  import interfaces from '../../interfaces'
+  import selectBig from '../../components/report/selectBig'
+  import reportApi from '../../api/report';
+  import wxCharts from '../../api/wxcharts-min';
+  import Data from '../../utils/tmTypeData'
+  const app = getApp();
+
+  export default class reportPage extends wepy.page {
+  	components = {
+  		Tips: FormTips,
+  		selectBig
+    };
+    def = {
+    	cateIdData: Data.cateIdData,
+    	trademarkName:'', //商标名称
+    	phone: '', //用户联系方式
+    	intCls:'', //用户选择的商标大类
+    	allData: {}, //数据集
+    	isUnregisterWrap: false,
+    	isRegisterWrap: false,
+    	isWrap: false,
+    	visible: false,
+    	chartOption: {
+        animation: true, //是否有动画
+        disablePieStroke: true, //不绘制各部分连接处的白线
+        canvasId: 'pieCanvas',
+        type: 'pie',
+        title: {
+          name: '已注册“金银花”商标的法律状态分布图',
+          offsetX: 100
+        },
+        series: [
+          {
+              name: '待审中',
+              data: 0,
+              color: '#FFD55C'
+          },
+          {
+              name: '已初审',
+              data: 0,
+              color: '#FFB747'
+          },
+          {
+              name: '已驳回',
+              data: 0,
+              color: '#75D998'
+          },
+          {
+              name: '已注册',
+              data: 1,
+              color: '#4294FF'
+          },
+          {
+              name: '已销亡',
+              data: 0,
+              color: '#FF7C7C'
+          }
+        ],
+        width: 400,
+        height: 270,
+        dataLabel: true,  //是否在图表中显示数据内容值
+      },
+    };
+    data = {...this.def};
+    async onLoad (options) {
+    	app.aldstat.sendEvent('商标注册查询报告页面');
+    	/*options = {
+    		trademarkName: '拾贝拾贝拾贝拾贝拾贝拾贝拾贝拾贝拾贝',
+    		phone: '13600544165',
+    		intCls: '',
+    	}*/
+    	this.trademarkName = decodeURIComponent(options.trademarkName);
+    	this.phone = options.phone;
+    	this.intCls = decodeURIComponent(options.intCls) || '';
+    	if (!this.trademarkName) {return;}
+    	let d = {...options};
+    	d.trademarkName = this.trademarkName;
+    	d.intCls = this.intCls;
+    	let resp = await reportApi.makeTadeMarkReport(d);
+    	this.allData = resp;
+    	if (resp.status) {
+    		//this.tips(resp.msg);
+    		Tips.modal(resp.msg)
+    	}
+    	let res = wx.getSystemInfoSync();
+    	this.chartOption.width = res.screenWidth - 60*res.screenWidth/750;
+    	this.chartOption.series.forEach((item) => {
+        item.data = this.allData.stateStatistics[item.name] || 0;
+      })
+    	this.$apply();
+    	new wxCharts(this.chartOption);
+    }
+    async onShow () {
+
+    }
+    onUnload () {
+    	this.init = false;
+    }
+    onHide () {
+    	this.init = false;
+    }
+
+    methods = {
+    	stringFilter(str, len){
+    		return str.slice(0, len);
+    	},
+    	moreToggle(wrapName){
+    		this[wrapName] = !this[wrapName];
+    		this.$apply();
+    	},
+    	call() {
+        wepy.makePhoneCall({
+          phoneNumber: '15168455893'
+        })
+      },
+    };
+    /**
+		 * 校验表单提交
+		 */
+		isValid(phone) {
+			if (this.isEmpty(this.input.code)) {
+				this.tips('请输入商标名称');
+				return false;
+			}
+			if (!this.isPhoneValid(phone)) {
+				return false;
+			}
+			return true;
+		}
+		/**
+		 * 校验电话号码
+		 */
+		isPhoneValid(phone) {
+			if (this.isEmpty(phone)) {
+				this.tips('请输入手机号码');
+				return false;
+			}
+			const reg = /^1\d{10}$/;
+			if (!reg.test(phone)) {
+				this.tips('手机号码格式错误');
+				return false;
+			}
+			return true;
+		}
+    config = {
+      navigationBarTitleText: '商标注册查询报告'
+    };
+    mixins = [input, base];
+    onShareAppMessage () {
+    	const ret = {
+    		trademarkName: this.trademarkName,
+    		phone: this.phone,
+    		intCls: this.intCls || ''
+    	}
+      const title = '拾贝商标管家';
+      const url = `/pages/my/report?trademarkName=${ret.trademarkName}&phone=${ret.phone}&intCls=${ret.intCls}`;
+      app.aldstat.sendEvent('分享商标注册查询报告');
+      return Tips.share(title, url, title);
+    }
+  }
+</script>
+
+<style lang="scss">
+@import "../../styles/variable";
+.report{
+	position: relative;box-sizing:border-box;padding-bottom: 70rpx;background-color: #f8f8f8;
+	.container{
+		position: relative;margin-top: -395rpx;
+		image{margin: 90rpx auto 0;}
+		.sec_til{font-size: 32rpx;color: #FFFFFF;text-align: center;padding:10rpx 0 40rpx;}
+		.wraps{//公用
+			margin: 20rpx 30rpx 0;padding:50rpx 0 30rpx;background-color: #fff;box-shadow: 0 10rpx 24rpx 0 rgba(66,114,255,0.07);border-radius: 8rpx;
+			.til{
+				padding: 0 30rpx;font-size: 30rpx;color: #333333;text-align: center;
+				text{color: #FFB747;font-size: 30rpx;display: inline-block;}
+			}
+			.cateList{
+				padding:50rpx 30rpx 0rpx;overflow: hidden;transition: all .2s ease;
+				view{box-sizing: border-box;width: 48%;height: 62rpx;line-height: 60rpx;display: inline-block;text-align: center;border: 1rpx solid #E5E5E5;border-radius: 100rpx;margin-bottom: 20rpx;font-size: 26rpx;color: #666666;}
+				.even{margin-left: 4%;}
+				.single{width: 100%;}
+			}
+			.maxH{max-height: 395rpx;}
+			.maxHer{max-height: 20000rpx;}
+			.more_wrap{
+				border-bottom: 1px solid #E5E5E5;margin:-10rpx 60rpx 30rpx;padding-top: 10rpx;
+				.more{
+					position: relative;bottom: -20rpx;font-size: 24rpx;color: #4272FF;padding:0 74rpx 0 50rpx;background-color: #fff;
+					text{position: absolute;right:50rpx;bottom: 13rpx;border-top:14rpx solid #4272FF;border-left:10rpx solid #fff;border-right:10rpx solid #fff;border-bottom: 0;height: 0;width: 0;transition: transform .15s cubic-bezier(.71,-.46,.88,.6);transform-origin: center;transform: rotate(0deg) scaleY(1);}
+					.up{transform: rotate(180deg) scaleY(1);}
+				}
+			}
+		}
+		.tm{
+			.til{margin-top: 40rpx;}
+			.tmName{display:box;width: 500rpx;height: 56rpx;padding:0 0 40rpx;margin: 0 auto;border-bottom: 2rpx solid #E5E5E5;font-size: 40rpx;color: #333333;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;text-align: center;}
+			.pie{
+				text-align: center;
+				.title {
+	        font-size: 24rpx;
+	        color: #999999;
+	        margin: 20rpx 30rpx 27rpx;
+	        position: relative;
+	        .right {
+	          position: absolute;
+	          right: 0;
+	          top: 20rpx;
+	          width: 60rpx;
+	          border-top: 1px solid #E5E5E5;
+	          content: '';
+	        }
+	        .left {
+	          position: absolute;
+	          left: 0;
+	          top: 20rpx;
+	          width: 60rpx;
+	          border-top: 1px solid #E5E5E5;
+	          content: '';
+	        }
+	        view{width:480rpx;font-size: 24rpx;color: #999999;margin:0 auto;}
+	      }
+			}
+		}
+		.no_reg{}
+		.reg{}
+		.registor{
+			.registorList{
+				padding-top: 40rpx;overflow: hidden;transition: all .2s ease;
+				view{line-height: 40rpx;font-size: 28rpx;color: #999999;margin-bottom: 30rpx;text-align: center;}
+			}
+			.regMaxH{max-height: 340rpx;}
+			.regMaxHer{max-height: 20000rpx;}
+			.more_wrap{margin-top: -20rpx;}
+		}
+		.footer{font-size: 24rpx;color: #999999;line-height: 33rpx;padding:30rpx;}
+	}
+	.share{
+		position: fixed;left: 0;bottom:0;height: 70rpx;width: 100%;line-height: 70rpx;text-align: center;color: #fff;font-size: 26rpx;background: #FF9A2F;box-shadow: 0 -10rpx 30rpx 0 rgba(47,128,246,0.09);border-radius: 0;
+	}
+	.call{position: fixed;right: 30rpx;bottom:130rpx;height: 100rpx;width: 100rpx;border-radius: 100rpx;background-image: linear-gradient(180deg, #4272FF 0%, #5B5CFF 99%);box-shadow: 0 10px 30px 0 rgba(66,114,255,0.28);
+		image{width: 40rpx;height: 40rpx;}
+	}
+}
+</style>

@@ -1,0 +1,143 @@
+<style lang="scss">
+		@import "./styles/base";
+		@import "./styles/sebe";
+		@import "styles/weui";
+		@import "./styles/weui-extend";
+</style>
+
+<script>
+	import wepy from 'wepy';
+	import interfaces from './interfaces'
+	import 'wepy-async-function';
+
+	export default class extends wepy.app {
+		constructor() {
+			console.log('super--start')
+			super();
+			// 注册中间件
+			this.use('requestfix');
+			this.use('promisify');
+			this.intercept('request', {
+				config(p) {
+					console.log('request--start')
+					p.header = this.createAuthHeader();
+					return p;
+				}
+			});
+			this.intercept('uploadFile', {
+				config(p) {
+					p.header = this.createAuthHeader();
+					return p;
+				},
+				success(p) {
+					return p.data;
+				}
+			});
+		}
+
+		/**
+		 * 构造权限头部
+		 */
+		createAuthHeader() {
+			const token = wepy.getStorageSync('key');
+			const sessionId = wepy.getStorageSync('sessionId');
+			const header = {};
+			console.log('token:',token)
+			console.log('sessionId:',sessionId)
+			if (token) {
+				header['Authorization'] = token;
+			}
+			if (sessionId) {
+				header['MiniAppSessionId'] = sessionId;
+			}
+			header['MiniAppType'] = 2;
+			return header;
+		}
+
+
+		async onLaunch() {
+			// 这儿取消登录态验证 放在重要页面
+			// await interfaces.checkLogin();
+		}
+
+		syncStoreConfig(obj, key) {
+			const value = wepy.getStorageSync(obj[key]);
+			if (value !== '') {
+				wepy.$instance.globalData.auth[key] = value;
+			}
+		}
+
+		globalData = {
+			auth: {},
+			miniAppType: 2, // 2 用户中心小程序 3 渠道商小程序
+			sessionId: '',
+			// 测试环境
+			// indexUrl: 'https://testwww.ipsebe.com',
+			// payUrl: 'https://testiprp.ipsebe.com',
+			// cartUrl: 'https://testcart.ipsebe.com',
+			// userUrl: 'https://testuser.ipsebe.com',
+			// wxUrl: 'https://testwechat.ipsebe.com',
+			// baseUrl: 'https://testwechat.ipsebe.com',
+			// 正式环境
+			indexUrl: 'https://www.ipsebe.com',
+			payUrl: 'https://iprp.ipsebe.com',
+			cartUrl: 'https://cart.ipsebe.com',
+			userUrl: 'https://user.ipsebe.com',
+			wxUrl: 'https://wechat.ipsebe.com',
+			baseUrl: 'https://wechat.ipsebe.com',
+			version: 'v1.0.0'
+		};
+		config = {
+			pages: [
+				'pages/home/homePage',
+
+				'pages/imgSearch/searchResult',
+				'pages/exactSearch/search',
+				'pages/exactSearch/searchResult',
+				'pages/affinitySearch/searchResult',
+				'pages/affinitySearch/search',
+
+				'pages/home/aboutSebe',
+				'pages/home/confirm',
+				'pages/home/detail',
+				'pages/imgSearch/imgCrop',
+				'pages/tradmarkQuery/tradmarkQuery',
+				'pages/tradmarkQuery/tradmarkDetail',
+				'pages/login/login',
+				'pages/order/orderList',
+				'pages/order/orderDetail',
+				'pages/order/trademarkDetail',
+				'pages/order/trademarkProcess',
+				'pages/confirm/confirm',
+				'pages/confirm/alreadyConfirm',
+				'pages/dtSearch/pdfPreview',
+			],
+			window: {
+				backgroundTextStyle: 'dark',
+				backgroundColor: '#F5F5F5',
+				navigationBarBackgroundColor: '#10AEFF',
+			},
+			tabBar: {
+				color: '#515F71',
+				selectedColor: '#10AEFF',
+				borderStyle: 'white',
+				backgroundColor: '#ffffff',
+				list: [
+					{
+						iconPath: 'images/tab/index.png',
+						selectedIconPath: 'images/tab/index_active.png',
+						pagePath: 'pages/home/homePage',
+						text: '首页'
+					},
+					{
+						iconPath: 'images/tab/my.png',
+						selectedIconPath: 'images/tab/my_active.png',
+						pagePath: 'pages/order/orderList',
+						text: '我的'
+					}
+				]
+			},
+			debug: true
+		};
+	}
+</script>

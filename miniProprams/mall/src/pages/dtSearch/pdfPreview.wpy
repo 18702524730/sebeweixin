@@ -1,0 +1,48 @@
+<template>
+  <view class="pdf_preview">
+    <repeat for="{{pdfImgsData.urls}}" key="index" index="index" item="item">
+      <image src="{{item}}"  mode="widthFix">
+    </repeat>
+  </view>
+</template>
+
+<script>
+	import wepy from 'wepy';
+	import base from '../../mixins/base';
+	import input from '../../mixins/input';
+	import Tips from '../../utils/Tips';
+  import order from '../../api/order';
+  import qs from 'qs'
+  export default class exactSearch extends wepy.page {
+    def = {
+      pdfImgsData:[],
+      pdfUrl:''
+    };
+    data = {...this.def};
+    async onLoad (options) {
+      this.pdfUrl = options.pdfUrl;
+      this.pdfImgsData = await order.pdfPage(options.pdfUrl);
+      this.$apply();
+    }
+    onShareAppMessage() {
+      return {
+        title: '商标查询报告',
+        path: `/pages/dtSearch/pdfPreview?pdfUrl=${this.pdfUrl}`
+      }
+    }
+    methods = {
+      
+    };
+    config = {
+      navigationBarTitleText: '商标查询报告'
+    };
+    mixins = [base, input];
+  }
+</script>
+
+<style lang='scss'>
+  @import "../../styles/variable";
+  .pdf_preview{
+    image{width:750rpx;}
+  }
+</style>

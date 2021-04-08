@@ -1,0 +1,54 @@
+<template>
+  <view class="net_error" wx:if="{{show}}">
+    <view class="err_img">
+      <image src="/images/icons/os.png"/>
+      <view class="column-center tip">
+      	<text>您的网络被小怪兽吃掉了～</text>
+      	<text class="refresh" @tap="refresh">重新加载</text>
+      </view>
+    </view>
+  </view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+
+  export default class NetError extends wepy.component {
+    props = {
+      show: {
+        type: Boolean,
+        default: false
+      }
+    };
+    methods = {
+      refresh() {
+        this.$emit('refresh');
+      }
+    };
+    watch = {
+      show(){
+
+      }
+    }
+    mixins = [base];
+    components = {
+    };
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .net_error{
+    min-height: 100%;display: flex;align-items: center;justify-content: center;z-index: 9999;position: fixed;left:0;top:0;bottom:0;right:0;background-color: #f8f8f8;
+    .err_img{
+      text-align: center;
+      image{width: 364rpx;height: 478rpx;margin-bottom: 30rpx;}
+      .tip{
+        text-align: center;color: #8795A8;font-size: $text-nm;
+        text{font-size: 32rpx;color: #999999;}
+        .refresh{border: 1px solid #4272FF;border-radius: 6rpx;width: 168rpx;height: 60rpx;line-height: 58rpx;box-sizing: border-box;font-size: 26rpx;color: #4272FF;text-align: center;margin-top: 30rpx;}
+      }
+    }
+
+  }
+</style>

@@ -1,0 +1,187 @@
+<template>
+  <Tips />
+  <view class="detail_info">
+    <view class="gz_info" wx:if="{{dataDetails.orderId}}">
+      <view class="tm_info" @tap="goProcess()">
+        <view class="title"><text>商标进度</text><image src="/images/home/right.png" alt="" /></view>
+        <view class="status mt20">{{dataDetails.order_feedback_state}}</view>
+        <view class="list_small mt15">{{feedbackTime}}</view>
+      </view>
+      <view class="tm_info">
+        <view class="list"><text>图样</text><image src="{{dataDetails.information.blackWhitePicUrl}}"/></view>
+        <view class="list mt20"><text>商标名称</text><text>{{dataDetails.information.trademarkName}}</text></view>
+        <view class="list mt20"><text>大类</text><text>{{dataDetails.orderInformation.intCls}}</text></view>
+        <view class="list mt20"><text>小项信息</text><text class="cls">{{dataDetails.orderInformation.min}}</text></view>
+      </view>
+      <view class="tm_info">
+        <view class="list"><text>服务单号</text><text>{{dataDetails.orderInformation.orderSn}}</text></view>
+        <view class="list mt20"><text>订单号</text><text>{{dataDetails.orderFictitiousSn}}</text></view>
+        <view class="list mt20"><text>创建时间</text><text>{{createTime}}</text></view>
+      </view>
+      <view class="tm_info call" @tap="call">
+        <image src="/images/login/call.png" alt="">
+        <text class="ml20">联系客服</text>
+      </view>
+    </view>
+  </view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import order from '../../api/order';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import Data from '../../utils/tmTypeData';
+  import Tips from '../../utils/Tips';
+  import FormTips from '../../components/weui/tips';
+  /*
+  过滤器
+   */
+  import Lang from '../../utils/Lang';
+  import interfaces from '../../interfaces'
+  import ServiceAgreement from '../../components/confirm/serviceAgreement';
+  export default class HomeIndex extends wepy.page {
+    components = {
+      ServiceAgreement: ServiceAgreement,
+      Tips: FormTips,
+    };
+    def = {
+      dataDetails: {
+        orderBsVO: {}
+      },
+      createTime: '',
+      feedbackTime: '',
+      orderSn: '',
+    };
+    data = {...this.def};
+    async onLoad (option) {
+      const sessionRes = await interfaces.checkLogin();
+      if (!sessionRes.isLogin) {
+        wepy.redirectTo({
+          url: '/pages/login/login'
+        });
+        return;
+      }
+      this.orderSn = option.orderSn;
+      await this.getDetails();
+      this.loaded();
+    }
+    async getDetails () {
+      try {
+        let detailLists = '';
+        detailLists = await order.tmDetails(this.orderSn);
+        Tips.loaded();
+        this.feedbackTime = detailLists.feedback_time ? Lang.TimeDaySeconds(detailLists.feedback_time) : '';
+        if (detailLists.creatTime) {
+          this.createTime = Lang.TimeDaySeconds(detailLists.creatTime);
+        }
+        if (detailLists.orderInformation && detailLists.orderInformation.intCls) {
+          let cls = detailLists.orderInformation.intCls;
+          detailLists.orderInformation.intCls = (cls < 10 ? '0' + cls : cls) + '-' +  Data.cateIdData[cls-1].goodsname;
+        }
+        this.dataDetails = detailLists;
+        if (detailLists.information) {
+          // 用于商标进度页面
+          wx.setStorageSync('manageInfo', {
+            servicePicture: detailLists.information.blackWhitePicUrl,
+            serviceName: detailLists.information.trademarkName,
+            orderSn: detailLists.orderInformation.orderSn
+          })
+        }
+        this.$apply();
+      } catch(err) {
+        //10011 不存在  10010 不属于你
+        if (err.status == 10011 || err.status == 10010) {
+          this.noPermisson = true;
+        }
+        if (err.status == 401) {
+          wepy.redirectTo({
+            url: '/pages/login/login'
+          });
+        }
+        this.tips(err.msg);
+        setTimeout(function() {
+          wepy.navigateBack();
+        }, 2000);
+      }
+    }
+    methods = {
+      paySuccess(){
+        Tips.loading();
+        this.getDetails();
+      },
+      showAgreement(item) {
+        var ret = {
+          phone: item.buyer_mobile,
+          order_fictitious_sn: item.order_fictitious_sn,
+          payment_sn: item.payment_sn,
+          amount: item.amount,
+          service: item.orderName,
+          order_sn: item.orderSns,
+        }
+        this.orderData = ret;
+        this.showServiceAgreement = true;
+        this.$apply();
+      },
+      hideServiceAgreement() {
+        this.showServiceAgreement = false;
+      },
+      loadMore() {
+        console.log(222222)
+      },
+      call() {
+        wepy.makePhoneCall({
+          phoneNumber: '4000315426'
+        })
+      },
+      goProcess() {
+        wepy.navigateTo(
+          {
+            url: '/pages/order/trademarkProcess?orderId=' + this.dataDetails.orderId
+          }
+        )
+      },
+    };
+    config = {
+      navigationBarTitleText: '商标详情'
+    };
+    mixins = [base, input];
+  }
+</script>
+
+<style lang="scss">
+.detail_info{
+  min-height:100%;padding-bottom: 20rpx;padding-top: 20rpx;box-sizing: border-box;
+  .gz_info{
+    width:100%;background-color: #f8f8f8;
+    .tm_info{
+      padding: 30rpx;margin: 20rpx 20rpx 0;background:#fff;border-radius:4rpx;
+      &:first-child{margin-top: 0;}
+      >.title{
+        display: flex;flex-direction: row;align-items: center;justify-content: space-between;
+        text{height:40rpx;line-height:40rpx;font-size:28rpx;color: #333;}
+        image{width: 12rpx;height: 19rpx;margin-right: 4rpx;}
+      }
+      >.status{font-size: 28rpx;color: #666;}
+      >.list_small{font-size: 24rpx;color: #888888;}
+      >.list{
+        display: flex;flex-direction: row;align-items: flex-start;justify-content: space-between;
+        text{
+          line-height:40rpx;font-size:28rpx;color: #333;display: inline-block;text-align:right;
+          &:first-child{color: #999999;min-width: 150rpx;text-align:left;}
+          &.cls{max-width:480rpx;word-break: break-all;vertical-align: top;}
+          i{font-size:28rpx;line-height:40rpx;height:40rpx;color: #F64744;padding-left: 10rpx;}
+          //.img{
+            //width: 200rpx; height: 200rpx;
+            img{width: 200rpx; height: 200rpx;margin-left: 10rpx;}
+          //}
+        }
+        image{width: 122rpx;height: 122rpx;}
+      }
+    }
+    .call{height:88rpx;background: #FFFFFF;border-radius: 4rpx;margin: 20rpx 20rpx 0;box-sizing:border-box;text-align:center;padding:0;padding-top:16rpx;
+      image{width:52rpx;height:52rpx;vertical-align: top;}
+      text{font-size:28rpx;color: #333;vertical-align: top;line-height: 52rpx;display:inline-block;}
+    }
+  }
+}
+</style>

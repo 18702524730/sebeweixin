@@ -1,0 +1,427 @@
+<template>
+  <view class="company_search" style="padding-top: {{topPadding}}px" wx:if="{{show}}">
+    <view class="s_result_in">
+    	<repeat for="{{resultList}}" key="index" index="index" item="item">
+        <!-- 企业搜索列表 -->
+	      <view class="r_list_wrap" wx:if="{{ listType==1 }}">
+	        <view class="r_list">
+	          <view class="r_list_in" :class="{'checktype': selectMode}" data-index="{{index}}" data-item="{{item}}">
+	            <view class="r_list_info_wrap" @tap="navToDetail({{item}})">
+	              <view class="r_list_info">
+	                <view class="til ">
+	                	<rich-text class="tyep_c text_over" nodes="{{item.tm_name_temp || item.name}}"></rich-text>
+	                </view>
+	                <view class="applytime">
+                    <text class="tyep_ren text_over">{{item.faren}}</text>
+                    <text class="tyep_c border">{{item.regcap ? item.regcap + '万元' : '--'}}</text>
+                    <text class="tyep_c date border">{{item.esdate}}</text>
+                  </view>
+                  <view class="applytime lab">
+                    <text class="blue">{{item.statusT}}</text>
+                    <text class="green" wx:if="{{ item.type==1 }}">我的企业</text>
+                    <text class="orange" wx:if="{{ item.type==2 }}">竞品企业</text>
+                  </view>
+	              </view>
+                <text class="r_btn r_btn_b" wx:if="{{ item.type }}">查看详情</text>
+                <!-- <text class="r_btn r_btn_b" wx:if="{{ !item.type }}" catchtap="setCompany({{item}})">设置企业</text> -->
+	            </view>
+	            <!-- <view class="divission"></view> -->
+	            <!-- <view class="application application_tm">
+                <image class="tm_icon" src="../../images/search/r.png"></image>
+	            	<text class="list text_over">商标：拾贝、拾贝保、IPB、十贝、珍珠岛、…</text>
+	            </view> -->
+	          </view>
+	        </view>
+          <image class="more" src="../../images/icons/more.png" @tap="navToDetail({{item}})"></image>
+	      </view>
+        <!-- 企业管理列表 -->
+        <view class="r_list_wrap" wx:if="{{ listType==2 }}">
+          <view class="r_list">
+            <view class="r_list_in" :class="{'checktype': selectMode}" data-index="{{index}}" data-item="{{item}}">
+              <view class="r_list_info_wrap" @tap="navToDetail({{item}})">
+                <view class="r_list_info">
+                  <view class="til text_over">
+                    {{ item.applicationName }}
+                  </view>
+                  <view class="applytime" wx:if="{{ item.frname && item.regcap && item.esdate}}">
+                    <text class="tyep_ren text_over">{{item.frname}}</text>
+                    <text class="tyep_c border">{{item.regcap ? item.regcap+'万'+item.regcapcur : '--'}}</text>
+                    <text class="tyep_c date border">{{item.esdate}}</text>
+                  </view>
+                  <view class="applytime" wx:if="{{ !item.frname || !item.regcap || !item.esdate}}">暂无信息</view>
+                  <view class="applytime lab">
+                    <text class="blue" wx:if="{{ item.applicationState }}">{{item.applicationState}}</text>
+                    <text class="green" wx:if="{{item.applicationType==1}}">我的企业</text>
+                    <text class="orange" wx:if="{{item.applicationType==2}}">竞品企业</text>
+                  </view>
+                </view>
+                <text class="r_btn r_btn_m" wx:if="{{ item.sequence!=1 }}" catchtap="setIndexFn({{item}})">设为默认</text>
+                <text class="r_btn r_btn_m_b" wx:if="{{ item.sequence==1 }}">默认</text>
+              </view>
+              <view class="divission"></view>
+              <view class="application application_tm application_tm_del">
+                <text class="list text_over">旗下商标{{ item.trademarkNumber }}个，已托管{{ item.depositeNumber }}个，未托管{{ item.trademarkNumber-item.depositeNumber || 0 }}个。</text>
+                <image class="del_icon" src="../../images/icons/delete_gray.png" @tap="deleteCpmpanyFn({{ item }})"></image>
+              </view>
+            </view>
+          </view>
+        </view>
+      </repeat>
+    </view>
+    <view class="bottom_gif row-center" wx:if="{{!loading && !noMoreData && resultList.length}}">
+      <image src="/images/gif/homePage.gif"></image>
+      <text>加载中...</text>
+    </view>
+    <!-- <view class="get_footer mb30" wx:if="{{!loading && noMoreData && resultList.length}}">请修改关键字再次搜索</view> -->
+
+		<view class="empty_wrap" wx:if="{{!loading && !resultList.length}}">
+	    <!-- <view class="column-center empty">
+	    	<image src="https://hzsebetest.oss-cn-hangzhou.aliyuncs.com/050DAEDF8C9A4053E0C0F1F494480A51.png"></image>
+	      <view class="notip">
+	        <view>暂无结果，重新筛选</view>
+	      </view>
+	    </view> -->
+	    <view class="column-center empty">
+	    	<image src="/images/icons/null.png"></image>
+	      <view class="notip">
+	        <view>未找到相关的数据</view>
+	        <!-- <view class="reg_btn">立即注册该商标</view> -->
+	      </view>
+	    </view>
+	    <!-- <view class="r_footer">
+	      <view>更多帮助请拨打客服热线  15168455893</view>
+	      <view>（周一至周五  8:30-18:00）</view>
+	    </view> -->
+	  </view>
+  </view>
+  <!-- 设置企业选择 -->
+  <btnmodal :myModal.sync="modalObj" @confirm.user="confirm"></btnmodal>
+  <!-- 设置成功模态框 -->
+  <successModel :myModal.sync="sucModalObj" @confirm.user="sucConfirmFn" @hideModal.user="sucHideModalFn" />
+
+</template>
+
+<script>
+	import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import Tips from '../../utils/Tips';
+  import companyApi from '../../api/company';
+  import btnmodal from '../../components/common/btn_model';
+  import successModel from '../../components/common/success_model';
+
+  export default class companyResult extends wepy.component  {
+    components = {
+      btnmodal,
+      successModel
+    };
+
+    props = ['show', 'resultList','noMoreData', 'loading', 'topPadding', 'listType'];
+
+    events = {
+      'resultChangeFn': (v) => {
+        this.resultList = v;
+        console.log(this.show)
+        this.$apply();
+      }
+    };
+
+    data = {
+    	applicationType: 2, //1我的 2关注
+    	modalObj: {
+        showModal: false,
+        title: '请将当前企业设置为',
+        info: '',
+        content: [
+          {name:'我的企业', id:1, active: false},
+          {name:'关注企业', id:2, active: false}
+        ],
+        disabled: true, //默认两个按钮都不选中，确实按钮禁用
+        disabledColor: '#ccc',
+        showCancel: true,
+        cancelText: '取消',
+        cancelColor: '#000000',
+        confirmText: '确定',
+        confirmColor: '#4272FF'
+      },
+      sucModalObj: {
+        showModal: false,
+        title: '设置成功',
+        info: '',
+        content: '"<span style="color:#4272FF;">杭州拾贝知识产权服务有限公司</span>"已成功设置为我的企业',
+        disabled: false, //默认两个按钮都不选中，确实按钮禁用
+        disabledColor: '#ccc',
+        showCancel: true,
+        cancelText: '继续添加',
+        cancelColor: '#000000',
+        confirmText: '去托管',
+        confirmColor: '#4272FF'
+      },
+      curItem: {}, //当前商标
+    };
+    onLoad () {
+      console.log(this.resultList)
+    	//Tips.modal('请不要重复设置“我的企业”')
+			/*Tips.confirm('确定将该关注企业更换为我的企业？')
+			.then(() => {
+				console.log(11);
+			})*/
+    }
+    async setCompanyRequest(stewardSubjectKey, applicationType){
+    	let resp = await companyApi.addStewardSubject({
+    		stewardSubjectKey,
+    		applicationType,
+    	});
+    	// Tips.success('设置成功');
+    	this.modalObj.showModal = false;
+    	this.$emit('query');
+      this.sucModalObj.showModal = true;
+      let comName = '';
+      if (applicationType == 1) {
+        comName = '我的企业';
+      }
+      else if (applicationType == 2) {
+        comName = '竞品企业';
+      }
+      this.applicationType = applicationType;
+      this.sucModalObj.content = `"<span style="color:#4272FF;">${this.curItem.name}</span>"已成功设置为${comName}`
+    	this.$apply();
+    }
+
+    async shiftApplicationType(stewardSubjectKey, applicationType){
+    	let resp = await companyApi.shiftApplicationType({
+    		stewardSubjectKey,
+    		applicationType,
+    	});
+    	Tips.success('设置成功');
+    	this.modalObj.showModal = false;
+    	this.$emit('query');
+    	this.methods.navToDetail(this.curItem, applicationType);
+    	this.$apply();
+    }
+
+    methods = {
+      // 设为默认
+      setIndexFn (item) {
+        this.$emit('setIndex', item);
+      },
+      // 删除企业
+      deleteCpmpanyFn (item) {
+        this.$emit('deleteCompany', item);
+      },
+    	navToDetail(item, applicationType){//applicationType为对象，非必传，在搜索页面不传值到详情
+        let comName = '';
+        if (item.name) {
+          comName = item.name;
+        }
+        else{
+          comName = item.applicationName;
+        }
+    		wepy.navigateTo({
+          url: `/pages/detail/enterpriseDetail?companyName=${comName}`
+        });
+    	},
+      setCompany(item){
+      	const userData = wepy.getStorageSync('auth');
+      	if (!userData.member_id) {
+      		wepy.navigateTo({
+            url: '/pages/login/login'
+          });
+          return;
+      	}
+      	this.curItem = item;
+      	this.modalObj.showModal = true;
+      	this.$apply();
+      },
+      confirm(data){
+        let item = this.curItem;
+        this.setCompanyRequest(item.name, data.id);
+      },
+      // 设置成功
+      sucConfirmFn (data) {
+        this.methods.navToDetail.bind(this)(this.curItem, this.applicationType);
+      },
+      // 继续添加
+      sucHideModalFn () {
+        this.modalObj.showModal = false;
+      }
+    }
+  };
+</script>
+
+<style lang='scss'>
+  @import "../../styles/variable";
+  @import "../../styles/pub";
+  .company_search {
+    z-index: 1;background: #F5F5F5;box-sizing: border-box;height: 100%;
+    .extra{border-top: 1px solid #f1f1f1;}
+
+    .s_result_in{
+      .r_list_wrap{
+        position: relative;margin-bottom: 20rpx;background-color: #fff;
+        .r_list{
+          padding-left: 30rpx; position: relative;box-sizing: border-box;
+          .r_list_in{
+            height: 100%;
+            .checkbox_wrap{
+            	position: relative;float:left;display: inline-block;margin-right: 15rpx;height: 200rpx;
+	            .checkbox{
+	            	position: relative;width: 38rpx;height: 38rpx;box-sizing: border-box;border-radius: 50%;display: inline-block;margin-top: 81rpx;vertical-align: top;background: #EEEEEE;border: 1px solid #EEEEEE;
+	            	view{
+	            		box-sizing: content-box;content: "";border: 1px solid #fff;border-left: 0;border-top: 0;height: 14rpx;left: 13rpx;position: absolute;top: 8rpx;width: 6rpx;transition: transform .15s cubic-bezier(.71,-.46,.88,.6) .05s;transform-origin: center;transform: rotate(45deg) scaleY(0);
+	            	}
+	            }
+						}
+						.checked{
+							.checkbox{
+	            	background-color: #10AEFF;border: 1px solid #10AEFF;
+	            	view{
+						    	transform: rotate(45deg) scaleY(1);
+						    }
+						  }
+						}
+						.r_list_info_wrap{
+							height: 190rpx; padding-top: 20rpx; box-sizing: border-box;
+	            .r_list_info{
+	              float:left;top:30rpx;line-height: 40rpx; width:100%;
+	              view{
+	                font-size: 28rpx;line-height: 40rpx;padding-bottom:12rpx;color: #666;vertical-align: middle;
+	                .tyep_t{width: 170rpx;display: inline-block;vertical-align: middle;color: #999;}
+	                .tyep_c{overflow:hidden;white-space:nowrap; text-overflow:ellipsis; display: inline-block;vertical-align: middle;color: #666;}
+	              }
+	              view.til{
+                  width:70%; 
+	                .tyep_c{
+	                	width: 100%;
+	                  b{color: #f64744;font-weight: normal;}
+	                }
+	              }
+	              view.type{
+	                .tyep_c{
+	                  width:auto;
+	                  //b{color: #10AEFF;font-weight: normal;display: inline-block;max-width: 210rpx;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;vertical-align: bottom;}
+	                }
+	              }
+	              view.status{
+	                .tyep_c{color: #666;}
+	              }
+	              view.applytime{
+                  width:95%; height:40rpx;
+                  .tyep_ren {max-width: 150rpx; border-right:1px solid #D8D8D8; padding-right:10rpx; float:left;}
+                  .border {border-right:1px solid #D8D8D8; padding:0 15rpx;}
+	                .tyep_c{color: #666; padding-right:10rpx; float:left;}
+                  .date {border-right:none;}
+	              }
+                .lab {
+                  width: 100%; height: 34rpx; line-height: 34rpx; padding-bottom:0;
+                  text {height: 30rpx; padding: 0 10rpx; line-height: 32rpx; font-size: 20rpx; text-align: center; border-radius: 20px; margin-right: 10rpx; box-sizing:border-box;}
+                  .blue {color: #4272FF; border:1px solid #4272FF;}
+                  .green {color: #44B74B; border:1px solid #44B74B;}
+                  .orange {color: #F67146; border:1px solid #F67146;}
+                }
+	            }
+              .r_btn { font-size:26rpx; height:48rpx; line-height:48rpx; padding: 0 12rpx; text-align:center; color: #333; border:1px solid #333; border-radius:8rpx; position: absolute; right:30rpx; top:30rpx;}
+              .r_btn_b { color: #4272FF; border:1px solid #4272FF; }
+              .r_btn_o { color: #F67146; border:1px solid #F67146; }
+              .r_btn_m { width: 130rpx; height: 40rpx; line-height: 40rpx; text-align: center; font-size: 24rpx; color: #4272FF; border:1px solid #BBC9F7; border-radius:25rpx;}
+              .r_btn_m_b { width: 100rpx; height: 40rpx; line-height: 40rpx; text-align: center; font-size: 24rpx; color: #4272FF; border:1px solid #BBC9F7; border-radius:25rpx; background: #EEF2FF;}
+	            .fa-angle-right{
+	            	position: absolute;top: 113rpx;right: 34rpx;width: 22rpx;height: 22rpx;border-top: 4rpx solid #ddd;border-right: 4rpx solid #ddd;transform: rotate(45deg);
+	            }
+          	}
+          	.application_tm {
+          		height: 73rpx; line-height:73rpx; display: flex; justify-content:flex-start; align-items:center;
+              .tm_icon {width: 42rpx; height: 42rpx; margin-right: 20rpx;}
+              .del_icon {width: 32rpx; height:32rpx; }
+              .list {color: #666; font-size: 24rpx; width:550rpx;}
+          		.c_btn{display: inline-block;height: 46rpx;border-radius: 46rpx;line-height: 46rpx;text-align: center;font-size: 26rpx;padding:0 20rpx;}
+          		.tyep_status{color: #4272FF;background: #E9EEFF;}
+          		.my{margin-left: 20rpx;color: #FF9A2F;background: #FFF3E5;}
+          		.concerned{margin-left: 20rpx;color: #F64744;background: #FFF0F0;}
+          		.qy_btn{font-size: 26rpx;color: #4272FF;height: 60rpx;line-height:60rpx;width: 140rpx;text-align: center;border: 1px solid #4272FF;border-radius: 6rpx;}
+          	}
+            .application_tm_del {justify-content:space-between; width:690rpx;}
+          }
+          .checktype{
+            view{
+              .tyep_c{width: 227rpx;}
+            }
+            /* view.type{
+              view{
+                b{max-width: 167rpx;}
+              }
+            } */
+          }
+        }
+        .more {position:absolute; right:30rpx; top:80rpx; width:18rpx; height:32rpx;}
+        .fadeInRight,.fadeOutRight{display: block;}
+        .fadeInRight {
+				    -webkit-animation-name: fadeInRight;
+				    animation-name: fadeInRight;
+				}
+				.fadeOutRight {
+				    -webkit-animation-name: fadeOutRight;
+				    animation-name: fadeOutRight;
+				}
+        .animate_end{
+          -webkit-animation-duration: 0.3s;
+          animation-duration: 0.3s;
+          -webkit-animation-fill-mode: both;
+          animation-fill-mode: both;
+        }
+      }
+      .divission{height: 2rpx;background-color: #eee;margin-right: 30rpx;}
+      /* .r_list_wrap:first-child .r_list{border:0;} */
+    }
+    .spinner{
+      view{font-size: 24rpx;}
+      .pulldown-down,.pulldown-up{background: transparent url(~assets/img/loading.gif) left center no-repeat;-webkit-background-size: 90rpx 24rpx;background-size: 90rpx 24rpx;padding-left: 100rpx;font-size: 24rpx;}
+      .pulldown-load{background: transparent url(~assets/img/loading2.gif) left center no-repeat;-webkit-background-size: 90rpx 24rpx;background-size: 90rpx 24rpx;padding-left: 100rpx;font-size: 24rpx;}
+    }
+
+		.bottom_gif{
+			text-align:center;padding-bottom:20rpx;
+		  image{width:70rpx;height:70rpx;}
+		  text{font-size: $text-nm;color:#b3bfd0;}
+		}
+		.get_footer{color:#999;font-size:$text-sm;text-align:center;padding-top: 20rpx}
+
+		.empty_wrap{
+			height: 100%; position: relative;
+	    .empty{
+				position: absolute; top:0;bottom: 124rpx;left:0;right:0;
+	      image{width: 314rpx; height: 277rpx;position: relative;}
+	      .notip{
+	      	position: relative;top: -10rpx;
+	      	view{font-size: 28rpx;line-height: 40rpx;color: #999;}
+	      	.reg_btn{margin-top: 20rpx;width: 220rpx; height: 60rpx;line-height: 60rpx;text-align: center;border: 1rpx solid #4272FF;font-size: 26rpx;color: #4272FF;border-radius: 6rpx;}
+	      }
+	    }
+	    .r_footer{
+	      width: 100%;background: #f5f5f5;position: absolute;bottom: 0;height: 120rpx;padding:0 30rpx;box-sizing: border-box;
+	      view{text-align: center;height: 33rpx;line-height: 33rpx;font-size: 24rpx;color: #ccc;padding-bottom: 5px;}
+	    }
+    }
+  }
+	@keyframes fadeInRight{
+		0% {
+	    opacity: 0;
+	    -webkit-transform: translate3d(100%,0,0);
+	    transform: translate3d(100%,0,0);
+		}
+		100% {
+	    opacity: 1;
+	    -webkit-transform: none;
+	    transform: none;
+	  }
+	}
+	@keyframes fadeOutRight{
+		0% {
+	    opacity: 1;
+		}
+		100% {
+	    opacity: 0;
+	    -webkit-transform: translate3d(100%,0,0);
+	    transform: translate3d(100%,0,0);
+		}
+	}
+</style>

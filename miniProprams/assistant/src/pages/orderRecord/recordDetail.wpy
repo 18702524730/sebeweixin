@@ -1,0 +1,110 @@
+<template>
+<view class="recordDetail" wx:if="{{init}}">
+  <view class="record_info_lists" @tap="goDetail">
+    <view class="record_info weui-flex">
+      <view class="record_lists weui-flex__item">
+        <view class="weui-flex">
+          <view class="timer">{{detailData.createTime}}</view>
+          <view class="info weui-flex__item ml30">订单号：{{detailData.fictitiousSn}}</view>
+        </view>
+        <view class="weui-flex mt20">
+          <view class="timer">{{detailData.hourminutes}}</view>
+          <view class="info weui-flex__item ml30">{{detailData.productNames}}</view>
+        </view>
+      </view>
+      <view class="icon">
+        <image src="/images/icons/right.png">
+      </view>
+    </view>
+  </view>
+  <view class="record_info_lists">
+    <text>服务单详情</text>
+    <repeat for="{{detailData.asistantProductVoList}}" key="index" index="index" item="item">  
+      <view class="record_info mt30 weui-flex" :class="{'btc':index>0}">
+        <view class="record_lists weui-flex__item">
+          <view class="weui-flex">
+            <view class="timer">服务单号：{{item.orderSn}}</view>
+          </view>
+          <view class="weui-flex mt20">
+            <view class="timer">{{item.productName}}</view>
+          </view>
+        </view>
+      </view>
+    </repeat>
+  </view>
+</view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import order from '../../api/order';
+  import filters from '../../utils/filters';
+  export default class orderList extends wepy.page {
+    def = {
+      detailData: {},
+      id: '',
+      init: false
+    };
+    data = {...this.def};
+    async onLoad (option) {
+      this.loaded();
+      let detailsInfo = await order.orderDetails(option.id);
+      this.id = option.id;
+      this.detailData = filters.TimeDayHour(detailsInfo.data);
+      this.$apply();
+      console.log(this.detailData)
+    }
+    onReachBottom(e) {
+      console.log(222222)
+    }
+    methods = {
+      loadMore() {
+        console.log(222222)
+      },
+      goDetail() {
+        wepy.navigateTo(
+          {
+            url: '/pages/singleRecode/singleDetail?id='+this.id
+          }
+        )
+      },
+      async getPhoneNumber(e) {
+        console.log(e)
+        let sessionId = wepy.getStorageSync('sessionId');
+        console.log(sessionId)
+        let phoneData = await order.decodePhoneNumber(sessionId, e.detail.encryptedData, e.detail.iv);
+        this.loaded();
+        console.log(phoneData)
+        wepy.setStorageSync('phoneNumber', phoneData.phoneNumber);
+        wepy.navigateTo(
+          {
+            url: '/pages/login/login'
+          }
+        )
+      }
+    };
+    config = {
+      navigationBarTitleText: '成单记录详情'
+    };
+    mixins = [base];
+  }
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.recordDetail{height:100%;background-color:#f8f8f8;}
+.time_year{color: #B3BFD0;font-size: $text-nm;width:690rpx;margin:0 auto;}
+.record_info_lists{width:690rpx;background: #FFFFFF;box-shadow: 0 6rpx 12rpx 0 rgba(47,128,246,0.09);border-radius: 8rpx;padding:30rpx;box-sizing:border-box;margin:30rpx auto;font-size: $text-nm;color: #515F71;
+  .btc{border-top:1rpx solid #E5E5E5;padding-top: 30rpx;}
+  .record_info{
+    .icon{line-height:100rpx;
+      image{width:14rpx;height:25rpx;}
+    }
+    .record_lists{
+      .timer{color: #8795A8;font-size: $text-nm;text-align: center;line-height: 40rpx;min-width:80rpx;}
+      .info{line-height: 40rpx;color: #515F71}
+    }
+  }
+}
+
+.btn{width:690rpx;height:96rpx;background-image: linear-gradient(147deg, #0096FF 0%, #2F80F6 100%);box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.30);border-radius: 8rpx;color:#fff;margin:0 auto;border:0rpx;font-size: $text-xxl;text-align: center;line-height:94rpx;}
+</style>

@@ -1,0 +1,126 @@
+<template>
+<view class="old" wx:if="{{init}}">
+  <view class="tab weui-flex mb30">
+    <view class="weui-flex__item ml30 mr30" :class="{'bdc':typeTab == 1}" @tap="tabType(1)">企业客户</view>
+    <view class="weui-flex__item ml30 mr30" :class="{'bdc':typeTab == 2}" @tap="tabType(2)">个人客户</view>
+  </view>
+  <view wx:if="{{oldCustomerLists && oldCustomerLists.length}}">
+    <repeat for="{{oldCustomerLists}}" key="index" index="index" item="item">
+      <view class="customer_info weui-flex" @tap="goBack({{item}},{{index}})">
+        <view class="customer_l">
+          <image class="portrait" src="{{item.avatar || '/images/confirm/photo.png'}}">
+        </view>
+        <view class="customer_m weui-flex__item ml30 mr30" :class="{' mt15':!item.companyName}">
+          <view wx:if="{{item.companyName}}">{{item.companyName}}</view>
+          <view class="mt10">{{item.applyName}}</view>
+          <view class="mt10">{{item.applyPhone}}</view>
+        </view>
+        <view class="customer_r">
+          <icon type="success" color="{{ index === numindex ? '#09BB07' : '#CCCCCC'}}"/>
+        </view>
+      </view>
+    </repeat>
+  </view>
+	<!-- 没数据 -->
+  <view class="null_single" wx:else>
+    <image class="portrait" src="/images/login/null.png">
+    <view class="txt mb40">您还未添加过客户哦～</view>
+    <!-- <view class="btn" @tap="goHome">
+      <image class="portrait" src="/images/icons/money.png">
+      我要推单
+    </view> -->
+  </view>
+</view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import qs from 'qs';
+  import base from '../../mixins/base';
+  import customer from '../../api/customer';
+
+  export default class orderList extends wepy.page {
+    def = {
+    	init: false,
+      typeTab: 1,
+      oldCustomerLists: [],
+      numindex: ''
+    };
+    data = {...this.def};
+    async onLoad(option) {
+    	this.typeTab = option.typeTab == 'false' ? 1 : 2;
+    }
+    async onShow (option) {
+      let oldLists = await customer.oldLists(this.typeTab, true);
+      this.oldCustomerLists = oldLists.data || [];
+      this.numindex = '';
+      this.loaded();
+      this.$apply();
+    }
+    methods = {
+      async tabType(type) {
+        this.typeTab = type;
+        try {
+        	let oldLists = await customer.oldLists(type);
+          this.oldCustomerLists = oldLists.data || [];
+        }catch(err){
+        	this.oldCustomerLists = [];
+        }
+      	this.$apply();
+      },
+      loadMore() {
+        console.log(222222)
+      },
+      goBack(item, index) {
+        this.numindex = index;
+        let data = {
+        	applyName: item.applyName,
+	    		applyPhone: item.applyPhone,
+	    		companyName: item.companyName || '',
+	    		customerType: item.customerType
+        }
+        let createOrderData = wepy.getStorageSync('createOrderData');
+        if (createOrderData) {
+        	createOrderData = {...createOrderData, ...data}
+        	wepy.setStorageSync('createOrderData', createOrderData);
+        }
+        wepy.setStorageSync('customerData', data);
+        wepy.navigateBack({
+        	delta: 1
+        });
+      }
+    };
+    config = {
+      navigationBarTitleText: '选择老客户'
+    };
+    mixins = [base];
+  }
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.old{
+	background-color:#f8f8f8;height:100%;
+	.null_single{text-align: center;padding-top: 265rpx;font-size:0;
+	  image{width:422rpx;height:384rpx;}
+	  .txt{color: #999999;font-size: $text-nm;}
+	  .btn{width:220rpx;height:70rpx;background-image: linear-gradient(-90deg, #FF9500 4%, #FFA200 100%);box-shadow: 0 8rpx 16rpx 0 rgba(0,89,135,0.06);border-radius: 100rpx;margin:0 auto;color:#fff;line-height:70rpx;font-size: $text-lg;
+	    image{width:38rpx;height:44rpx;vertical-align: middle;}
+	  }
+	}
+}
+.tab{height:94rpx;background-color:#fff;border-bottom:1rpx solid #E0E5EC;
+  .bdc{border-bottom:4rpx solid #2F80F6;color: #2F80F6;}
+  view{text-align: center;line-height:94rpx;box-sizing:border-box;color: #515F71;font-size: $text-nm;}
+}
+.btn{width:690rpx;height:96rpx;background-image: linear-gradient(147deg, #0096FF 0%, #2F80F6 100%);box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.30);border-radius: 8rpx;color:#fff;margin:0 auto;border:0rpx;font-size: $text-xxl;text-align: center;line-height:94rpx;position: fixed;bottom:30rpx;left:30rpx;}
+.customer_info{width:690rpx;height:190rpx;padding:30rpx;box-sizing:border-box;box-shadow: 0 6rpx 12rpx 0 rgba(47,128,246,0.09);border-radius: 8rpx;background-color:#fff;margin: 0 auto 20rpx;position: relative;
+  .customer_l{
+    image{border-radius:100%;width:130rpx;height:130rpx;margin-top: 5rpx;}
+  }
+  .customer_m{width:422rpx;
+    view{line-height:40rpx;color: #515F71;font-size: $text-nm;overflow: hidden;text-overflow:ellipsis;white-space: nowrap;}
+  }
+  .customer_r{
+    icon{width:45rpx;height:45rpx;position: absolute;bottom:32rpx;right:32rpx;}
+  }
+}
+</style>

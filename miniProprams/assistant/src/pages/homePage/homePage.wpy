@@ -1,0 +1,254 @@
+<template>
+  <view class="all_homepage" wx:if="{{init}}">
+    <view class="homepage">
+      <view class="homepage_top">
+        <view class="homepage_tit">
+          <view class="homepage_list">
+            <view wx:if="{{!token}}" class="hello mb10">hello，请登录</view>
+            <view wx:else class="hello">hello，{{userData.truename || userData.phone}}</view>
+            <text class="prompt" wx:if="{{userData.phone}}">手机号：{{userData.phone}}</text>
+            <view class="single" @tap="goSingle">
+              <image src="/images/icons/money.png">
+              <text>我要推单</text>
+            </view>
+          </view>
+          <view class="homepage_icon" >
+            <button wx:if="{{!userData.phone}}" open-type="getPhoneNumber" bindgetphonenumber="getPhoneNumber">登录</button>
+            <image @tap="changeInfo" class="portrait" wx:else src="{{userData.avatar || '/images/confirm/photo.png'}}">
+            <image class="icon" src="/images/icons/goTit.png" @tap="changeInfo">
+          </view>
+        </view>
+      </view>
+    </view>
+    <!-- 推单记录 -->
+    <view class="recode">
+      <view class="recode_top weui-flex" @tap="orderLists(99)">
+        <text class="weui-flex__item">推单记录</text>
+        <image class="icon" src="/images/icons/right.png">
+      </view>
+      <view class="recode_lists mt35 row-between">
+        <view>
+          <view @tap="orderLists(2)">
+            <image src="/images/icons/djd.png">
+            <view class="txt">待确认</view>
+          </view>
+        </view>
+        <view>
+          <view @tap="orderLists(0)">
+            <image src="/images/icons/pay.png">
+            <view class="txt">待付款</view>
+          </view>
+        </view>
+        <view>
+          <view @tap="orderLists(1)">
+            <image src="/images/icons/payOver.png">
+            <view class="txt">已付款</view>
+          </view>
+        </view>
+        <view>
+          <view @tap="orderLists(-1)">
+            <image src="/images/icons/on.png">
+            <view class="txt">已关闭</view>
+          </view>
+        </view>
+      </view>
+    </view>
+    <!-- 小工具 -->
+    <view class="recode">
+      <view class="recode_top weui-flex">
+        <text class="weui-flex__item">小工具</text>
+      </view>
+      <view class="recode_lists mt35 weui-flex">
+        <view class="weui-flex__item">
+          <view class="list_l" @tap="OldInfo">
+            <image src="/images/icons/old.png">
+            <view class="txt">老客户</view>
+          </view>
+        </view>
+        <view class="weui-flex__item">
+          <view class="list_m_xgj" @tap="orderInfo">
+            <image src="/images/icons/record.png">
+            <view class="txt">成单记录</view>
+          </view>
+        </view>
+        <view class="weui-flex__item">
+          <view class="list_r">
+            <image src="/images/icons/forward.png">
+            <view class="txt">敬请期待</view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+
+<script>
+  import wepy from 'wepy';
+  // import auth from '../../api/auth';
+  import base from '../../mixins/base';
+
+  import order from '../../api/order';
+  import Tips from '../../utils/Tips';
+  import interfaces from '../../interfaces'
+
+  export default class orderList extends wepy.page {
+    def = {
+      init: false,
+      userData: {},
+      token: ''
+    };
+    data = {...this.def};
+
+    async onShow () {
+    	this.loaded();
+    	await this.loadInit();
+    }
+
+    // 初始化 检查登录态
+    async loadInit(){
+    	await interfaces.checkLogin()
+      const token = wepy.getStorageSync('key');
+      const userData = wepy.getStorageSync('auth');
+      this.token = token;
+      this.userData = userData || {};
+      var myphone = userData.phone && userData.phone.substr(3, 4);
+      this.userData.phone = userData.phone && userData.phone.replace(myphone, "****");
+      this.$apply();
+    }
+
+    onReachBottom(e) {
+      console.log(222222)
+    }
+
+    methods = {
+      goSingle() {
+        console.log('%cRainbow Text ', 'background-image:-webkit-gradient( linear, left top, right top, color-stop(0, #f22), color-stop(0.15, #f2f), color-stop(0.3, #22f), color-stop(0.45, #2ff), color-stop(0.6, #2f2),color-stop(0.75, #2f2), color-stop(0.9, #ff2), color-stop(1, #f22) );color:transparent;-webkit-background-clip: text;font-size:5em;');
+        wepy.switchTab(
+          {
+            url: '/pages/home/index'
+          }
+        )
+      },
+      orderInfo(){
+        if(this.token) {
+          wepy.navigateTo(
+            {
+              url: '/pages/orderRecord/recordLists'
+            }
+          )
+        } else {
+          wepy.navigateTo(
+            {
+              url: '/pages/login/login'
+            }
+          )
+        }
+      },
+      changeInfo() {
+        if(this.token) {
+          wepy.navigateTo(
+            {
+              url: '/pages/homePage/personalInfo'
+            }
+          )
+        } else {
+          wepy.navigateTo(
+            {
+              url: '/pages/login/login'
+            }
+          )
+        }
+      },
+      OldInfo() {
+        wepy.setStorageSync('option');
+        if(this.token) {
+          wepy.navigateTo(
+            {
+              url: '/pages/customer/customerList'
+            }
+          )
+        } else {
+          wepy.navigateTo(
+            {
+              url: '/pages/login/login'
+            }
+          )
+        }
+      },
+      orderLists(state) {
+        if(this.token) {
+          wepy.navigateTo(
+            {
+              url: '/pages/singleRecode/singleLists?status='+state
+            }
+          )
+        } else {
+          wepy.navigateTo(
+            {
+              url: '/pages/login/login'
+            }
+          )
+        }
+      },
+      async getPhoneNumber(e) {
+        console.log(e)
+        let sessionId = wepy.getStorageSync('sessionId');
+        console.log(sessionId)
+        let phoneData = await order.decodePhoneNumber(sessionId, e.detail.encryptedData, e.detail.iv);
+        this.loaded();
+        console.log(phoneData)
+        wepy.setStorageSync('phoneNumber', phoneData.phoneNumber);
+        wepy.navigateTo(
+          {
+            url: '/pages/login/login'
+          }
+        );
+      }
+    };
+    config = {
+      navigationBarTitleText: '我'
+    };
+    mixins = [base];
+  }
+</script>
+
+<style lang="scss">
+@import "../../styles/variable";
+.all_homepage{background-color:#f8f8f8;}
+.homepage{box-sizing:border-box;
+  .homepage_top{box-sizing:border-box;height:258rpx;width:100%;background-image: linear-gradient(-178deg, #2F80F6 0%, #43A0FF 100%);margin-bottom: 150rpx;
+    .homepage_tit{height:258rpx;width:100%;position: relative;
+      .homepage_icon{width:200rpx;height:200rpx;border-radius:100%;margin:0 auto -170rpx;border:6rpx solid #fff;line-height: 200rpx;text-align:center;color:#fff;font-size:$text-xl;position: absolute;left:50%;margin-left: -105rpx;top:30rpx;background-color:#FFF;
+        button{border:0;background-color: transparent;border-radius:0;width:200rpx;height:200rpx;line-height: 200rpx;font-size: $text-xl;color: #FFFFFF;background-image: linear-gradient(-179deg, #10AEFF 1%, #3D95FA 100%);border-radius:100%;
+          &::after{border:0;}
+        }
+        .portrait{width:200rpx;height:200rpx;border-radius:100%;}
+        .icon{width:60rpx;height:60rpx;position: absolute;right:0;bottom:0;}
+      }
+      .homepage_list{width:690rpx;margin:0 auto 0;background-color:#fff;box-shadow: 0 8rpx 16rpx 0 rgba(0,89,135,0.06);border-radius: 8rpx;position: absolute;left:50%;top:130rpx;margin-left: -345rpx;padding-top: 125rpx;padding-bottom:40rpx;text-align:center;box-sizing:border-box;box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.09);
+        .hello{font-size:$text-xl;color:#333;line-height:48rpx;margin-bottom:5rpx;}
+        .prompt{font-size:$text-xs;color:#999;line-height:40rpx;}
+        .single{background-image: linear-gradient(-90deg, #FFBB00 4%, #FFA200 100%);box-shadow: 0 8rpx 16rpx 0 rgba(0,89,135,0.06);width:172rpx;height:60rpx;line-height:60rpx;position: absolute;right:0;top:40rpx;border-radius:60rpx 0 0 60rpx;text-align:0;
+          text{color:#fff;font-size:$text-sm;margin-left: 6rpx;}
+          image{width:30rpx;height:34rpx;vertical-align:middle;}
+        }
+      }
+    }
+  }
+}
+.recode{box-sizing:border-box;box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.09);border-radius: 8rpx;width:690rpx;height:265rpx;background-color:#FFF;margin: 20rpx auto 0;padding:30rpx;
+  .recode_top{line-height:40rpx;border-bottom: 1rpx solid #E5E5E5;padding-bottom: 20rpx;
+    text{color: #515F71;font-size:$text-nm;}
+    image{width:14rpx;height:25rpx;margin-top: 7rpx;}
+  }
+  .recode_lists{text-align:center;
+    image{width:60rpx;height:60rpx;}
+    .list_l{float: left;}
+    .list_r{float: right;}
+    .list_m{width:72rpx;margin:0 auto;}
+    .list_m_xgj{width:96rpx;margin:0 auto;}
+    .txt{color: #515F71;font-size:$text-xs;}
+  }
+}
+</style>

@@ -1,0 +1,110 @@
+<template>
+  <view class="search_suggest" wx:if="{{show}}">
+  	<view class="suggest_lists">
+  		<repeat for="{{resultList}}" key="index" index="index" item="item">
+	  		<view class="row suggest_list" @tap="query({{item}})">
+	  			<!-- <text>{{item.ENTNAME}}</text> -->
+	  			<rich-text class="text_over" nodes="{{ item.sName }}"></rich-text>
+	  			<image src="/images/search/go_down.png"></image>
+	  		</view>
+	  	</repeat>
+  	</view>
+  	<!-- <view class="row-end close">
+  		<text @tap="close">关闭</text>
+  	</view> -->
+  </view>
+</template>
+
+<script>
+	import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import qs from 'qs'
+  const padding = 30; //rpx  tab栏两边的留白
+	let realPadding = '';
+	export default class searchSuggest extends wepy.component {
+    props = {
+      resultList: {
+        type: Array,
+        default: []
+      },
+      show: {
+      	type: Boolean,
+      	twoWay: true,
+        default: false
+      },
+      type: {
+        type: Number,
+        twoWay: true,
+        default: 1
+      },
+      isSelf: {}
+    };
+    data = {
+    };
+    onLoad(){
+    	try {
+	      let {tabs, stv} = this;
+	      var res = wx.getSystemInfoSync()
+	      this.windowWidth = res.windowWidth;
+	      realPadding = this.windowWidth*padding/750; //px
+	      stv.lineWidth = (this.windowWidth - realPadding*2) / tabs.length;
+	      stv.windowWidth = res.windowWidth;
+	      this.tabsCount = tabs.length;
+	      this.$apply();
+	    } catch (e) {
+	    }
+    }
+    computed = {
+    }
+		methods = {
+			close(){
+				this.show = false;
+				this.$apply();
+			},
+		  queryHistory(type){
+		  	console.log(type)
+		  },
+		  query(item){
+		  	this.methods.close.bind(this)();
+		  	if (this.isSelf) {
+		  		this.$emit('query', {
+		  			content: item.ENTNAME,
+		  			fromSuggest: true
+		  		});
+		  	}else{
+			  	wepy.navigateTo({
+					  url: `/pages/search/${this.type == 1 ? 'searchTm' : 'searchCompany'}?content=${item.ENTNAME}`
+					})
+				}
+		  },
+		  del(){}
+    };
+    watch = {
+    }
+    mixins = [base];
+	}
+</script>
+
+<style lang='scss'>
+  @import "../../styles/variable";
+	.search_suggest{
+		position: fixed;
+	  top: 108rpx;
+	  left: 0;
+	  right: 0;
+	  bottom: 0;z-index: 1001;
+		padding: 0 30rpx 0;
+		background-color: #f8f8f8;
+		.suggest_lists{
+			.suggest_list{
+				height: 82rpx;padding: 20rpx;box-sizing: border-box;border-bottom: 1px solid #E5E5E5; dispaly:flex; justify-content:space-between; align-items: center;
+				image{width: 22rpx; height: 24rpx; }
+				text{line-height: 42rpx;font-size: 30rpx;color: #666666;padding-right: 10rpx; max-width:600rpx; overflow:hidden; text-overflow:ellipsis;}
+			}
+		}
+		.close{
+			height: 42rpx;line-height: 42rpx;margin-top: 20rpx;
+			text{font-size: 30rpx;color: #999999;}
+		}
+  }
+</style>

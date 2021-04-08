@@ -1,0 +1,363 @@
+<template>
+	<!-- style="opacity:{{show ? 1: 0}}" -->
+  <view class="stv-container" wx:if="{{show}}">
+	  <view class="tab-bar">
+	  	<view class="tab-bar-in">
+		    <view wx:for="{{tabs}}" wx:key="{{index}}" data-index=
+		    "{{index}}" @tap="handlerTabTap" class="tab {{activeTab==index?'tab-active':''}}" style="width: {{stv.lineWidth}}px">
+		      <text>{{item}}</text>
+		    </view>
+		    <view style="width: {{stv.lineWidth}}px; left: {{lineOffset}}px" class="under-line withAnimate"></view>
+	    </view>
+	  </view>
+	  <view class="scroll-view">
+	    <view @touchstart="handlerStart" @touchmove="handlerMove" @touchcancel="handlerCancel" catchtouchend="handlerEnd"  class="scroll-view-wrapper withAnimate" style="left: -{{stv.offset}}px">
+	      <view style="width: {{stv.windowWidth}}px;" wx:for="{{tabs}}" wx:key="{{index}}" class="one-scene">
+	        <!--
+	        <scroll-view style="height:100%" scroll-y>
+	        	<text>{{index+1}}个页面</text>
+	          <view wx:for="12" wx:key="{{index}}">
+	            <text>这是第{{index+1}}个页面</text>
+	          </view>
+	        </scroll-view>
+	         -->
+	        <view class="history" wx:if="{{loaded}}">
+			    	<view class="row-between title">
+			    		<text>历史记录</text>
+			    	</view>
+			    	<view class="his_lists">
+			    		<view wx:for="{{resultList}}" wx:key="{{index}}" class="row-between his_list" catchtap="query({{item}})">
+			    			<text>{{item.name}}</text>
+			    			<view class="del" catchtap="del({{item}}, {{index}})">
+			    				<image src="/images/search/del.png"></image>
+			    			</view>
+			    		</view>
+			    		<view class="clean_all" wx:if="{{resultList.length}}">
+			    			<image class="icon" src="/images/search/delete.png"></image>
+			    			<text @tap="del(true)" >清空所有历史记录</text>
+			    		</view>
+			    		<!-- <view wx:if="{{!resultList.length && loaded}}" class="row-between his_list his_list_empty">
+			    			<text>无</text>
+			    		</view> -->
+			    	</view>
+			    </view>
+	      </view>
+	    </view>
+	  </view>
+	</view>
+</template>
+
+<script>
+	import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import searchApi from '../../api/search';
+  import qs from 'qs'
+  const padding = 30; //rpx  tab栏两边的留白
+	let realPadding = '';
+	export default class serachHistory extends wepy.component {
+    props = {
+      type: {
+        type: Number,
+        twoWay: true,
+        default: 1
+      },
+      show: {
+      	type: Boolean,
+      	twoWay: true,
+        default: false
+      },
+    };
+    data = {
+    	loaded: false,
+    	resultList: [],
+    	tabs: ['搜商标', '搜企业'],
+	    stv: {
+	      windowWidth: 0,
+	      lineWidth: 0,
+	      offset: 0,
+	      tStart: false
+	    },
+	    activeTab: 0
+    };
+    onLoad(){
+    	try {
+	      let {tabs, stv} = this;
+	      var res = wx.getSystemInfoSync()
+	      this.windowWidth = res.windowWidth;
+	      realPadding = this.windowWidth*padding/750; //px
+	      stv.lineWidth = (this.windowWidth - realPadding*2) / tabs.length;
+	      stv.windowWidth = res.windowWidth;
+	      this.tabsCount = tabs.length;
+	      this.$apply();
+	      this.selectRecordList(1);
+	    } catch (e) {
+	    }
+    }
+    onShow(){
+    }
+    computed = {
+    	lineOffset(){
+    		let {tabs, stv} = this;
+    		var res = wx.getSystemInfoSync()
+	      this.windowWidth = res.windowWidth;
+	      realPadding = this.windowWidth*padding/750; //px
+	      stv.lineWidth = (this.windowWidth - realPadding*2) / tabs.length;
+	      stv.windowWidth = res.windowWidth;
+	      this.tabsCount = tabs.length;
+    		let o = stv.offset || 0;
+    		let len = stv.offset/stv.windowWidth;
+    		o = o - len*2*realPadding || 0;
+    		console.log(len)
+    		console.log(realPadding)
+    		console.log(o)
+    		console.log(o/this.tabs.length)
+    		return o/this.tabs.length;
+    	}
+    }
+		methods = {
+			preventDefault(){},
+			handlerStart(e) {
+				//console.log('handlerStart')
+				this.isMove = false;
+		    let {clientX, clientY} = e.touches[0];
+		    this.startX = clientX;
+		    this.tapStartX = clientX;
+		    this.tapStartY = clientY;
+		    this.stv.tStart = true;
+		    this.tapStartTime = e.timeStamp;
+		    this.$apply();
+		  },
+		  handlerMove(e) {
+		  	//console.log('handlerMove')
+		  	this.isMove = true;
+		    let {clientX, clientY} = e.touches[0];
+		    let {stv} = this;
+		    let offsetX = this.startX - clientX;
+		    this.startX = clientX;
+		    stv.offset += offsetX;
+		    if(stv.offset <= 0) {
+		      stv.offset = 0;
+		    } else if(stv.offset >= stv.windowWidth*(this.tabsCount-1)) {
+		      stv.offset = stv.windowWidth*(this.tabsCount-1);
+		    }
+		    this.$apply();
+		  },
+		  handlerCancel(e) {
+		  	//console.log('handlerCancel')
+		  },
+		  handlerEnd(e) {
+		  	//console.log('handlerEnd')
+		  	if (!this.isMove) {return;}
+		    let {clientX, clientY} = e.changedTouches[0];
+		    let endTime = e.timeStamp;
+		    let {tabs, stv, activeTab} = this;
+		    let {offset, windowWidth} = stv;
+		    //console.log('--------------------------')
+		    //console.log('this.tapStartY - clientY:', this.tapStartY - clientY)
+		    //console.log('this.tapStartX - clientX:', this.tapStartX - clientX)
+		    //快速滑动
+		    if(endTime - this.tapStartTime <= 300) {
+		    	//console.log('fast')
+		    	const dis = 50;
+		      //向左
+		      if(Math.abs(this.tapStartX - clientX) > dis) {
+		        if(this.tapStartX - clientX > dis) {
+		          if(activeTab < this.tabsCount -1) {
+		            activeTab += 1;
+		          }
+		        } else {
+		          if(activeTab > 0) {
+		          	activeTab -= 1;
+		          }
+		        }
+		      }else{
+		      	//快速滑动 但是Y距离大于50 所以用户是左右滚动
+		        let page = Math.round(offset/windowWidth);
+		        if (activeTab != page) {
+		        	activeTab = page;
+		        }
+		        stv.offset = stv.windowWidth*activeTab;
+		      }
+		    } else {
+		    	//console.log('normal')
+		    	const dis = 100;
+		    	if (Math.abs(this.tapStartX - clientX) > Math.abs(this.tapStartY - clientY) && Math.abs(this.tapStartX - clientX) > dis) {
+		    		if(this.tapStartX - clientX > dis) {
+		          if(activeTab < this.tabsCount -1) {
+		            activeTab += 1;
+		          }
+		        } else {
+		          if(activeTab > 0) {
+		          	activeTab -= 1;
+		          }
+		        }
+		    	}else{
+		        let page = Math.round(offset/windowWidth);
+		        if (activeTab != page) {
+		        	activeTab = page;
+		        }
+		        stv.offset = stv.windowWidth*activeTab;
+		      }
+		    }
+		    stv.tStart = false;
+		    this.type = activeTab + 1;
+		    this.$apply();
+		    //this.methods._updateSelectedPage.bind(this)(activeTab);
+		  },
+		  _updateSelectedPage(page) {
+		    let {tabs, stv, activeTab} = this;
+		    if (this.activeTab != page) {
+		    	this.activeTab = page;
+		    	//业务代码
+		    	this.methods.queryHistory.bind(this)(page);
+		    }
+		    stv.offset = stv.windowWidth*this.activeTab;
+		    this.$apply();
+		    this.$emit('changedTab', page);
+		  },
+		  handlerTabTap(e) {
+		  	this.type = e.currentTarget.dataset.index + 1;
+		  	this.$apply();
+		  },
+		  queryHistory(type){
+		  	this.selectRecordList(type+1);
+		  },
+		  query(item){
+	  		wepy.navigateTo({
+				  url: `/pages/search/${this.type == 1 ? 'searchTm' : 'searchCompany'}?content=${item.name}`
+				})
+		  },
+		  async del(item, index){
+		  	let id = item.id ? item.id : 0;
+		  	let resp = await searchApi.deleteRecord({
+	    		recordType: this.type,
+	    		id: id
+	    	});
+	    	if (resp.code === 0) {
+		    	if (id) {
+		    		this.resultList.splice(index, 1);
+		    	} else {
+		    		this.resultList = [];
+		    	}
+		    	this.$apply();
+		    	Tips.success('设置成功');
+	    	}
+		  }
+    }
+
+    async selectRecordList(type){
+    	this.resultList=[];
+    	this.loaded = false;
+    	this.$apply();
+    	let resp = await searchApi.selectRecordList({
+    		recordType: type
+    	});
+    	this.loaded = true;
+    	if (resp.data) {
+    		this.show = true;
+    		this.resultList = resp.data;
+    		this.$apply();
+    	}
+    }
+
+    watch = {
+    	type (){
+    		this.methods._updateSelectedPage.bind(this)(this.type - 1);
+    		this.$apply()
+    	}
+    }
+    mixins = [base];
+	}
+</script>
+
+<style lang='scss'>
+  @import "../../styles/variable";
+  .stv-container {
+		position: relative;
+		left: 0; top: -90rpx; bottom: 0;z-index: 1001; height:90rpx;
+	  .withAnimate {
+		  transition: all 200ms ease;
+		  -webkit-transform: translate3d(0, 0, 0);
+		  -moz-transform: translate3d(0, 0, 0);
+		  -ms-transform: translate3d(0, 0, 0);
+		  transform: translate3d(0, 0, 0);
+		  -webkit-backface-visibility: hidden;
+		  -moz-backface-visibility: hidden;
+		  -ms-backface-visibility: hidden;
+		  backface-visibility: hidden;
+		  -webkit-perspective: 1000;
+		  -moz-perspective: 1000;
+		  -ms-perspective: 1000;
+		  perspective: 1000;
+		}
+		.tab-bar {
+			padding: 0 30rpx;
+		  .tab-bar-in {
+		  	position: relative;
+		  	display: flex;
+				.tab {
+				  display: flex;
+				  align-items: center;
+				  justify-content: center;
+				  padding-top: 26rpx;
+				  padding-bottom: 24rpx;
+				  height: 40rpx;
+				  text{color: #fff;font-size: 28rpx;}
+				}
+				.tab-active {
+				  text{color: #fff;}
+				}
+				.under-line {
+				  position: absolute;
+				  bottom: 0;
+				  height: 9rpx;
+				  background-color: #fff;
+				}
+			}
+		}
+		.scroll-view {
+		  position: relative;
+		  width: 100%;
+		  //min-height: 620rpx;
+		  height: 100%;
+		  .scroll-view-wrapper {
+			  position: absolute;
+			  left:0;
+			  top: 0;
+			  bottom: 0;
+			  min-width: 100%;
+			  display: flex;
+			  .one-scene {
+				  height: 100%;
+				 /*  text {
+				 					  display: flex;
+				 					  justify-content: center;
+				 					  padding-top: 200rpx;
+				 					} */
+					.history{
+						padding: 40rpx 30rpx 40rpx;
+						.title{
+							height: 40rpx;margin-bottom: 10rpx;
+							text{font-size: 32rpx;color: #333;}
+						}
+						.his_lists{
+							.his_list{
+								height: 82rpx;padding: 20rpx 0;box-sizing: border-box;border-bottom: 1px solid #E5E5E5;
+								text{height: 42rpx;line-height: 42rpx;font-size: 30rpx;color: #666666;width: 600rpx;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;}
+								.del{width: 60rpx;height: 82rpx;display: flex;flex-direction: row;align-items: center;justify-content: flex-end;
+									image{width: 30rpx;height: 30rpx;border-radius: 30rpx;}
+								}
+							}
+							.his_list_empty{border-bottom: 0;}
+						}
+						.clean_all {
+							width: 100%; text-align: center; margin-top: 50rpx;
+							.icon {width: 32rpx; height: 32rpx; display: inline-block; margin-right: 20rpx; vertical-align: middle;}
+							text {color: #999; font-size: 28rpx; vertical-align: middle;}
+						}
+			    }
+				}
+			}
+		}
+	}
+</style>

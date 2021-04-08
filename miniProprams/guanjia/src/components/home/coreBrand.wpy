@@ -1,0 +1,360 @@
+<template>
+	<!-- 核心商标 -->
+	<view class="core_mark">
+    <text class="title">核心商标</text>
+    <view class="detail_btn" wx-if="{{ coreList.length==0 }}">去添加核心商标 <image class="icon_go" src="../../images/icons/___.png" ></image></view>
+    <!-- wx-if="{{ coreList.length>0 }}" -->
+    <view wx-if="{{ coreList.length>0 }}" wx:key="unique">
+      <view class="item_wrap" >
+        <repeat wx:for="{{ coreList }}" wx:key="unique">
+          <view class="item {{ index==selectCoreNotes ? 'on' : '' }}"  @tap="selectCoreFn({{index}})">{{ item.tmName }}</view>
+        </repeat>
+        <view class="item edit" @tap="editFn">编辑</view>
+      </view>
+      <view class="mark_item">
+        <view class="img_box">
+          <img src="../../images/home/shop-logo.png" alt="">
+        </view>
+        <view class="text_box">
+          <view class="line">
+            <text class="key">商标名称</text>
+            <text class="value">{{ coreNoteObj.tmName }}</text>
+          </view>
+          <view class="line">
+            <text class="key">申请时间</text>
+            <text class="value">{{ coreNoteObj.date }}</text>
+          </view>
+          <view class="line">
+            <text class="key">商标类别</text>
+            <text class="value type">{{ coreNoteObj.type }}</text>
+          </view>
+        </view>
+      </view>
+      <view class="law_btn">{{ coreNoteObj.lawNote }}</view>
+      <view class="weui-cells weui-cells_show core_notes">
+        <block wx:for="{{ coreNoteObj.updateList }}" wx:for-item="page" wx:key="*this">
+          <navigator url="{{page}}/{{page}}" class="weui-cell weui-cell_access">
+              <view class="weui-cell__bd">{{ page.title }}</view>
+              <view class="weui-cell__ft weui-cell__ft_in-access"></view>
+          </navigator>
+        </block>
+      </view>
+      <view class="container pie_box">
+        <canvas canvas-id="pieCanvas" class="canvas" style="min-height:270px; width:630rpx; " bindtouchstart="touchHandler"></canvas>
+      </view>
+      <view class="pie_text">
+        <view class="title"><text class="left"></text>已注册“金银花”商标的法律状态分布图<text class="right"></text></view>
+        <view class="info">已注册“金银花”商标的企业66个</view>
+        <view class="info">已注册类别44个</view>
+        <view class="info">未注册类别1个</view>
+      </view>
+      <view class="detail_btn">查看商标注册查询报告</view>
+    </view>
+  </view>
+
+</template>
+
+<script>
+  import wepy from 'wepy';
+  import interfaces from '../../interfaces';
+  import FormTips from '../../components/weui/tips';
+  import VCode from '../../components/weui/vcode';
+  import base from '../../mixins/base';
+  import Tips from '../../utils/Tips';
+  import NetError from '../../components/common/net_error';
+  import wxCharts from '../../api/wxcharts-min';
+  import homeApi from '../../api/home';
+
+  export default class coreBrand extends wepy.component {
+  	components = {
+      Tips: FormTips,
+    };
+
+    events = {
+      'changeCoreData': (v) => {
+        console.log(666)
+        console.log(v)
+        this.coreList = v;
+        this.$apply()
+      }
+    }
+
+    props = {
+    	coreList: {
+    		type: Array,
+        default: [],
+    	}
+    };
+
+    data = {
+    	selectCoreNotes: 0,  //默认选择的核心商标
+    	coreNoteObj: {},  //选择的核心商标
+      coreDetail: {},   //核心商标详情
+    	chartOption: {
+        animation: true, //是否有动画
+        disablePieStroke: true, //不绘制各部分连接处的白线
+        canvasId: 'pieCanvas',
+        type: 'pie',
+        title: {
+          name: '已注册“金银花”商标的法律状态分布图',
+          offsetX: 100
+        },
+        series: [
+          {
+              name: '待审中',
+              data: 45,
+              color: '#FFD55C'
+          }, 
+          {
+              name: '已初审',
+              data: 65,
+              color: '#FFB747'
+          }, 
+          {
+              name: '已驳回',
+              data: 10,
+              color: '#75D998'
+          },
+          {
+              name: '已注册',
+              data: 12,
+              color: '#3DB1FA'
+          }
+        ],
+        width: 400,
+        height: 270,
+        dataLabel: true,  //是否在图表中显示数据内容值
+      },
+    };
+
+    methods = {
+      editFn () {    //编辑核心商标
+        wepy.navigateTo({
+          url: '/pages/coreBrand/editBrand'
+        })
+      },
+      selectCoreFn (index) {  //切换核心商标
+        this.selectCoreNotes = index;
+        this.coreNoteObj = this.coreList[index];
+        this.methods.getCoreTrademarkDetailFn(this.coreNoteObj.id)
+        this.$apply();
+      },
+      async getCoreTrademarkDetailFn (id) {    //查询核心商标详情
+        let self = this;
+        let params = {
+          trademarkId: id
+        };
+        try {
+          let coreDetail_ = await homeApi.findCoreTrademarkDetails(params);
+          self.coreDetail = coreDetail_.data;
+        }
+        catch (e) {}
+      },
+    };
+
+    async onLoad () {
+    	let self = this;
+    	let sysInfo = wx.getSystemInfoSync();
+    	// 初始化饼图
+    	self.chartOption.width = sysInfo.windowWidth;
+      new wxCharts(self.chartOption); 
+
+       // 默认选择核心商标
+      self.coreNoteObj = self.coreList[0];  
+      console.log(123)
+      //默认查询的核心商标详情  
+      if (self.coreNoteObj) {
+        self.methods.getCoreTrademarkDetailFn(self.coreNoteObj.id)
+      }
+
+    };
+
+    watch = {
+      coreList (n, o) {   //监听核心商标列表变化
+        if (n != o) {
+           this.methods.getCoreTrademarkDetailFn(n[0].id)
+        }
+      }
+    }
+
+    config = {
+      navigationBarTitleText: '商标管家',
+      onReachBottomDistance: 100,
+      enablePullDownRefresh: true,
+    };
+    mixins = [base];
+
+  }
+
+</script>
+
+<style lang="scss">
+	.core_mark {
+    width: 630rpx;
+    height: auto;
+    padding: 30rpx;
+    margin: 20rpx auto 0 auto;
+    background-color: #fff;
+    overflow: hidden;
+    box-shadow: 0 10px 24px 0 rgba(66,114,255,0.07);
+    .title {
+      width: 100%;
+      font-family: PingFangSC-Regular;
+      font-size: 28rpx;
+      color: #666666;
+      margin-bottom: 30rpx;
+    }
+    .detail_btn {
+      margin: 40rpx auto;
+      width: 510rpx;
+    }
+    .item_wrap {
+      width: 100%;
+      margin-bottom: 30rpx;
+      overflow: hidden;
+      .item {
+        float: left;
+        width: 100rpx;
+        height: 100rpx;
+        line-height: 100rpx;
+        border: 1px solid #E5E5E5;
+        text-align:center;
+        margin-right: 10rpx;
+        border-radius: 8rpx;
+        font-size: 22rpx;
+      }
+      .on {
+        border: 1px solid #4272FF;
+      }
+      .edit {
+        width: 80rpx;
+        font-family: PingFangSC-Regular;
+        font-size: 26rpx;
+        color: #4272FF;
+        background: #F4F6FF;
+        border: 1px solid #CBD8FF;
+        border-radius: 8rpx;
+      }
+    }
+    .mark_item {
+      width: 100%;
+      height: auto;
+      overflow: hidden;
+      margin-bottom: 30rpx;
+      .img_box {
+        float: left;
+        width: 240rpx;
+        height: 240rpx;
+        background: #FFFFFF;
+        border: 1px solid #E5E5E5;
+        border-radius: 8rpx;
+        text-align: center;
+        img {
+          width: 100%;
+        }
+      }
+      .text_box {
+        float: left;
+        width: calc(100% - 264rpx);
+        margin-left: 20rpx;
+        padding-top: 40rpx;
+        .line {
+          width: 100%;
+          margin-bottom: 15rpx;
+          overflow: hidden;
+          .key {
+            float: left;
+            font-family: PingFangSC-Regular;
+            font-size: 28rpx;
+            color: #999999;
+          }
+          .value {
+            float:left;
+            max-wdith: 190rpx;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            margin-left: 30rpx;
+            font-family: PingFangSC-Regular;
+            font-size: 28rpx;
+            color: #666666;
+          }
+          .type {
+            float: left;
+            background: #EEEEEE;
+            border-radius: 100px;
+            padding: 0 20rpx;
+          }
+        }
+      }
+    }
+    .law_btn {
+      height: 62rpx;
+      line-height: 62rpx;
+      background: #F4F6FF;
+      border: 1px solid #CBD8FF;
+      border-radius: 100rpx;
+      font-family: PingFangSC-Regular;
+      font-size: 26rpx;
+      color: #4272FF;
+      text-align: center;
+      padding: 0 10rpx;
+      white-space: nowrap;
+      text-overflow: hidden;
+    }
+    .core_notes {
+      border: none;
+      .weui-cell {
+        padding: 20rpx 0 20rpx 15rpx;
+      }
+    }
+    .pie_box {
+      margin-left: -60rpx;
+    }
+    .pie_text {
+      text-align: center;
+      .title {
+        font-family: PingFangSC-Regular;
+        font-size: 24rpx;
+        color: #999999;
+        margin-bottom: 40rpx;
+        position: relative;
+        .right {
+          position: absolute;
+          right: 0;
+          top: 20rpx;
+          width: 60rpx;
+          border-top: 1px solid #E5E5E5;
+          content: '';
+        }
+        .left {
+          position: absolute;
+          left: 0;
+          top: 20rpx;
+          width: 60rpx;
+          border-top: 1px solid #E5E5E5;
+          content: '';
+        }
+      }
+      .info {
+        font-family: PingFangSC-Regular;
+        font-size: 28rpx;
+        color: #666666; 
+        margin-bottom: 20rpx;
+      }
+    }
+    .detail_btn {
+      background: #4272FF;
+      border-radius: 100rpx;
+      height: 86rpx;
+      line-height: 86rpx;
+      font-family: PingFangSC-Regular;
+      font-size: 32rpx;
+      color: #FFFFFF;
+      text-align:center;
+      padding: 0 10rpx;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+  }
+</style>

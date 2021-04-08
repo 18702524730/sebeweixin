@@ -1,0 +1,152 @@
+<template>
+  <Tips />
+
+  <view class="serach_box" id="searchbox">
+    <view class="searchbox" :class="{'search_line': !autoFocus && canSearch}" >
+      <view class="select_box" wx:if="{{ canSearch && showSelectList }}" @tap="showSelectFn()">
+        <text class="select_type">{{ selectObj.name }}</text>
+        <text class="more"></text>
+      </view>
+      <view class="type_list" wx:if="{{ canSearch && showSelect }}">
+        <view class="item" wx:for="{{ selectList }}" wx:key="{{ index }}" :class="{'active': selectType==index}" @tap="selectFn({{ index }})">{{ item.name }}</view>
+      </view>
+    	<image src="/images/search/s.png" wx:if="{{ !canSearch }}"></image>
+      <input type="text" placeholder-class="placeholder" placeholder="{{placeholder}}" id="keyword" value="{{content}}" maxlength="40" focus="{{autoFocus}}" @input="myInput" @confirm="search" @focus="focusAction" @blur="blurAction" style="width: {{!autoFocus && canSearch ? '400rpx' : '600rpx'}}">
+      <!-- <rich-text wx:if="{{!autoFocus && richText}}" class="resultNum" nodes="{{richText}}"></rich-text> -->
+      <view wx:if="{{content && autoFocus}}" class="cancel" @tap="clear">取消</view>
+    </view>
+    <view class="cancel" @tap="cancealFn" wx:if="{{ !autoFocus && canSearch }}">取消</view>
+  </view>
+  
+
+</template>
+
+<script>
+	import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import qs from 'qs';
+  import FormTips from '../../components/weui/tips';
+	export default class searchBox extends wepy.component {
+
+    components = {
+      Tips: FormTips
+    };
+
+    props = {
+    	placeholder: String,
+      content: {
+        type: String,
+        default: '',
+        twoWay: true
+      },
+      autoFocus: {
+      	type: Boolean,
+        default: false
+      },
+      richText: { //搜索结果总数
+      	type: String,
+        default: ''
+      },
+      showSelectList: {
+        type: Boolean,
+        default: true
+      }
+    };
+    data = {
+      canSearch: false,
+      showSelect: false,
+      selectType: 0,
+      selectList: [
+        {name:'企业', typeId: 0},
+        {name:'商标', typeId: 1}
+      ],
+      selectObj: {},
+    };
+    onLoad(){
+    	this.selectObj = this.selectList[0];
+    }
+		methods = {
+      // 取消搜索
+      cancealFn () {
+        this.canSearch = false;
+        this.content = '';
+        this.$emit('cancel');
+      },
+      selectFn (type) {
+        this.selectType = type;
+        this.showSelect = false;
+        this.selectObj = this.selectList[type];
+        if (type == 0) {
+          this.placeholder = '搜索托管中的企业'
+        }
+        else if (type == 1) {
+          this.placeholder = '搜索托管中的商标'
+        }
+      },
+      showSelectFn () {
+        this.showSelect = true;
+      },
+			blurAction(e){
+				this.$emit('blurAction');
+			},
+			focusAction(e){
+				// this.$emit('focusAction');
+        this.canSearch = true;
+			},
+			myInput(e) {
+        const fieldName = e.currentTarget.id;
+        this.content = e.detail.value;
+        this.$apply();
+      },
+      search(){
+        var str = this.content;
+        if (!str || !(str+'').trim()) {
+          Tips.error('请输入商标名称')
+          return;
+        }
+        this.$emit('query', this.selectType);
+      },
+      clear() {
+      	this.content = '';
+      	this.$apply();
+      },
+    };
+    watch = {
+    	/*content(){
+    		console.log(this.content)
+    	}*/
+    }
+    mixins = [base];
+	}
+</script>
+
+<style lang='scss'>
+  @import "../../styles/variable";
+  .serach_box{
+  	position: relative;z-index: 2;
+    height: 108rpx;padding:20rpx 30rpx;box-sizing: border-box;background-image: linear-gradient(180deg, #4272FF 3%, #238DFF 97%);
+    .searchbox{
+      .select_box {
+        width: 110rpx; height:42rpx; position:relative; 
+        .select_type {font-size:28rpx; color:#333; display:inline-block; vertical-align:middle; width:60rpx; height:42rpx; line-height:42rpx; position:absolute;}
+        .more {width:0; height:0; border-width: 14rpx 10rpx; border-style:solid; border-color:transparent; border-top-color:#D8D8D8; vertical-align:middle; margin-left:15rpx; line-height:42rpx; position:absolute; right:14rpx; top:16rpx;}
+      }
+      .type_list {
+        position:absolute; left:0; top:105%; width:140rpx; box-shadow: 0 10px 24px 0 rgba(66,114,255,0.07);
+        .item {width:120rpx; padding-left:20rpx; text-align:left; height:70rpx; border-radius: 8rpx 8rpx 0 0; background: #fff; line-height:70rpx; font-size: 28rpx; color: #333; float:left;}
+        .active {background:#eee;}
+      }
+      position: relative;display: flex;flex-direction: row;align-items: center;width: 100%;height: 68rpx;padding:13rpx 0;box-sizing: border-box;border-radius: 8rpx;padding-left: 20rpx;color:#999;background-color: #fff;
+      image{width: 30rpx;height: 30rpx;margin-right: 20rpx;}
+      input{height: 42rpx;line-height: 42rpx;border:0;background-color: transparent;font-size: 30rpx;color: #999;vertical-align: middle;}
+      .placeholder{color: #999;}
+      .cancel{position: absolute;right: 20rpx; top:13rpx;height: 42rpx;line-height: 42rpx;font-size: 30rpx;color:#999;}
+      .resultNum{
+      	position: absolute;right: 20rpx; top:13rpx;height: 42rpx;line-height: 42rpx;font-size: 26rpx;color:#999;
+      	text{color: #10AEFF;}
+      }
+    }
+    .search_line { width: 614rpx !important;}
+    .cancel {display: inline-block; vertical-align:middle; font-size: 28rpx; color: #FFFFFF; width:70rpx; float:right; margin: -55rpx -10rpx 0 0 }
+  }
+</style>

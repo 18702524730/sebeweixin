@@ -1,0 +1,211 @@
+<template>
+  <view class="state_type" style="height:{{H}}rpx" wx:if="{{show}}">
+    <view class="bgc" @tap="hide">
+    </view>
+    <view class="type_tab" style="height:{{H}}rpx">
+      <view class="tab_btn weui-flex row-center">
+        <view class="{{tabState ? 'bdr' : 'state_btn'}} weui-flex__item mr15 row-center" @tap="tabChange">
+          商标类别
+          <image class="ml10" src="/images/icons/ToBottom.png"></image>
+        </view>
+        <view class="{{tabState ? 'state_btn' : 'bdr'}} sweui-flex__item ml15 row-center" @tap="tabChange">
+          法律状态
+          <image class="ml10" src="/images/icons/ToBottom.png"></image>
+        </view>
+      </view>
+      <!-- 选项 -->
+      <!-- 商标 -->
+      <scroll-view class="tab_lists mt30" wx:if="{{tabState}}" scroll-y="true">
+        <repeat for="{{dataInfo}}" key="item" index="index" item="item">
+          <view class="{{item.selected ? 'bdt' : ''}} row-center ml30 mb30" @tap="ObjApply({{item}})">
+            <text class="inline">{{item.id > 9 ? item.id : '0' + item.id}}类 {{item.goodsname}}</text>
+            <icon wx:if="{{item.selected}}" type="success_no_circle" color="#4272FF" size="10"/>
+          </view>
+        </repeat>
+      </scroll-view>
+      <!-- 法律 -->
+      <scroll-view class="tab_lists mt30" wx:if="{{!tabState}}">
+        <repeat for="{{law}}" key="item" index="index" item="item">
+          <view class="{{item.selected ? 'bdt' : ''}} row-center ml30 mb30" @tap="ObjApply({{item}})">
+            <text class="inline">{{item.name}}</text>
+            <icon wx:if="{{item.selected}}" type="success_no_circle" color="#4272FF" size="10"/>
+          </view>
+        </repeat>
+      </scroll-view>
+      <!-- 底部按钮 -->
+      <view class="operation_btn weui-flex">
+        <view class="reset weui-flex__item row-center" @tap="reset">重置</view>
+        <view class="confirm weui-flex__item row-center" @tap="confirmInfo">确认</view>
+      </view>
+    </view>
+  </view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import Data from '../../utils/tmTypeData' //45商品类别
+  const law = [
+		{
+			id: 0,
+			name: '已销亡'
+		},
+		{
+			id: 1,
+			name: '待审中'
+		},
+		{
+			id: 2,
+			name: '已注册'
+		},
+		{
+			id: 3,
+			name: '已驳回'
+		},
+		{
+			id: 4,
+			name: '已初审'
+		}
+	]
+  export default class stateType extends wepy.component {
+    props = {
+      show: {
+        type: Boolean,
+        default: false
+      },
+      styleType: {//高度是否需要动效，父标签写死
+        type: Boolean,
+        default: true
+      }
+    };
+    def={
+      dataInfo: Data.cateIdData,
+      confirmArray:{
+        dataInfo:[],
+        law:[]
+      },
+      tabState:true,
+      H:0,
+      law:law
+    };
+    data = {...this.def}
+    methods = {
+    	hide(){
+    		this.$emit('hide');
+        this.H = 0;
+        this.$apply();
+    	},
+      tabChange() {
+        this.tabState = !this.tabState;
+        this.$apply();
+      },
+      ObjApply(data){//选中的选项
+        let self = this;
+        if(this.tabState){
+          for(let item of this.dataInfo){
+            if(item.id === data.id){
+              item.selected = !item.selected;
+              self.$apply();
+            }
+          }
+        }else{
+          for(let item of this.law){
+            if(item.id === data.id){
+              item.selected = !item.selected;
+            }else{
+            	item.selected = false;
+            }
+            self.$apply();
+          }
+        }
+      },
+      confirmInfo() {//确认按钮
+        let self = this;
+      	self.confirmArray.dataInfo = [];
+      	self.confirmArray.law = [];
+        // 商标
+        for(let item of this.dataInfo){
+          if(item.selected){
+            self.confirmArray.dataInfo.push(item.id < 10 ? '0' + item.id : item.id);
+            self.$apply();
+          }
+        }
+
+        // 法律
+        for(let item of this.law){
+          if(item.selected){
+            self.confirmArray.law.push(item.id);
+            self.$apply();
+          }
+        }
+        this.$emit('confirm',self.confirmArray);
+        console.log(self.confirmArray)
+      },
+      reset() {//重置
+        let self = this;
+        if(this.tabState){
+        	self.confirmArray.dataInfo = [];
+          for(let item of this.dataInfo){
+            if(item.selected){
+              item.selected = false;
+              self.$apply();
+            }
+          }
+        }else{
+        	self.confirmArray.law = [];
+          for(let item of this.law){
+            if(item.selected){
+              item.selected = false;
+              self.$apply();
+            }
+          }
+        }
+        self.$apply();
+      }
+    };
+    watch = {//判断是否显示
+      show(){
+        this.H = this.show ? 477 : 0;
+        this.$apply();
+      }
+    }
+    mixins = [base];
+    components = {
+    };
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .state_type{
+  	position: relative;
+    .bgc{position:fixed;left:0rpx;top:0;height: 100%;background: rgba(0,0,0,0.50);width:750rpx;box-sizing:border-box;bottom:0rpx;}
+    .type_tab{
+    	position:absolute;left:0rpx;top:0;background-color:#fff;box-sizing:border-box;overflow: hidden;transition: height ease 0.15s;
+      .tab_btn{height:90rpx;border-bottom:1px solid #e5e5e5;padding: 17rpx 30rpx 0;box-sizing:border-box;align-items: flex-start;
+        >view{font-size:$text-sm;color:#666;text-align: center;width:330rpx;
+          image{width:14rpx;height:10rpx;}
+        }
+        .bdr{
+        	height:73rpx;border: 1px solid #E5E5E5;border-radius:10rpx 10rpx 0 0;border-bottom:1px solid #fff;align-items: flex-start;line-height: 50rpx;background: #fff;
+        	image{margin-top: 23rpx;}
+        }
+        .state_btn{background: #F8F8F8;width:330rpx;height:56rpx;border-radius: 100rpx;}
+      }
+      .tab_lists{height:274rpx;box-sizing:border-box;overflow: scroll;
+	      .bdt{border-bottom-color:#4272FF;
+	        icon{font-size:1;vertical-align:bottom;line-height:14rpx;}
+	        text{color: #4272FF;margin-right:0;}
+	      }
+	      view{width:330rpx;float:left;text-align:left;line-height: 37rpx;height:50rpx;box-sizing:border-box;border-bottom:1rpx solid #fff;
+	        icon{font-size:1;vertical-align:bottom;line-height:14rpx;}
+	        text{width:280rpx;display:line-block;font-size:$text-sm;margin-right:20rpx;}
+	      }
+	    }
+	    .operation_btn{box-sizing:border-box;
+	      view{font-size:$text-lg;box-sizing:border-box;}
+	      .reset{border: 1px solid #E5E5E5;color: #666666;height:86rpx;background-color:#fff;}
+	      .confirm{background-image: linear-gradient(-180deg, #4272FF 3%, #237CFF 97%);color:#fff;}
+	    }
+    }
+  }
+</style>

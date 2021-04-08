@@ -1,0 +1,284 @@
+<template>
+  <view class="common_search_condition" id="condition" style="opacity: {{show ? 1 :0}}">
+    <view class="row-between s_status" ref="s_status">
+    	<repeat for="{{statusData}}" key="index" index="index" item="item">
+	      <view class="statusC" :class="{'cur': status == item.id}" data-item="{{item}}" @tap="selectStatus">{{item.name}}</view>
+	    </repeat>
+	    <view class="filter_entra" @tap="showFilter">筛选</view>
+    </view>
+  </view>
+
+  <!-- 筛选 -->
+  <view wx:if="{{filterVisible}}" class="tm_type_status" :class="{'tm_type_status_show':showRight}" @tap="hideFilter">
+    <view class="popup-dialog popup-right" :class="{'popup-show': showRight}" position="right" @tap.stop="d">
+      <view class="filter">
+        <view class="filter_type">
+          <view class="row-between filter_title">
+          	<view class="filter_title_t">商标类别</view>
+          	<view :class="{'fa-angle-up':!packCateType,'fa-angle-down':packCateType}" @tap="toggleCateType"></view>
+          </view>
+          <view class="catelist_wrap animated" :class="{'hidden': packCateType}">
+          	<repeat for="{{cateIdData}}" key="index" index="index" item="item">
+              <view class="row-center catelist" :class="{'active': item.checked}" data-index="{{index}}" data-id="{{item.id}}" @tap.stop="selectCateId">
+              	<text wx:if="{{item.id < 10}}">{{'0'+item.id}}</text>
+              	<text wx:if="{{item.id > 9}}">{{item.id}}</text>
+              	<text>{{item.goodsname}}</text>
+              </view>
+            </repeat>
+          </view>
+        </view>
+        <view class="filter_type">
+          <view class="row-between filter_title">
+          	<view class="filter_title_t">商标状态</view>
+          	<view class="fa" :class="{'fa-angle-up':packStatus,'fa-angle-down':!packStatus}" aria-hidden="true" @tap.stop="toggleStatus"></view>
+          </view>
+          <view class="catelist_wrap animated" :class="{'hidden': packStatus}">
+          	<repeat for="{{statusFilterData}}" key="index" index="index" item="item">
+              <view class="row-center catelist" :class="{active: status===item.id}" data-item="{{item}}" data-isfilter="true" @tap="selectStatus">
+              	{{item.name}}
+              </view>
+            </repeat>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view class="row-center action_bt">
+      <view class="reset" @tap.stop="resetSelf('selectCateIdArr')">重置</view><view class="query" @tap.stop="confirm">完成</view>
+    </view>
+  </view>
+</template>
+
+<script>
+	import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import qs from 'qs'
+  import Data from '../../utils/tmTypeData' //右侧筛选商品类别
+  console.log(Data.cateIdData)
+  //头部筛选状态数据
+  const statusData = [
+    {
+      id: 1,
+      name: '待审中'
+    },
+    {
+      id: 3,
+      name: '已驳回'
+    },
+    {
+      id: 4,
+      name: '已初审'
+    },
+    {
+      id: 2,
+      name: '已注册'
+    }
+  ];
+  //右侧筛选状态数据
+  const statusFilterData = [
+    {
+      id: 1,
+      name: '待审中'
+    },
+    {
+      id: 3,
+      name: '已驳回'
+    },
+    {
+      id: 4,
+      name: '已初审'
+    },
+    {
+      id: 2,
+      name: '已注册'
+    },
+    {
+      id: 0,
+      name: '已销亡'
+    }
+  ];
+
+	export default class SearchCondition extends wepy.component {
+    props = {
+      show: {
+        type: Boolean,
+        default: false
+      }
+    };
+    data = {
+    	filterVisible: false,
+      selectCateIdArr:[],
+      packCateType: false,
+      packStatus: false,
+      statusData: statusData,
+      statusFilterData:statusFilterData,
+      status:'',
+      showRight: false,
+      cateIdData: [...Data.cateIdData],
+      showStatus: false,
+      page: 0
+    };
+		methods = {
+			isSelected(id){
+				return this.selectCateIdArr.indexOf(id) !== -1;
+			},
+			toggleStatus(){},
+			toggleCateType(){},
+			hideFilter(){
+				this.filterVisible = false;
+			},
+			showFilter(){
+				this.filterVisible = true;
+			},
+      resetSelf(){
+        this.selectCateIdArr = [];
+        this.status = '';
+        this.cateIdData.forEach((item) => {
+        	item.checked = false;
+        });
+        this.$emit('updateCondition', {
+      		cate_id: this.selectCateIdArr.join(),
+      		status: this.status,
+      	});
+      },
+      confirm(){
+      	this.$emit('updateCondition', {
+      		cate_id: this.selectCateIdArr.join(),
+      		status: this.status,
+      	});
+      	this.$emit('conQuery', {
+      		cate_id: this.selectCateIdArr.join(),
+      		status: this.status,
+      	});
+      	this.filterVisible = false;
+      },
+
+      selectStatus(e){
+      	let item = e.currentTarget.dataset.item;
+      	let isfilter = e.currentTarget.dataset.isfilter;
+        this.page = 1;
+        this.status = this.status === item.id ? '' : item.id;
+        if (isfilter) {
+          return;
+        }
+        this.$emit('conQuery', {
+        	page: this.page,
+        	status: this.status
+        });
+      },
+      selectCateId(e){
+      	let index = e.currentTarget.dataset.index;
+      	let id = e.currentTarget.dataset.id;
+      	id = id<10 ? '0'+id : id+'';
+        //item.checked = !item.checked;
+        var arr = this.selectCateIdArr;
+        var idx = arr.indexOf(id);
+        if (idx !== -1) {
+          arr.splice(idx, 1);
+          this.cateIdData[index].checked = false;
+        }else{
+          arr.push(id);
+          this.cateIdData[index].checked = true;
+        }
+        console.log(arr)
+        console.log(this.cateIdData)
+        // this.query();
+      },
+    };
+    watch = {
+      filterVisible(){
+        if (this.filterVisible) {
+          setTimeout(() => {
+	    			this.showRight = true;
+	    			this.$apply();
+	    		}, 50)
+        }else{
+        	this.showRight = false;
+        	this.$apply();
+        }
+      },
+    };
+    mixins = [base];
+	}
+</script>
+
+<style lang='scss'>
+  @import "../../styles/variable";
+  .common_search_condition {
+    position: relative;z-index: 3;
+    .s_status{
+      width:100%;text-align: center;padding: 30rpx;height: 97rpx;box-sizing: border-box;background-color: #fff;
+      view{height: 37rpx;line-height: 37rpx;font-size: 26rpx;color: #666;background-color: #fff;}
+      view.cur{color: #10AEFF;}
+      .filter_entra{color: #10AEFF;padding-right: 32rpx;background: #fff url(https://sebe360test.oss-cn-beijing.aliyuncs.com/FEA0B15B88A25583ADC66BCC251E7007.png) right center no-repeat;background-size: 26rpx 25rpx;}
+    }
+	  .fixed{position:fixed;z-index:1000;top: 0;}
+  }
+
+
+
+  .tm_type_status{
+  	position: fixed;z-index: 10;left: 0;bottom: 0;width: 100%;height: 100%;background-color: rgba(0, 0, 0, 0.5);
+  	.popup-dialog {
+  		background-color: #fff;
+	    position: fixed;
+	    left: 0;
+	    bottom: 0;
+	    width: 100%;
+	    background: #eee;
+	    z-index: 501;
+	    -webkit-transition-property: -webkit-transform;
+	    transition-property: -webkit-transform;
+	    transition-property: transform;
+	    transition-property: transform,-webkit-transform;
+	    -webkit-transition-duration: .3s;
+	    transition-duration: .3s;
+	    max-height: 100%;
+	    overflow-y: scroll;
+	    -webkit-overflow-scrolling: touch;
+	    transform: translate(100%, 0);
+		}
+		.popup-right {
+	    width: auto;
+	    height: 100%;
+	    top: 0;
+	    right: 0;
+	    bottom: auto;
+	    left: auto;
+		}
+		.popup-show {
+	    transform: translate(0, 0);
+		}
+    .filter{
+      left:0;top:0;bottom:auto;right: 0;min-height: 100%;width: 634rpx;background-color: #fff;padding-top: 20rpx;padding-bottom: 100rpx;
+      .filter_type{
+        padding-left: 40rpx;
+        .filter_title{
+          .filter_title_t{width:100%;font-size: 32rpx;color: #999;line-height: 45rpx;font-weight: normal;}
+          .fa-angle-up{margin-right: 30rpx;font-size: 42rpx;color: #ddd;}
+        }
+        .catelist_wrap{
+          width:100%;overflow:hidden;display: flex;flex-flow: row wrap;padding-top: 20rpx;padding-bottom: 20rpx;justify-content: flex-start;
+          .catelist{width: 180rpx;height: 54rpx;border:1px solid #eee;text-align:center;border-radius: 6rpx;margin-right: 12rpx;margin-bottom:12rpx;background-color: #eee;font-size: 24rpx;color: #666;
+          	text{color: #666;font-size: 24rpx;}
+          }
+          .active{
+          	border:1px solid #10AEFF;background-color: #fff;color:#10AEFF;
+          	text{color:#10AEFF;}
+          }
+        }
+      }
+
+    }
+    .action_bt{
+      width: 634rpx;position: fixed;right: -100%;transition: right 300ms;bottom: 0;left:auto;z-index: 503;background-color: #fff;text-align: right;
+      view{width: 317rpx;;height: 90rpx;line-height: 90rpx;text-align: center;font-size: 32rpx;display: inline-block;}
+      .reset{color: #666;border-top: 1px solid #eee;}
+      .query{color: #fff;border-top: 1px solid #10AEFF;background-image: linear-gradient(-135deg, #10AEFF 0%, #3D95FA 100%);}
+    }
+  }
+  .tm_type_status_show{
+    height: 100vh;
+    /* 解决transform 影响子元素fixed的问题 */
+    .action_bt{right: 0;}
+  }
+</style>

@@ -1,0 +1,135 @@
+<template>
+  <view class="createR" @tap="setActionVisible" wx:if="{{show}}">
+  	<image src="/images/search/report.png">
+  	<view>{{title}}</view>
+	</view>
+</template>
+
+<script>
+	import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import qs from 'qs'
+	export default class AffinitySerachTop extends wepy.component {
+    props = {
+      title: {
+        type: String,
+        default: '生成报告'
+      },
+      show: {
+        type: Boolean,
+        default: false
+      }
+    };
+    data = {
+    };
+		methods = {
+			setActionVisible() {
+				console.log(this.title == '生成')
+				if (this.title == '生成报告') {
+        	this.$emit('setActionVisible', true);
+        }else if(this.title == '生成'){
+        	this.$emit('creatReport');
+        }
+      }
+    };
+    watch = {
+    }
+    mixins = [base];
+	}
+</script>
+
+<style lang='scss'>
+  @import "../../styles/variable";
+  .createR{
+  	position: fixed;bottom: 30rpx;right: 30rpx;width: 144rpx;height: 144rpx;border-radius: 144rpx;color:#fff;box-shadow: 0 15px 20px 0 rgba(45,184,255,0.14);background-image: linear-gradient(137deg, #10AEFF 2%, #3D95FA 96%);text-align: center;
+  	image{width: 30rpx;height: 40rpx;margin-top: 33rpx;}
+  	view{font-size: 24rpx;text-align: center;height: 33rpx;line-height: 33rpx;color: #fff;}
+  }
+  .weui-mask {
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+	}
+	.weui-actionsheet {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    -webkit-transform: translate(0, 100%);
+    transform: translate(0, 100%);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    z-index: 5000;
+    width: 100%;
+    background-color: #EFEFF4;
+    -webkit-transition: -webkit-transform .3s;
+    transition: -webkit-transform .3s;
+    transition: transform .3s;
+    transition: transform .3s, -webkit-transform .3s;
+    .weui-actionsheet__title {
+	    position: relative;
+	    height: 130rpx;
+	    padding: 45rpx 20rpx;
+	    box-sizing: border-box;
+	    line-height: 1.4;
+	    display: -webkit-box;
+	    display: -webkit-flex;
+	    display: flex;
+	    -webkit-box-pack: center;
+	    -webkit-justify-content: center;
+	    justify-content: center;
+	    -webkit-box-orient: vertical;
+	    -webkit-box-direction: normal;
+	    -webkit-flex-direction: column;
+	    flex-direction: column;
+	    text-align: center;
+	    font-size: 28rpx;
+	    background: #FCFCFD;
+	    .weui-actionsheet__title-text {
+	    	color: #888;
+		    overflow: hidden;
+		    text-overflow: ellipsis;
+		    display: -webkit-box;
+		    -webkit-box-orient: vertical;
+		    -webkit-line-clamp: 2;
+			}
+		}
+		.weui-actionsheet__menu {
+	    background-color: #FCFCFD;
+		}
+		.weui-actionsheet__action {
+	    margin-top: 12rpx;
+	    background-color: #FCFCFD;
+		}
+		.weui-actionsheet__cell {
+			height: 100rpx;
+	    position: relative;
+	    padding: 25rpx 0;
+	    text-align: center;
+	    font-size: 36rpx;
+	    height: 50rpx;
+	    line-height: 50rpx;
+		}
+		.weui-actionsheet__cell:before {
+	    content: " ";
+	    position: absolute;
+	    left: 0;
+	    top: 0;
+	    right: 0;
+	    height: 1px;
+	    border-top: 1px solid #e5e5e5;
+	    color: #e5e5e5;
+	    -webkit-transform-origin: 0 0;
+	    transform-origin: 0 0;
+	    -webkit-transform: scaleY(0.5);
+	    transform: scaleY(0.5);
+		}
+  }
+  .weui-actionsheet_toggle {
+    -webkit-transform: translate(0, 0);
+    transform: translate(0, 0);
+	}
+</style>

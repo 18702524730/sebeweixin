@@ -1,0 +1,135 @@
+{
+	"description": "项目配置文件。",
+	"setting": {
+		"urlCheck": false,
+		"es6": false,
+		"enhance": false,
+		"postcss": false,
+		"preloadBackgroundData": false,
+		"minified": false,
+		"newFeature": true,
+		"coverView": true,
+		"nodeModules": false,
+		"autoAudits": false,
+		"showShadowRootInWxmlPanel": true,
+		"scopeDataCheck": false,
+		"uglifyFileName": false,
+		"checkInvalidKey": true,
+		"checkSiteMap": true,
+		"uploadWithSourceMap": true,
+		"compileHotReLoad": false,
+		"babelSetting": {
+			"ignore": [],
+			"disablePlugins": [],
+			"outputPath": ""
+		},
+		"useIsolateContext": true,
+		"useCompilerModule": true,
+		"userConfirmedUseCompilerModuleSwitch": false
+	},
+	"miniprogramRoot": "dist/",
+	"compileType": "miniprogram",
+	"appid": "wxa79a723ab5252d78",
+	"projectname": "parterBB",
+	"libVersion": "2.6.0",
+	"simulatorType": "wechat",
+	"simulatorPluginLibVersion": {},
+	"condition": {
+		"search": {
+			"current": -1,
+			"list": []
+		},
+		"conversation": {
+			"current": -1,
+			"list": []
+		},
+		"plugin": {
+			"current": -1,
+			"list": []
+		},
+		"game": {
+			"currentL": -1,
+			"list": []
+		},
+		"miniprogram": {
+			"current": 10,
+			"list": [
+				{
+					"id": 0,
+					"name": "1",
+					"pathName": "pages/authorize/authorize",
+					"query": "",
+					"scene": "1011"
+				},
+				{
+					"id": -1,
+					"name": "bindPhone",
+					"pathName": "pages/authorize/bindPhone",
+					"query": "",
+					"scene": "1011"
+				},
+				{
+					"id": -1,
+					"name": "myInvit",
+					"pathName": "pages/my/myInvite",
+					"query": "",
+					"scene": "1011"
+				},
+				{
+					"id": 3,
+					"name": "服务详情页",
+					"pathName": "pages/store/serviceDetail",
+					"query": "productNum=218080000307&storeCode=3180050099",
+					"scene": "1011"
+				},
+				{
+					"id": -1,
+					"name": "店铺首页",
+					"pathName": "pages/index/store",
+					"query": "",
+					"scene": "1011"
+				},
+				{
+					"id": -1,
+					"name": "需求页",
+					"pathName": "pages/outpatient/index",
+					"query": ""
+				},
+				{
+					"id": -1,
+					"name": "工具箱",
+					"pathName": "pages/toolbox/index",
+					"query": "",
+					"scene": "1011"
+				},
+				{
+					"id": -1,
+					"name": "工具箱",
+					"pathName": "pages/authorize/authorize",
+					"query": "",
+					"scene": "1011"
+				},
+				{
+					"id": -1,
+					"name": "guice",
+					"pathName": "pages/my/invitRule",
+					"query": "",
+					"scene": "1011"
+				},
+				{
+					"id": -1,
+					"name": "介绍",
+					"pathName": "pages/authorize/introduction",
+					"query": ""
+				},
+				{
+					"id": -1,
+					"name": "需求页",
+					"pathName": "pages/my/materialsCenter",
+					"query": "",
+					"scene": null
+				}
+			]
+		}
+	}
+}

@@ -1,0 +1,158 @@
+<template>
+  <Tips />
+  <view class="changeInfo">
+    <view class="info_lists">
+      <view class="info_tit" wx:if="{{dataInfo.customerType == 1}}">企业客户信息</view>
+      <view class="info_tit" wx:if="{{dataInfo.customerType == 2}}">个人客户信息</view>
+      <view class="lists bdc weui-flex mt30" wx:if="{{dataInfo.customerType == 1}}" @tap="changeData(1,{{dataInfo.id}},{{dataInfo.companyName}})">
+        <view class="weui-flex__item">
+          <view class="lists_l">企业名称</view>
+        </view>
+        <view class="weui-flex__item">
+          <view class="lists_r">
+            <view class="txt">{{dataInfo.companyName || ''}}</view>
+            <image class="icon ml20" src="/images/icons/right.png">
+          </view>
+        </view>
+      </view>
+      <view class="lists bdc weui-flex mt30" @tap="changeData(2,{{dataInfo.id}},{{dataInfo.applyName}})">
+        <view class="weui-flex__item">
+          <view class="lists_l">申请人</view>
+        </view>
+        <view class="weui-flex__item">
+          <view class="lists_r">
+            <view class="txt">{{dataInfo.applyName}}</view>
+            <image class="icon ml20" src="/images/icons/right.png">
+          </view>
+        </view>
+      </view>
+      <view class="lists weui-flex mt30" @tap="changeData(3,{{dataInfo.id}},{{dataInfo.applyPhone}})">
+        <view class="weui-flex__item">
+          <view class="lists_l">手机号码</view>
+        </view>
+        <view class="weui-flex__item">
+          <view class="lists_r">
+            <view class="txt">{{dataInfo.applyPhone}}</view>
+            <image class="icon ml20" src="/images/icons/right.png">
+          </view>
+        </view>
+      </view>
+    </view>
+    <view class="memo">
+      备注<text>（选填）</text>
+      <textarea id="remarks" @input="input" value="{{input.remarks}}" @blur="input" @confirm="changeInfo" placeholder-class="placeholder" maxlength="200" cursor-spacing="30" auto-height="true" placeholder="请在这里添加备注信息" />
+    </view>
+    <view class="btn" @tap="changeInfo">保存</view>
+  </view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import customer from '../../api/customer';
+  import FormTips from '../../components/weui/tips';
+  import qs from 'qs'
+  export default class orderList extends wepy.page {
+    def = {
+      name: '',
+      dataInfo: {},
+      input: {}
+    };
+    data = {...this.def};
+    async onShow () {
+      let option = wepy.getStorageSync('customerInfoData');
+      this.dataInfo = option;
+      this.dataInfo.companyName = decodeURIComponent(option.companyName);
+      this.dataInfo.applyName = decodeURIComponent(option.applyName);
+      if (this.dataInfo.customerType == 1) {
+        this.name = decodeURIComponent(option.companyName);
+      } else {
+        this.name = decodeURIComponent(option.applyName);
+      }
+      if(option.remarks) {
+        this.input.remarks = decodeURIComponent(option.remarks);
+      } else {
+        this.input.remarks = '';
+      }
+      wepy.setNavigationBarTitle({
+        title: this.name,
+      })
+      this.$apply();
+    }
+    onReachBottom(e) {
+      console.log(222222)
+    }
+    methods = {
+      async changeInfo() {
+        try {
+          let data = await customer.infoChange(this.dataInfo.id,this.dataInfo.companyName,this.dataInfo.applyName,this.dataInfo.applyPhone,this.input.remarks);
+          wepy.navigateBack({
+            delta: 1
+          })
+        } catch (e) {
+          Tips.error('服务器繁忙，请稍后再试');
+        }
+      },
+      changeData(state, id, data) {
+        wepy.navigateTo(
+          {
+            url: '/pages/homePage/nicknameModify?'+qs.stringify({state, id, data})
+          }
+        )
+      },
+      loadMore() {
+        console.log(222222)
+      },
+      goDetail(data) {
+        console.log(data)
+        wepy.navigateTo(
+          {
+            url: '/pages/order/orderDetail'
+          }
+        )
+      }
+    };
+    config = {
+      navigationBarTitleText: this.name
+    };
+    mixins = [input, base];
+    components = {
+      Tips: FormTips
+    };
+  }
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.changeInfo{background-color:#f8f8f8;height:100%;}
+.info_lists{background: #FFFFFF;box-shadow: 0 6rpx 12rpx 0 rgba(47,128,246,0.09);border-radius: 8rpx;padding:30rpx;box-sizing:border-box;width:690rpx;margin:30rpx auto 20rpx;
+  .info_tit{color: #515F71;font-size:$text-nm;}
+  .bdc{border-bottom:1rpx solid #E5E5E5;padding-bottom: 30rpx;}
+  .lists{
+    .lists_l{color: #8795A8;line-height: 40rpx;}
+    .placeholder{color: #B3BFD0;}
+    .lists_r{width:425rpx;
+      .txt{overflow: hidden;text-overflow:ellipsis;white-space: nowrap;width:390rpx;display: inline-block;vertical-align: middle;color: #515F71;font-size:$text-nm;line-height: 40rpx;text-align: right;}
+      .icon{width:14rpx;height:25rpx;vertical-align: middle;}
+    }
+  }
+
+}
+.memo{width:690rpx;padding:30rpx;box-sizing:border-box;background-color:#fff;box-shadow: 0 6rpx 12rpx 0 rgba(47,128,246,0.09);border-radius: 8rpx;margin:0 auto 30rpx;font-size:$text-nm;color: #515F71;
+	text{color: #B3BFD0;}
+  textarea{width:100%;margin:30rpx auto 0;text-align:left;font-size:$text-nm;}
+  .placeholder{color: #B3BFD0;}
+}
+.personalInfo{background: #FFFFFF;box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.09);border-radius: 8rpx;width:690rpx;margin:30rpx auto;padding:30rpx;box-sizing:border-box;
+  .info{border-bottom:1rpx solid #E5E5E5;padding-bottom: 20rpx;}
+  .info{box-sizing:border-box;
+    .info_r{
+      .clear{width:30rpx;height:30rpx;vertical-align: middle;}
+    }
+    .icon_sp_area{
+      .weui-icon-cancel{color:#f5f5f5}
+    }
+  }
+  .change_name{color: #B3BFD0;font-size: $text-sm;}
+}
+.btn{width:690rpx;height:96rpx;background-image: linear-gradient(147deg, #0096FF 0%, #2F80F6 100%);box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.30);border-radius: 8rpx;color:#fff;margin:0 auto;border:0rpx;font-size: $text-xxl;text-align: center;line-height:94rpx;}
+</style>

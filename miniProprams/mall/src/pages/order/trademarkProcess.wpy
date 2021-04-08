@@ -1,0 +1,159 @@
+<template>
+  <Tips />
+  <view class="manage_progress">
+    <view class="manage_info row-start">
+      <image src="{{manageInfo.servicePicture}}" alt="" />
+      <view class="ml30">
+        <view class="name">{{manageInfo.serviceName}}</view>
+        <view class="mt10 order_id">服务单号：{{manageInfo.orderSn}}</view>
+      </view>
+    </view>
+    <view class="info_progress">
+      <repeat for="{{ progressList }}" key="index" index="index" item="item">
+        <view :class="{'progress':index == 0}">
+          <view class="mr20 timer">{{item.createTime}}</view>
+          <view class="mid">
+            <image src="/images/icons/new.png" alt="" />
+          </view>
+          <view class="data_img">
+            <view>{{item.feedbackState}}</view>
+            <view class="mt5" :class="{'after_border':index != progressList.length-1}">
+              <view class="note">{{item.memo || ''}}</view>
+              <view class="file mt5" wx:if="{{item.url}}" @tap="lookFile({{item.url}})">查看官文</view>
+            </view>
+          </view>
+        </view>
+      </repeat>
+    </view>
+  </view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import order from '../../api/order';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import Tips from '../../utils/Tips';
+  import FormTips from '../../components/weui/tips';
+  import Filters from '../../utils/filters';
+  /*
+  过滤器
+   */
+  import Lang from '../../utils/Lang';
+  import interfaces from '../../interfaces'
+  export default class HomeIndex extends wepy.page {
+    components = {
+      Tips: FormTips,
+    };
+    def = {
+      progressList:[],
+      orderId:'',
+      manageInfo:{},
+    };
+    data = {...this.def};
+    methods = {
+      async search(){//初始化
+        try {
+          let resp = await order.findFeedbackList(this.orderId);
+          resp.forEach((item)=>{
+            item.createTime = Filters.filters.dateFormat(item.createTime);//时间格式转换
+            console.log(item.createTime)
+          })
+          this.progressList = resp;
+          this.$apply();
+          console.log(resp)
+        }
+        catch (err) {
+          this.tips(err.msg);
+        }
+      },
+      async lookFile(url){
+        var imgArr = url.split('.');
+        if (imgArr[imgArr.length-1] === 'pdf') {
+          let ret = await order.pdfPage(url)
+          wx.previewImage({
+            urls: ret.urls // 需要预览的图片http链接列表
+          })
+        } else {
+          wx.previewImage({
+            urls: [url] // 需要预览的图片http链接列表
+          })
+        }
+      }
+    };
+    onLoad(option){
+      this.orderId = option.orderId || 353953;
+      console.log(this.orderId)
+      this.manageInfo = wx.getStorageSync('manageInfo') || {};
+      this.methods.search.bind(this)({});
+      this.loaded();
+    }
+    computed = {
+      payMoney(){
+        return Filters.filters.priceformat(this.manageInfo.payMoney || 0);
+      }
+    };
+    config = {
+      navigationBarTitleText: '服务进展'
+    };
+    mixins = [base, input];
+  }
+</script>
+<style lang="scss">
+.manage_progress{
+  width:100%;min-height:100%;padding-top: 20rpx;overflow: auto;padding-bottom: 20rpx;box-sizing: border-box;
+  .manage_info{
+    background-color:#fff;position: relative;margin:0 20rpx;border-radius:4rpx;padding:30rpx;
+    >image{width:130rpx;height:130rpx;border-radius:4rpx;}
+    >view{width:490rpx;height:130rpx;
+      view.name{line-height:40rpx;font-size: 28rpx;color: #333;}
+      view.order_id{line-height:40rpx;font-size: 28rpx;color: #999;}
+    }
+  }
+  .row-start{display: flex;flex-direction: row;align-items: center;justify-content: flex-start;}
+  .info_progress{
+    margin:20rpx 20rpx 0;border-radius:4rpx;background-color:#fff;padding-top:40rpx;
+    >view.progress{
+      .data_img{
+        margin-left: 25rpx;
+        view{color:#2F80F6;}
+        view{
+          .note{color:#333;}
+        }
+        view.after_border{
+          &:after{left:-35rpx;}
+        }
+      }
+      .timer{color:#2F80F6;}
+      .mid{
+        position: relative;background-color:#fff;
+        image{width:30rpx;height:30rpx;position: absolute;top:-4rpx;left:-4rpx;display: block;}
+      }
+    }
+    >view{display:flex;padding-left: 45rpx;margin-top: 2rpx;
+      .timer{text-align:right;width:135rpx;color:#999;font-size:24rpx;line-height: 33rpx;word-break: break-all;}
+      .data_img{
+        margin-left: 20rpx;min-height: 95rpx;
+        view{
+          position: relative;font-size:28rpx;color:#999;line-height:34rpx;
+          view{font-size:24rpx;line-height:33rpx;}
+          .note{color:#999;width:445rpx;line-height: 40rpx;}
+          .file{color:#2f80f6;}
+          text{font-size:24rpx;}
+        }
+        view.after_border{
+          min-height: 95rpx;
+          &:after{content:'';width:2rpx;height:100%;background-color:#ddd;position: absolute;top:5rpx;left:-31rpx;}
+        }
+        .border_l{
+          border-left:1rpx solid #ddd;padding-left:35rpx;margin-left: -25rpx;padding-bottom:35rpx;
+        }
+      }
+      .mid{
+        width:22rpx;height:22rpx;background-color:#d8d8d8;border-radius:20rpx;margin-top:8rpx;position: relative;
+        image{display: none;}
+      }
+      .list_img{width:130rpx;height:130rpx;}
+    }
+  }
+}
+</style>

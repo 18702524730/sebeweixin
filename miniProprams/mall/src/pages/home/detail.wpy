@@ -1,0 +1,630 @@
+<template>
+<Tips />
+<view class="detail">
+	<image src="{{detailData.picture}}" mode="widthFix">
+	<view class="detail_number mb20">
+		<text>{{detailData.productPriceName}}</text>
+		<view class="change_num weui-flex mt20">
+			<text class="pay_money weui-flex__item">¥{{detailData.standardPriceText}}</text>
+			<view class="is-edit">
+				<view class="num">
+					<view class="minus {{minusDisabled ? 'disabled' : ''}}" catchtap="minusNum" data-index="{{index}}">
+						<image src="/images/home/minus.png">
+					</view>
+					<view class="init-num">{{shopNum}}</view>
+					<view class="plus {{plusDisabled ? 'disabled' : ''}}" @tap.stop="plusNum" data-index="{{index}}">
+						<image src="/images/home/plus.png">
+					</view>
+				</view>
+			</view>
+		</view>
+		<view class="service_num mt20" wx:if="{{id == 1}}">
+			<!-- 指定服务商 -->
+			<view class="specified" wx:if="{{!serviceCode}}">
+				<text @tap="specified">指定服务商</text>
+			</view>
+			<!-- 已指定服务商 -->
+			<view class="complete weui-flex" wx:else>
+				<text class="complete_l weui-flex__item">已指定{{idCode}}服务商</text>
+				<text class="complete_r" @tap="specified" wx:if="{{codeBool}}">修改</text>
+			</view>
+			<!--  -->
+		</view>
+	</view>
+	<view class="calculate" id="calculateLists">
+		<view class="tab {{tabTop ? 'tabPos' : ''}}">
+			<text class="mr40 {{tabDisabled ? 'selected' : ''}}" @tap="tabSwitch">服务介绍</text>
+			<text class="ml20 {{tabDisabled ? '' : 'selected'}}" @tap="tabSwitch">常见问题</text>
+		</view>
+		<view class="replace" wx:if="{{tabTop}}"></view>
+		<view class="{{tabDisabled ? '' : 'calculate_num'}}">
+			<rich-text wx:if="{{tabDisabled}}" nodes="{{detailData.applyProcess}}" bindtap="tap"></rich-text>
+			<rich-text wx:if="{{!tabDisabled}}" nodes="{{detailData.commonProblem}}" bindtap="tap"></rich-text>
+		</view>
+	</view>
+	<view style="height:94rpx;"></view>
+	<view class="tab_bar">
+		<view class="weui-flex">
+			<view class="customer" @tap="call">
+				<image src="/images/home/Customer.png">
+				<text>联系客服</text>
+			</view>
+			<button type="button" class="go_shopping weui-flex__item" @tap="goShop">立即购买</button>
+		</view>
+		<button wx:if="{{!isLogin}}" type="button" open-type="getUserInfo" @getuserinfo="getUserInfo" class="go_shopping1"></button>
+	</view>
+
+	<view class="appointServicer" wx:if="{{show}}" @tap="back">
+		<view class="wrap" style="height: {{formH}}">
+			<form class="servicerF" @submit="confirm">
+				<view class="close"><image @tap="back" src="/images/confirm/close.png"/></view>
+				<view class="til">{{detailData.productPriceName}}</view>
+				<view class="input_wrap">
+					<input type="number" id="idcode" cursor-spacing="90" placeholder-class="placeholder" name="idcode" confirm-type="done" maxlength="4" placeholder="请输入服务商识别码" cursor-spacing="110"  @input="input" @blur="input" catchtap="f"/>
+				</view>
+				<view class="prompt mt40">温馨提示：下单后如需修改，请联系客服</view>
+				<button class="confirm-btn" form-type="submit">确定</button>
+			</form>
+		</view>
+	</view>
+</view>
+<!-- 订单确认页 -->
+<!-- <view class="confirm" wx:else>
+	<view class="order_detail">
+		<view class="order_name mb20">{{createInfo.productName}}</view>
+		<view class="order_price weui-flex">
+			<view class="order_all weui-flex__item">￥{{payorder.standardPrice}}.00</view>
+			<view class="order_num">x{{infoDetail.number}}</view>
+		</view>
+		<view class="idcode mt20" wx:if="{{infoDetail.idCode}}">
+			已指定{{infoDetail.idCode}}服务商
+		</view>
+	</view>
+	<view class="wechat mt20">
+		<image src="/images/confirm/weixin.png">
+	</view>
+	<view class="tobar">
+		<view class="txt mb30">支付成功后可在【我的订单】中查看详情</view>
+		<view class="gopay_btn weui-flex">
+			<view class="gopay_all weui-flex__item"><text class="mr20">合计</text>￥{{payorder.standardPrice}}.00</view>
+			<view class="gopay_pay" @tap="showAgreement">去支付</view>
+		</view>
+	</view>
+</view> -->
+<ServiceAgreement :show.sync="showServiceAgreement" @back.user="hideServiceAgreement" :orderData.sync="orderData" @paySuccess.user="paySuccess"/>
+</template>
+<script>
+	import wepy from 'wepy';
+	import auth from '../../api/auth';
+	import baseApi from '../../api/base';
+	/*
+	过滤器
+	 */
+	import Lang from '../../utils/Lang';
+	import input from '../../mixins/input';
+	import base from '../../mixins/base';
+
+	import interfaces from '../../interfaces'
+	import order from '../../api/order';
+	import Tips from '../../utils/Tips';
+	import Filters from '../../utils/filters';
+	import FormTips from '../../components/weui/tips';
+	import ServiceAgreement from '../../components/confirm/serviceAgreement';
+	const H = '402rpx';
+
+	export default class detail extends wepy.page {
+		def = {
+			detailData:{},
+			commonProblem:'',
+			formH:0,
+			show:false,
+			shopNum:1,//数量
+			plusDisabled:false,
+			minusDisabled:false,
+			tabDisabled:true,//tab切换
+			tabTop:false,//tab切换，定位
+			serviceCode:false,//指定服务商
+			idCode:'',
+			id:'',
+			sub:true,
+			codeBool:true,
+			isAuth: false,
+			isLogin: false,
+			// 确认订单页面
+			// typePage:true,
+			// orderData: {},
+			// showServiceAgreement:false,
+			// createInfo:{},
+			// infoDetail:{},
+			// payorder:{},
+			// InfoList:{}
+		};
+		data = {...this.def};
+		async onLoad (option) {
+			this.sub = true;
+			this.id = option.id;
+			let data = await order.homepageDetails(option.id);
+			this.detailData = data.data;
+			if (this.detailData) {
+				this.detailData.standardPriceText = Filters.filters.priceformat(this.detailData.standardPrice);
+			}
+			console.log('id:', this.id)
+			let isAuth = await interfaces.getAuthSetting('userInfo');
+	    this.isAuth = isAuth;
+	    const sessionRes = await interfaces.checkLogin();
+	    this.isLogin = sessionRes.isLogin;
+			console.log('sessionRes:', sessionRes)
+	    console.log('isAuth:', isAuth)
+			if(this.id == 1 && this.isAuth && this.isLogin){
+				await this.checkService();
+			}
+			this.$apply();
+		}
+		// 检查是否存在服务商
+		async checkService() {
+			let self = this;
+			let data = {
+				productId: 1,
+				productTypeId: 1,
+				serviceTypeId: 2
+			}
+			let urlCode = baseApi.cartUrl + '/cartWeb/findIdCode.htm';
+			let setHeader = function (){
+				const token = wepy.getStorageSync('key');
+				const sessionId = wepy.getStorageSync('sessionId');
+				const header = {};
+				if (token) {
+					header['Authorization'] = token;
+				}
+				if (sessionId) {
+					header['SessionId'] = sessionId;
+				}
+				return header;
+			}
+			let header = setHeader();
+			header['content-type'] = 'application/x-www-form-urlencoded';
+			wx.request({
+				url: urlCode,
+				method: 'POST',
+				data: data,
+				header: header,
+				success(res){
+					let data = res.data;
+					if(data.idCode){
+						self.validService(data.idCode);
+					}else if(data.status == 401) {
+						self.methods.reLogin();
+					}
+					self.$apply();
+				},
+				fail(){
+					self.tips('系统异常');
+				}
+			});
+		}
+
+		// 检查服务商是否有效
+		async validService(idcode) {
+			let self = this;
+			let data = {
+				productPriceId: 1,
+				idCode: idcode
+			}
+			let url = baseApi.cartUrl + '/cartWeb/validateIdCode.htm';
+			var setHeader = function (){
+				const token = wepy.getStorageSync('key');
+				const sessionId = wepy.getStorageSync('sessionId');
+				const header = {};
+				if (token) {
+					header['Authorization'] = token;
+				}
+				if (sessionId) {
+					header['SessionId'] = sessionId;
+				}
+				return header;
+			}
+			let header = setHeader();
+			header['content-type'] = 'application/x-www-form-urlencoded';
+			wx.request({
+				url: url,
+				method: 'POST',
+				data: data,
+				header: header,
+				success(res){
+					var data = res.data;
+					if (data.code == '200') {
+						self.serviceCode = true;
+						self.idCode = data.idCode;
+						self.codeBool = false;
+						self.$emit('complete', data.idCode);
+					}else{
+						self.serviceCode = false;
+						self.idCode = '';
+						self.tips('该服务商账号异常');
+					}
+					self.$apply();
+				},
+				fail(){
+					self.tips('系统异常');
+				}
+			});
+		}
+
+		onPageScroll (obj) {
+			let self = this;
+				//创建节点选择器
+			let query = wepy.createSelectorQuery();
+			//选择id
+			query.select('#calculateLists').boundingClientRect()
+			query.exec(function (res) {
+				//res就是 所有标签为calculateLists的元素的信息 的数组
+				let top = res[0].top;
+				if(top <= 0){
+					console.log(res[0].top)
+					self.tabTop = true;
+				}else{
+					self.tabTop = false;
+				}
+			})
+		}
+		methods = {
+			async getUserInfo(e) {
+	      console.log('target', e);
+	      let userInfo = e.detail.userInfo;
+	      if (this.isLogin) {
+      		this.methods.goShop.bind(this)();
+        	return false;
+      	}
+	      if (this.isAuth && !this.isLogin) {
+      		wepy.navigateTo(
+						{
+							url: '/pages/login/login'
+						}
+					);
+	      }
+	      if (userInfo) {
+	        await interfaces.setValidSession();
+	        await interfaces.getUserInfoByUser(e.detail);
+	        this.isAuth = interfaces.getAuthSetting('userInfo');
+	        const sessionRes = await interfaces.checkLogin();
+			    this.isLogin = sessionRes.isLogin;
+					console.log('sessionRes', sessionRes)
+					this.$apply();
+	        if (this.isLogin) {
+	        	this.methods.goShop.bind(this)();
+	        }else{
+	        	wepy.navigateTo(
+							{
+								url: '/pages/login/login'
+							}
+						)
+	        }
+	      }else{
+	      }
+	    },
+			async reLogin() {
+				let sessionRes = await interfaces.reLogin();
+				if (!sessionRes.memberDto) {
+					wepy.redirectTo(
+						{
+							url: '/pages/login/login'
+						}
+					);
+				}
+			},
+			call() {
+				wepy.makePhoneCall({
+					phoneNumber: '4000315426'
+				})
+			},
+			f(){},//阻止冒泡
+			async confirm() {
+				let self = this;
+				let data = {
+					productPriceId: 1,
+					idCode: this.input.idcode
+				}
+				console.log(data)
+				let url = baseApi.cartUrl + '/cartWeb/validateIdCode.htm';
+				var setHeader = function (){
+					const token = wepy.getStorageSync('key');
+					const sessionId = wepy.getStorageSync('sessionId');
+					const header = {};
+					if (token) {
+						header['Authorization'] = token;
+					}
+					if (sessionId) {
+						header['SessionId'] = sessionId;
+					}
+					return header;
+				}
+				let header = setHeader();
+				header['content-type'] = 'application/x-www-form-urlencoded';
+				wx.request({
+					url: url,
+					method: 'POST',
+					data: data,
+					header: header,
+					success(res){
+						var data = res.data;
+						if (data.code == '200') {
+							self.serviceCode = true;
+							self.idCode = data.idCode;
+							self.$emit('complete', data.idCode);
+						}else{
+							self.tips('该服务商账号异常');
+						}
+						self.$apply();
+					},
+					fail(){
+						self.tips('系统异常');
+					}
+				});
+			},
+			back() {
+				this.show = false;
+			},
+			specified() {//指定服务商
+				this.show = true;
+			},
+			plusNum() {
+				let self = this;
+				if (this.plusDisabled) {
+					return;
+				}
+				if(this.shopNum < 46){
+					this.shopNum += 1;
+				}
+				this.minusDisabled = this.shopNum;
+				this.plusDisabled = this.shopNum >=45;
+				if(this.plusDisabled){
+					self.tips('已达上限45件商品');
+				}
+				this.$apply();
+			},
+			minusNum() {
+				let self = this;
+				this.plusDisabled = false;
+				if (!this.minusDisabled) {
+					return;
+				}
+				if(this.shopNum > 1){
+					this.shopNum -= 1;
+				}
+				this.minusDisabled = this.shopNum > 1;
+				this.$apply();
+			},
+			tabSwitch() {//切换
+				this.tabDisabled = !this.tabDisabled;
+				this.$apply();
+			},
+			async goShop() {
+				if(this.sub){
+					this.sub = false;
+					let data = {};
+					if(this.idCode){
+						data = {
+							imgSrc : this.detailData.picture,
+							id : this.id,
+							shopProductId : this.detailData.productId,
+							shopProductTypeIdProductType : this.detailData.productTypeId,
+							shopProductTypeIdServiceType : this.detailData.serviceTypeId,
+							number : this.shopNum,
+							price : this.detailData.standardPrice,
+							idCode : this.idCode,
+							invitedChannel : 5
+						}
+					}else{
+						data = {
+							imgSrc : this.detailData.picture,
+							id : this.id,
+							shopProductId : this.detailData.productId,
+							shopProductTypeIdProductType : this.detailData.productTypeId,
+							shopProductTypeIdServiceType : this.detailData.serviceTypeId,
+							number : this.shopNum,
+							price : this.detailData.standardPrice,
+							invitedChannel : 5
+						}
+					}
+					// let create = await order.createOrder(data);
+					this.infoDetail = data;
+					// if(create.code == 'success'){
+					//   Tips.loaded();
+					//   this.InfoList = create.data;
+					//   this.createInfo = create.data.productOrder[0];
+					//   this.payorder = create.data.payOrder[0];
+					//   this.typePage = false;
+					// }else if(create.code == '0100001'){
+					//   wepy.navigateTo(
+					//     {
+					//       url: '/pages/login/login'
+					//     }
+					//   )
+					//   return;
+					// }else{
+					//   Tips.loaded();
+					//   this.tips('系统繁忙，请稍后再试')
+					//   return;
+					// }
+					this.sub = true;
+					this.$apply();
+					// console.log(create)
+					wepy.navigateTo(
+						{
+							url: '/pages/home/confirm?data=' + JSON.stringify(data)
+						}
+					)
+				}
+
+			},
+			// 订单确认
+			// paySuccess(){
+			//   Tips.loading();
+			//   wepy.navigateTo(
+			//     {
+			//       url: '/pages/order/orderList'
+			//     }
+			//   )
+			// },
+			// async showAgreement() {
+			//   Tips.loading();
+			//   const userData = wepy.getStorageSync('auth');
+			//   let item = await order.orderDetail(this.payorder.orderNum)
+			//   if (item.isLogin) {
+			//     Tips.loaded();
+			//   }else{
+			//     Tips.loaded();
+			//   }
+			//   var ret = {
+			//     phone: userData.phone,
+			//     order_fictitious_sn: this.createInfo.orderNum,
+			//     payment_sn: this.createInfo.paymentSn,
+			//     amount: this.payorder.payMoney,
+			//     service: item.fictitious.orderName,
+			//     order_sn: item.fictitious.orderSns,
+			//   }
+			//   console.log(ret)
+			//   this.orderData = ret;
+			//   this.showServiceAgreement = true;
+			//   this.$apply();
+			// },
+			// hideServiceAgreement() {
+			//   this.showServiceAgreement = false;
+			// },
+
+		};
+		config = {
+			navigationBarTitleText: '拾贝微商城'
+		};
+		mixins = [input,base];
+		watch = {
+			show(){
+				this.formH = this.show ? H : '0';
+				this.$apply();
+			}
+		};
+		components = {
+			Tips: FormTips,
+			ServiceAgreement:ServiceAgreement
+		};
+	}
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.detail{background-color:#f8f8f8;font-size: 0;
+	image{width:750rpx;}
+	.detail_number{padding:30rpx;box-sizing:border-box;font-size:0;background-color:#fff;
+		>text{font-size:$text-lg;color:#333;line-height:42rpx;}
+		.change_num{
+			.pay_money{color: #F64744;font-size:40rpx;line-height:48rpx;text-align:left;}
+			.is-edit{display: flex;text-align: right;position: relative;
+				.num{width:170rpx;color: #515F71;text-align: center;display: flex;justify-content: center;
+					image{width:48rpx;height:48rpx;}
+					.minus,.plus{width:48rpx;height: 48rpx;border-radius: 2rpx;color: #FFFFFF;display:flex; justify-content:center; align-items:center;}
+					.minus{background-color:#ddd;}
+					.disabled{background: #bbb;}
+					.plus{background-color:#bbb;}
+					.init-num{width:73rpx;text-align: center;color: #515F71;font-size: $text-lg;}
+				}
+				.complete{
+					display: flex;position: absolute;top:-40rpx;right:-40rpx;
+					justify-content: center;
+					align-items: center;
+					width: 100rpx;
+					height: 184rpx;
+					z-index: 1;
+					font-size: $text-lg;
+					color: white;
+					background: #09BB07;
+					border-top-right-radius: 8rpx;
+					border-bottom-right-radius: 8rpx;
+				}
+			}
+		}
+		.service_num{border-top:1rpx dashed #ddd;padding-top:20rpx;
+			view,text{font-size:$text-nm}
+			.specified{line-height:40rpx;
+				text{color: #10AEFF;}
+			}
+			.complete_l{color: #333333;font-size: $text-nm;}
+			.complete_r{color: #10AEFF;font-size: $text-nm;}
+		}
+	}
+
+}
+.calculate{box-sizing:border-box;
+	.tab{height:90rpx;background-color:#fff;padding-top:30rpx;padding-left: 30rpx;box-sizing:border-box;border-bottom:1rpx solid  #eee;width:750rpx;
+		text{line-height:42rpx;padding-bottom: 17rpx;}
+		.selected{border-bottom:4rpx solid  #10AEFF;color:#10AEFF;}
+	}
+	.replace{height:92rpx;}
+	.calculate_num{padding:30rpx;background-color:#FFF}
+}
+.appointServicer{
+		position: fixed;top: 0;left: 0;width: 100%;height: 100%;background: rgba(0,0,0,0.50);z-index: 3;
+		.wrap{position: absolute;bottom:0;width: 100%;height:0;padding:30rpx 30rpx 25rpx;box-sizing: border-box;background-color: #FFF;border-top-left-radius:10rpx;border-top-right-radius:10rpx; transition: height 0.2s ease-out; overflow: hidden;
+			.servicerF{
+				position: relative;display: block;width: 100%;height: 100%;
+				.close{
+					position: absolute; right:0; top:0;text-align: right;
+					image{width: 24rpx;height: 24rpx;}
+				}
+				.til{
+					height: 48rpx; padding-top:30rpx;text-align: center;color: #666;font-size:$text-xxl;
+				}
+				.form{
+					text,view{font-family: $font-family;}
+				}
+				.input_wrap{
+					text-align: center;border-bottom: $border;padding: 20rpx 0;margin: 16rpx 10rpx 0;
+					input{font-size: 46rpx;color: #333;line-height:46rpx;}
+					.input-placeholder{color: #999;font-size: $text-lg;}
+				}
+				.tips{
+					font-size: $text-xs;color: #888888;line-height: 33rpx;padding:0 30rpx;
+					text{color: #2F80F6;font-size: $text-xs;}
+				}
+				.confirm-btn{
+					position: absolute; bottom:-25rpx; left:-30rpx;width: 750rpx;background: #10AEFF;
+box-shadow: 0 -8px 16px 0 rgba(0,89,135,0.06);height: 96rpx;line-height:96rpx;font-size: $text-xxl;color: #fff;border-radius:0;
+					&::after{border:0;}
+				}
+				.prompt{color: #999999;font-size: $text-xs;text-align:center;line-height:33rpx;box-sizing: border-box;}
+			}
+		}
+}
+.tab_bar{position: fixed;bottom:0;width:750rpx;box-shadow: 0 -8rpx 16rpx 0 rgba(0,89,135,0.06);
+	view{height:94rpx;}
+	.customer{width:130rpx;background-color:#fff;text-align: center;font-size:0;
+		image{width:50rpx;height:50rpx;margin-top: 9rpx;}
+		text{color: #666666;font-size:20rpx;display:block;line-height:28rpx;}
+	}
+	.go_shopping{background: #F64744;text-align:center;color:#fff;line-height:94rpx;font-size:$text-xxl;}
+	button{flex: 1;border: none;padding: 0;border-radius: 0;}
+	.go_shopping1{position: fixed;bottom:0;right: 0;width: 620rpx;height: 94rpx;line-height: 94rpx;opacity: 0;}
+}
+.tabPos{position: fixed;top:0;}
+
+.confirm{padding:30rpx;box-sizing:border-box;background-color:#f8f8f8;height:100%;
+	.order_detail{background: #FFFFFF;box-shadow: 0 8rpx 16rpx 0 rgba(0,89,135,0.06);border-radius: 10rpx;padding:30rpx;box-sizing:border-box;
+		.order_name{color: #333333;font-size:$text-lg;line-height:42rpx;}
+		.order_price{justify-content: center;align-items: center;
+			.order_all{font-size: 40rpx;color: #F64744;line-height: 56rpx;text-align:left;}
+			.order_num{font-size: $text-xxs;color: #888888;}
+		}
+		.idcode{border-top:1rpx dashed #ddd;padding-top:20rpx;font-size: $text-nm;color:#333;}
+	}
+	.wechat{background-color:#fff;box-shadow: 0 8rpx 16rpx 0 rgba(0,89,135,0.06);border-radius: 10rpx;text-align:center;padding:20rpx;box-sizing:border-box;font-size:0;
+		image{height:46rpx;width:202rpx;}
+	}
+	.tobar{position: fixed;bottom: 0;width:100%;left:0;
+		.txt{font-size: $text-sm;color: #DDDDDD;text-align:center;}
+		.gopay_btn{box-shadow: 0 -8rpx 16rpx 0 rgba(0,89,135,0.06);background-color:#fff;width:100%;height:94rpx;justify-content: center;align-items: center;
+			.gopay_all{color: #F64744;font-size: $text-xxl;padding-left:30rpx;
+				text{color: #888888;font-size: $text-nm;}
+			}
+			.gopay_pay{width:300rpx;background: #F64744;font-size: $text-xxl;color: #FFFFFF;height:94rpx;line-height:94rpx;text-align:center;}
+		}
+	}
+}
+</style>

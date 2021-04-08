@@ -1,0 +1,531 @@
+<template>
+  <Tips />
+  <view class="confirm" wx:if="{{init}}">
+    <view class="item-wrapper">
+      <view class="item-list" wx:for="{{itemData}}" wx:for-item="item" wx:for-index="index" wx:key="that">
+        <view class="item-info" data-index="{{index}}" @touchstart="touchS" @touchmove="touchM" @touchend="touchE" style="left:{{item.left + 'rpx'}}" @tap="unDel">
+          <!-- <view class="info-wrapper">
+            <view class="info-desc">
+              <view class="name" style="margin-left:{{-item.left + 'rpx'}}">{{item.name}}</view>
+              <view class="num" style="padding-right: 50rpx;background: transparent url(/images/icons/edit.png) right center no-repeat;background-size: 30rpx 30rpx;" wx:if="{{!item.delYes}}">{{item.num}}</view>
+            </view>
+            <view class="info-content">
+            	<view class="idcode" style="margin-left:{{-item.left + 'rpx'}}">{{item.info}}</view>
+              <view class="price" wx:if="{{!item.delYes}}">{{item.price}}</view>
+          	</view>
+          </view> -->
+          <view class="info-wrapper">
+            <view class="info-left">
+              <view class="name" style="margin-left:{{-item.left + 'rpx'}}">{{item.name}}</view>
+              <view class="idcode {{idCodeIsExit ? 'disabled' : ''}}" style="margin-left:{{-item.left + 'rpx'}}" wx:if="{{item.shopProductPriceId==1}}" @tap="showServicer({{item}}, {{index}})">{{item.idCode? '服务商：'+ item.idCode : '指定服务商'}}</view>
+            </view>
+            <view class="info-right" wx:if="{{!item.isEdit}}">
+            	<view class="num" @tap.stop="handle" data-handlename="editItem" data-index="{{index}}" data-num="{{item.productNum}}" style="padding-right: 50rpx;background: transparent url(https://sebe360test.oss-cn-beijing.aliyuncs.com/0CDD5774654873E50E94D838A604E61D.png) right center no-repeat;background-size: 30rpx 30rpx;" wx:if="{{!item.delYes}}">x{{item.productNum}}</view>
+              <view class="price" wx:if="{{!item.delYes}}">{{item.standardPrice}}.00</view>
+          	</view>
+          	<view class="is-edit" wx:if="{{item.isEdit}}">
+            	<view class="num">
+            		<view class="minus {{minusDisabled ? 'disabled' : ''}}" catchtap="minusNum" data-index="{{index}}">-</view>
+            		<view class="init-num">{{initNum}}</view>
+            		<view class="plus {{plusDisabled ? 'disabled' : ''}}" @tap.stop="plusNum" data-index="{{index}}">+</view>
+            	</view>
+            	<view class="complete" @tap.stop="handle" data-handlename="operComplete" data-myname="productNum" data-myvalue="{{initNum}}" data-index="{{index}}">完成</view>
+          	</view>
+          </view>
+        </view>
+        <view class="item-oper">
+          <view class="oper-delete" @tap="handle" data-handlename="askDeleteItem" data-index="{{index}}">删除</view>
+          <view class="oper-delete-ask" @tap="handle" data-handlename="deleteItem" data-index="{{index}}" wx:if="{{item.delYes}}">确认删除</view>
+        </view>
+      </view>
+    </view>
+    <!-- 先隐藏
+    <view class="add" @tap="goback">
+    	<view class="add_text">+</view>
+    </view>
+  	-->
+    <view class="fixed_bottom">
+    	<view class="total">合计<text>¥{{total}}.00</text></view>
+    	<button class="confirm-btn" @tap="create">生成下单链接</button>
+    </view>
+  </view>
+
+  <AppointServicer :show.sync="servicerShow" @back.user="hideServicer" :idcode.sync="idcode" @complete.user="appointedServicer"/>
+  <!-- <RegisterAgreement :show.sync="showRegAgreement" @back.user="hideRegisterAgreement" />
+  <ServiceAgreement :show.sync="showServiceAgreement" @back.user="hideServiceAgreement" /> -->
+  <Mask></Mask>
+</template>
+<script>
+  import wepy from 'wepy';
+  import qs from 'qs';
+  // import itemData from './mock.js'
+  // import auth from '../../api/auth';
+  import confirm from '../../api/confirm';
+  import baseApi from '../../api/base';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  // import FormTips from '../../components/weui/tips';
+  // import VCode from '../../components/weui/vcode';
+  import Tips from '../../utils/Tips';
+  import FormTips from '../../components/weui/tips';
+  import WxUtils from '../../utils/WxUtils';
+  import Event from '../../utils/Event';
+  import Touches from '../../utils/Touches';
+
+  import AppointServicer from '../../components/confirm/appointServicer';
+  import RegisterAgreement from '../../components/confirm/registerAgreement';
+  import ServiceAgreement from '../../components/confirm/serviceAgreement';
+  import Mask from '../../components/confirm/mask';
+
+  const singH = 57;
+  const num = 6;
+  export default class Confirm extends wepy.page {
+    def = {
+    	idCodeIsExit: false,
+    	total: 0,
+    	postData: {},
+    	editItem:'editItem',
+      itemData: {},
+      curItem: {},
+      curIndex: 0,
+      startX: 0,
+      initNum: 1,
+      minusDisabled: false,
+      plusDisabled: false,
+      servicerShow: false,
+      idcode: '',
+      init: false,
+      loginMassage: {},
+      delYes: false
+    };
+    data = {...this.def};
+    async onShow (options) {
+    	/*
+    	options = {
+				"customerType":"1",
+				"companyName":"企业名称",
+				"applyName":"申请人",
+				"applyPhone":"18868403698",
+				"remarks":"备注",
+				"asistantOrderDtoList": [
+	        {
+						shopProductPriceId: 1,
+						productNum: 1,
+						name: 'item.name',
+						standardPrice: '699',
+						idCode: ''
+					},
+					{
+						shopProductPriceId: 2,
+						productNum: 1,
+						name: 'item.name',
+						standardPrice: '699',
+						idCode: ''
+					},
+					{
+						shopProductPriceId: 3,
+						productNum: 1,
+						name: 'item.name',
+						standardPrice: '699',
+						idCode: ''
+					},
+					{
+						shopProductPriceId: 4,
+						productNum: 1,
+						name: 'item.name',
+						standardPrice: '699',
+						idCode: ''
+					},
+					{
+						shopProductPriceId: 5,
+						productNum: 1,
+						name: 'item.name',
+						standardPrice: '699',
+						idCode: ''
+					},
+			  ]
+			}
+			*/
+    	let createOrderData = wepy.getStorageSync('createOrderData');
+    	this.postData = {...createOrderData};
+    	// this.itemData = this.postData.asistantOrderDtoList;
+    	this.itemData = this.postData.asistantOrderDtoList;
+    	// this.postData.asistantOrderDtoList = this.itemData;
+    	console.log('this.itemData:',this.itemData)
+    	this.getIdCode();
+    	this.calTotalPrice();
+    	this.$apply();
+      this.loaded();
+    }
+    getIdCode(){
+    	let self = this;
+    	let data = {
+        productPriceId: 1,
+        applyPhone: this.postData.applyPhone
+      }
+      let url = baseApi.cartUrl + '/cartWeb/findIdCode.htm';
+
+      let setHeader = function (){
+		  	const token = wepy.getStorageSync('key');
+		    const sessionId = wepy.getStorageSync('sessionId');
+		    const header = {};
+		    if (token) {
+		      header['Authorization'] = token;
+		    }
+		    if (sessionId) {
+		      header['SessionId'] = sessionId;
+		    }
+		    return header;
+		  }
+		  let setIdCode = function (idCode){
+		  	self.itemData.forEach((item, idx) => {
+		  		if (item.shopProductPriceId == '1') {
+		  			item.idCode = idCode;
+		  		}
+		  	});
+		  	self.$apply();
+		  }
+      let header = setHeader();
+	  	header['content-type'] = 'application/x-www-form-urlencoded';
+	    wx.request({
+			  url: url,
+			  method: 'POST',
+			  data: data,
+			  header: header,
+			  success(res){
+			  	var data = res.data;
+			  	if (data.code == '200') {
+			  		if (data.idCode !== '') {
+			  			self.idCodeIsExit = true;
+          		setIdCode(data.idCode);
+          	}
+          }else if(data.msg){
+          	self.tips(data.msg);
+          }
+			  },
+			  fail(){
+			  	self.tips('系统异常');
+			  }
+			});
+    }
+    getTotalNum(e){
+    	let d = this.itemData;
+    	let idx = e.currentTarget.dataset.index;
+    	let ret = 0;
+    	d.forEach((item, index) => {
+    		if (idx != index) {
+    			ret += item.productNum-0;
+    		}
+    	});
+    	ret += this.initNum-0;
+    	return ret;
+    }
+    calTotalPrice(){
+    	let itemData = this.itemData;
+    	let ret = 0;
+    	itemData.forEach((item, index) => {
+    		ret += item.productNum * item.standardPrice;
+    	});
+    	this.total = ret;
+    	this.$apply();
+    	return ret;
+    }
+    methods = {
+    	unDel(){
+    		Touches._resetData(this.itemData, 'left');
+    		Touches._resetData(this.itemData, 'delYes');
+    		this.$apply();
+    	},
+    	goback(){
+    		var data = this.postData;
+      	wepy.setStorageSync('createOrderData', data);
+    		wepy.navigateTo(
+	        {
+	          url: '/pages/createOrder/chooseBusiness'
+	        }
+	      )
+    	},
+    	appointedServicer(idCode){
+    		this.servicerShow = false;
+    		this.curItem.idCode = idCode;
+    		this.itemData[this.curIndex] = this.curItem;
+    		this.postData.asistantOrderDtoList = this.itemData;
+    		wepy.setStorageSync('createOrderData', this.postData);
+    		//this.$apply();
+    		console.log('this.curItem:',this.curItem)
+    	},
+    	showServicer(item, idx){
+    		if (this.idCodeIsExit) {
+    			return;
+    		}
+    		this.curItem = item;
+    		this.curIndex = idx;
+    		this.servicerShow = true;
+    	},
+    	hideServicer(){
+    		this.servicerShow = false;
+    	},
+    	handle(e){
+    		console.log(e)
+    		let handleName = e.currentTarget.dataset.handlename;
+    		let name = e.currentTarget.dataset.myname;
+    		let value = e.currentTarget.dataset.myvalue;
+    		let num = e.currentTarget.dataset.num;
+    		let idx = e.currentTarget.dataset.index;
+    		if (num) {
+    			this.initNum = num;
+    			this.minusDisabled = num == 1;
+    			this.itemData[idx].productNum = num;
+    			console.log(this.itemData[idx].productNum);
+    		}
+    		let itemData = Touches[handleName](e, this.itemData, name, value)
+    		// 删除成功后 恢复数量的+操作
+    		if (handleName == 'deleteItem') {
+    			this.plusDisabled = false;
+    		}
+        this.itemData = itemData;
+        this.postData.asistantOrderDtoList = this.itemData;
+    		wepy.setStorageSync('createOrderData', this.postData);
+        //item.delYes = false;
+        this.$apply();
+        this.calTotalPrice();
+    	},
+      touchS(e) {  // touchstart
+        let idx = e.currentTarget.dataset.index;
+        if (this.itemData[idx].isEdit) {
+        	this.startX = 0;
+        	return;
+        }
+        let startX = Touches.getClientX(e)
+        console.log(startX)
+        this.startX = startX;
+        this.$apply();
+      },
+      touchM(e) {  // touchmove
+        let itemData = Touches.touchM(e, this.itemData, this.startX)
+        Touches._resetData(itemData, 'delYes');
+        this.itemData = itemData;
+        this.$apply();
+      },
+      touchE(e) {  // touchend
+        const width = 100  // 定义操作列表宽度
+        let itemData = Touches.touchE(e, this.itemData, this.startX, width)
+        this.itemData = itemData;
+        this.$apply();
+      },
+
+      minusNum(e) {
+      	if (this.initNum == 1) {
+      		this.minusDisabled = true;
+      		return;
+      	}
+      	let num = this.getTotalNum(e);
+      	this.initNum--;
+      	this.minusDisabled = this.initNum == 1;
+      	this.plusDisabled = false;
+      	this.calTotalPrice();
+      },
+      plusNum(e) {
+      	if (this.plusDisabled) {
+      		return;
+      	}
+      	let num = this.getTotalNum(e);
+      	if (num<45) {
+      		this.initNum++;
+      	}
+      	this.minusDisabled = this.initNum == 1;
+      	this.plusDisabled = num >= 44;
+      	if(this.plusDisabled){
+	    		this.tips('已达上限45件商品');
+	    	}
+      	this.calTotalPrice();
+      },
+      toggle(){
+        let len = this.orderInfo.asistantList.length;
+        var isWrap = this.maxH == singH * num;
+        this.maxH = isWrap ? singH * len : singH * num;
+        this.isWrap = !isWrap;
+        this.$apply();
+      },
+      back() {
+        this.isNeedValidate = false;
+      },
+      async create({detail}) {
+	      await Tips.confirm('已选择业务确定生成？', {
+	        title: '',
+	        cancelText: '考虑一下',
+	        cancelColor: '#888888',
+	        confirmText: '确定生成',
+	        confirmColor: '#2F80F6'
+	      })
+        console.log(this.postData)
+        let createR;
+        try {
+          createR = await confirm.createOrder(this.postData);
+          console.log(createR)
+          if (createR.asistantCode) {
+          	wepy.navigateTo({
+		          url: '/pages/placeUrl/placeUrl?'+qs.stringify({id: createR.asistantCode})
+		        });
+          }
+        } catch (err) {
+        	console.log(err)
+          /*
+          if (err.serverCode == 10501) {
+            createR = err.serverData.login_code;
+            Tips.loaded();
+            await Tips.modal('提示');
+          } else {
+            this.tips(err.message);
+            return;
+          }
+          */
+        }
+      }
+    };
+    mixins = [input, base];
+    config = {
+      navigationBarTitleText: '确定业务信息'
+    };
+    components = {
+      Tips: FormTips,
+      AppointServicer: AppointServicer,
+      RegisterAgreement: RegisterAgreement,
+      ServiceAgreement: ServiceAgreement,
+      Mask:Mask
+    };
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .confirm{
+    position: relative;box-sizing: border-box;width: 100%;min-height: 100%;padding-top: 30rpx;background-color: #F8F8F8;padding-bottom: 216rpx;
+
+    .item-wrapper{
+      width: 100%;box-sizing: border-box;padding:0 30rpx;
+      overflow: hidden;
+    }
+
+    .item-list{
+      position: relative;
+      background-color: #FFFFFF;
+      width: 100%;
+      height: 184rpx;
+      box-sizing: border-box;
+      margin-bottom: 20rpx;
+      // border:1px solid #FFFFFF;
+      box-shadow: 0 6rpx 12rpx 0 rgba(47,128,246,0.09);
+			border-radius: 8rpx;
+			overflow: hidden;
+      .item-info, .item-oper{
+	      position: absolute;
+	      top: 0;
+	      left: 0;
+	      width: 100%;
+	      height: 100%;
+	      box-sizing: border-box;
+	    }
+	    .item-info{
+	      display: flex;
+	      padding: 40rpx;
+	      z-index: 2;
+	      background: white;
+	      transition: left 0.2s ease-in-out;
+		    .info-wrapper{
+		    	width: 100%;display: flex;
+		      .info-desc{
+			      width: 100%;display: flex;flex-direction: row;justify-content: space-between;
+			      .name{font-size: $text-lg;color: #515F71;height: 42rpx;max-width:50%;transition: margin-left 0.2s ease-in-out;}
+				    .num{font-size: $text-nm;color: #515F71;text-align: right;}
+			    }
+			    .info-content{
+			      width: 100%;display: flex;flex-direction: row;justify-content: space-between;margin-top: 20rpx;
+			      .idcode{font-size: $text-nm;color: #2F80F6;transition: margin-left 0.2s ease-in-out;}
+					  .price{font-size: $text-lg;color: #515F71;}
+			    }
+			    .info-left{
+			    	flex:7;
+			    	.name{font-size: $text-lg;color: #515F71;height: 42rpx;transition: margin-left 0.2s ease-in-out;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;width:365rpx;}
+			    	.idcode{font-size: $text-nm;color: #2F80F6;margin-top: 20rpx;transition: margin-left 0.2s ease-in-out;}
+			    	.disabled{color: #ccc;}
+			    }
+			    .info-right{
+			    	flex:3;
+			    	.num{font-size: $text-nm;color: #515F71;text-align: right;}
+			    	.price{margin-top: 20rpx;font-size: $text-lg;color: #515F71;text-align: right;}
+			    }
+			    .is-edit{
+			    	flex:7;display: flex;text-align: right;position: relative;
+			    	.num{
+			    		width:170rpx;font-size: $text-lg;color: #515F71;text-align: center;
+			    		display: flex;
+			    		.minus,.plus{width:48rpx;height: 48rpx;background: #B3BFD0;border-radius: 2px;color: #FFFFFF;font-size:60rpx;line-height: 38rpx;}
+			    		.disabled{background: #DEE9F7;}
+			    		.plus{font-size:40rpx;line-height: 44rpx;}
+			    		.init-num{width:73rpx;text-align: center;color: #515F71;}
+			    	}
+			    	.complete{
+			    		display: flex;position: absolute;top:-40rpx;right:-40rpx;
+				      justify-content: center;
+				      align-items: center;
+				      width: 100rpx;
+				      height: 184rpx;
+				      z-index: 1;
+				      font-size: $text-lg;
+				      color: white;
+				      background: #09BB07;
+				      border-top-right-radius: 8rpx;
+				      border-bottom-right-radius: 8rpx;
+				   	}
+			    }
+		    }
+	    }
+	    .item-oper{
+	      display: flex;
+	      justify-content: flex-end;
+	      .oper-delete{
+		      display: flex;
+		      justify-content: center;
+		      align-items: center;
+		      width: 100rpx;
+		      z-index: 1;
+		      font-size: $text-lg;
+		      color: white;
+		      background: #F64744;
+		      border-top-right-radius: 8rpx;
+		      border-bottom-right-radius: 8rpx;
+		    }
+		    .oper-delete-ask{
+		      display: flex;
+		      justify-content: center;
+		      align-items: center;
+		      width: 200rpx;
+		      z-index: 2;
+		      font-size: $text-lg;
+		      color: white;
+		      background: #F64744;
+		      border-top-right-radius: 8rpx;
+		      border-bottom-right-radius: 8rpx;
+		    }
+	    }
+    }
+    .add{
+			position: fixed;bottom:245rpx;right:30rpx;z-index: 2;width: 130rpx;height: 130rpx;border-radius:50%; background: #FFFFFF;display: flex;align-items: center;justify-content: center;box-shadow: 0 8px 16px 0 rgba(184,184,184,0.30);
+			.add_text{
+				color: #eee;font-size: 70rpx;line-height:56rpx;height: 70rpx;overflow:hidden;
+			}
+    }
+		.fixed_bottom{
+			position: fixed;bottom:0;left:0;z-index: 2;width: 100%;height: 206rpx;box-sizing: border-box;padding:0 30rpx 25rpx;background: #FFFFFF;box-shadow: 0 -10px 30px 0 rgba(47,128,246,0.09);
+			.total{
+				display: flex;width: 100%;color: #8795A8;font-size: $text-lg;height: 85rpx;line-height: 85rpx;text-align: center;align-items: center;justify-content: center;
+				text{font-size: $text-xxl;color: #FF9A2F;margin-left:16rpx;}
+			}
+	    .confirm-btn{
+	      width: 100%;background-image: linear-gradient(147deg, #0096FF 0%, #2F80F6 100%);border-radius: 8rpx;height: 96rpx;line-height:96rpx;font-size: $text-xxl;color: #fff;
+	      &::after{border:0;}
+	    }
+    }
+  }
+</style>

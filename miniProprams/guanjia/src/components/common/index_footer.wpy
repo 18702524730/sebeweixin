@@ -1,0 +1,31 @@
+<template>
+  <!-- 底部 -->
+  <view class="weui-footer pub_footer">
+    <image src="../../images/icons/logo.png"></image>
+    <view class="weui-footer__text">拾贝知识产权服务</view>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  export default class Copyright extends wepy.component {
+
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .pub_footer {
+    padding: 60rpx 0 120rpx 0; 
+    image {
+      width: 80rpx;
+      height: 24rpx;
+    }
+    .weui-footer__text {
+      font-family: PingFangSC-Regular;
+      font-size: 24rpx;
+      color: #CCCCCC;
+      letter-spacing: 0;
+    }
+  }
+</style>

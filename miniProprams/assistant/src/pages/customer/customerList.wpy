@@ -1,0 +1,120 @@
+<template>
+<view class="old" wx:if="{{init}}">
+  <view class="tab weui-flex mb30">
+    <view class="weui-flex__item ml30 mr30" :class="{'bdc':typeTab}" @tap="tabType(1)">企业客户</view>
+    <view class="bdc weui-flex__item ml30 mr30" :class="{'bdc':!typeTab}" @tap="tabType(2)">个人客户</view>
+  </view>
+  <view wx:if="{{oldCustomerLists && oldCustomerLists.length}}">
+    <repeat for="{{oldCustomerLists}}" key="index" index="index" item="item">
+      <view class="customer_info weui-flex" @tap="goChange({{item}})">
+        <view class="customer_l">
+          <image class="portrait" src="{{item.avatar || '/images/confirm/photo.png'}}">
+        </view>
+        <view class="customer_m weui-flex__item ml30 mr30" :class="{' mt15':numindex!=1}">
+          <view wx:if="{{numindex == 1}}">{{item.companyName || '--'}}</view>
+          <view class="mt10">{{item.applyName}}</view>
+          <view class="mt10">{{item.applyPhone}}</view>
+        </view>
+        <view class="customer_r">
+          <image class="portrait" src="/images/icons/right.png">
+        </view>
+      </view>
+    </repeat>
+  </view>
+
+  <view class="null_single" wx:else>
+    <image class="portrait" src="/images/login/null.png">
+    <view class="txt mb40">您还未添加过客户哦～</view>
+    <!-- <view class="btn" @tap="goHome">
+      <image class="portrait" src="/images/icons/money.png">
+      我要推单
+    </view> -->
+  </view>
+  <view class="btn" @tap="addcustomer">+添加客户</view>
+</view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import customer from '../../api/customer';
+  import qs from 'qs'
+  export default class orderList extends wepy.page {
+    def = {
+      typeTab: true,
+      oldCustomerLists: {},
+      numindex: 1,
+      init: false
+    };
+    data = {...this.def};
+    async onShow () {
+      let oldLists = await customer.oldLists(this.typeTab ? 1 : 2, true);
+      this.oldCustomerLists = oldLists.data;
+      this.loaded();
+      this.$apply();
+    }
+    onReachBottom(e) {
+      console.log(222222)
+    }
+    methods = {
+      addcustomer() {
+        wepy.navigateTo(
+          {
+            url: '/pages/customer/customerAdd'
+          }
+        )
+      },
+      async tabType(index) {
+        this.typeTab = !this.typeTab;
+        let oldLists = await customer.oldLists(index);
+        if(oldLists.data){
+          this.oldCustomerLists = oldLists.data;
+        }else{
+          this.oldCustomerLists = []
+        }
+        this.numindex = index;
+        this.$apply();
+      },
+      goChange(data) {
+        console.log(data)
+        wepy.setStorageSync('customerInfoData',data);
+        wepy.navigateTo(
+          {
+            url: '/pages/customer/customerChange'
+          }
+        )
+      }
+    };
+    config = {
+      navigationBarTitleText: '老客户'
+    };
+    mixins = [base];
+  }
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.old{background-color:#f8f8f8;min-height:100%;padding-bottom:130rpx;
+  .null_single{text-align: center;padding-top: 265rpx;font-size:0;
+    image{width:422rpx;height:384rpx;}
+    .txt{color: #999999;font-size: $text-nm;}
+    .btn{width:220rpx;height:70rpx;background-image: linear-gradient(-90deg, #FF9500 4%, #FFA200 100%);box-shadow: 0 8rpx 16rpx 0 rgba(0,89,135,0.06);border-radius: 100rpx;margin:0 auto;color:#fff;line-height:70rpx;font-size: $text-lg;
+      image{width:38rpx;height:44rpx;vertical-align: middle;}
+    }
+  }
+  .tab{height:94rpx;background-color:#fff;border-bottom:1rpx solid #E0E5EC;
+    .bdc{border-bottom:4rpx solid #2F80F6;color: #2F80F6;}
+    view{text-align: center;line-height:94rpx;box-sizing:border-box;color: #515F71;font-size: $text-nm;}
+  }
+  .btn{width:690rpx;height:96rpx;background-image: linear-gradient(147deg, #0096FF 0%, #2F80F6 100%);box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.30);border-radius: 8rpx;color:#fff;margin:0 auto;border:0rpx;font-size: $text-xxl;text-align: center;line-height:94rpx;position: fixed;bottom:30rpx;left:30rpx;}
+  .customer_info{width:690rpx;height:190rpx;padding:30rpx;box-sizing:border-box;box-shadow: 0 6rpx 12rpx 0 rgba(47,128,246,0.09);border-radius: 8rpx;background-color:#fff;margin: 0 auto 20rpx;position: relative;
+    .customer_l{
+      image{border-radius:100%;width:130rpx;height:130rpx;margin-top: 5rpx;}
+    }
+    .customer_m{width:422rpx;
+      view{line-height:40rpx;color: #515F71;font-size: $text-nm;overflow: hidden;text-overflow:ellipsis;white-space: nowrap;}
+    }
+    .customer_r{line-height:140rpx;
+      image{width:14rpx;height:25rpx;}
+    }
+  }
+}
+</style>

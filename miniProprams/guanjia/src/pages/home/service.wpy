@@ -1,0 +1,412 @@
+<template>
+  <view class="service_page" wx:if="{{init && !isErr}}" style="background: #f8f8f8;">
+    <view class="ser_title">
+      <text class="line"></text>
+      <text class="text">国内商标服务</text>
+    </view>
+    <view class="ser_box">
+      <view class="ser_item" :class="{'ser_two': idx==0, 'ser_bottom':item.bottom}" wx:for="{{ serviceList }}" wx:for-index="idx" wx:for-item="item" wx:key="unique">
+        <view hidden="{{ idx == currentService }}" @tap="checkDetailFn({{idx}})">
+          <image src="{{ item.img }}" ></image>
+          <view class="type_name">{{ item.title }}</view>
+          <view class="type_info" wx-if="{{ idx==0 && item.titleTag }}">（极速版）</view>
+        </view>
+        <view class="moveDown" hidden="{{ idx != currentService }}">
+          <view class="price">¥{{ item.price }}</view>
+          <view class="detail_link" wx:if="{{ item.type==1 }}" @tap="goDetailPageFn({{ item.id }})">查看详情</view>
+          <view class="detail_link" wx:if="{{ item.type==2 }}">联系客服<button open-type="contact" style="width:200rpx; height:40rpx; margin-top:-40rpx; opacity:0;" /></view>
+        </view>
+        <rich-text class="info" nodes="{{ item.info }}" wx-if="{{ idx==0 }}"></rich-text>
+      </view>
+    </view>
+
+    <view class="banner" @tap="goDetailPageFn(-1)">
+      <image src="../../images/home/ser_bg.jpg"></image>
+      <rich-text class="text" nodes="200+国家/地区拥有<br/>长期、稳定、专业的合作机构"></rich-text>
+    </view>
+
+    <view class="ser_title">
+      <text class="line"></text>
+      <text class="text">商标疑难服务</text>
+    </view>
+    <view class="ser_box">
+      <view class="ser_item" :class="{'ser_first': idx==0}" wx:for="{{ questionList }}" wx:for-index="idx" wx:for-item="item" wx:key="unique">
+        <view hidden="{{ idx == currentQues }}" @tap="checkQUstionLinkFn({{idx}})">
+          <image src="{{ item.img }}" ></image>
+          <view class="type_name">{{ item.title }}</view>
+        </view>
+        <view class="moveDown" hidden="{{ idx != currentQues }}">
+          <view class="price">¥{{ item.price }}</view>
+          <view class="detail_link" wx:if="{{ item.type==1 }}" @tap="goDetailPageFn( {{ item.id }} )">查看详情</view>
+          <view class="detail_link" wx:if="{{ item.type==2 }}">联系客服<button open-type="contact" style="width:200rpx; height:40rpx; margin-top:-40rpx; opacity:0;" /></view>
+        </view>
+        <rich-text class="info" nodes="{{ item.info }}" wx-if="{{ idx==0 }}"></rich-text>
+        <!-- <view class="info" wx-if="{{ idx==0 }}">{{ item.info }}</view> -->
+      </view>
+    </view>
+
+
+
+
+
+  </view>
+  <!-- <NetError :show="isErr"/> -->
+</template>
+<script>
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import interfaces from '../../interfaces';
+  import NetError from '../../components/common/net_error';
+  import FormTips from '../../components/weui/tips';
+  import Tips from '../../utils/Tips';
+  import homeApi from '../../api/home';
+
+  export default class servicePage extends wepy.page {
+    components = {
+      Tips: FormTips,
+      NetError: NetError,
+    };
+
+    data = {
+      init: false,
+      isErr: false,
+      currentService: -1,
+      currentQues: -1,
+      serviceList: [  //推荐服务
+        {
+          img: '../../images/home/service_1.png',
+          title: '商标注册',
+          titleTag: true,
+          info: '专家一对一咨询<br/>助力品牌起航',
+          price: '699',
+          next: '查看详情',
+          type: 1,
+          url: 'xxx',
+          id: 1
+        },
+        {
+          img: '../../images/home/ser_6.jpg',
+          title: '商标许可',
+          info: '疑难问题对症下药',
+          price: '800',
+          type: 2,
+          next: '联系客服',
+          url: 'xxx',
+          bottom: true
+        },
+        {
+          img: '../../images/home/ser_2.jpg',
+          title: '商标续展 ',
+          price: '2000',
+          next: '联系客服',
+          type: 2,
+          url: 'xxx'
+        },
+        {
+          img: '../../images/home/ser_4.jpg',
+          title: '商标转让',
+          info: '疑难问题对症下药',
+          price: '1500',
+          type: 2,
+          next: '联系客服',
+          url: 'xxx'
+        },
+        {
+          img: '../../images/home/ser_7.jpg',
+          title: '补发商标注册证',
+          info: '疑难问题对症下药',
+          price: '1000',
+          type: 2,
+          next: '联系客服',
+          url: 'xxx',
+          bottom: true
+        },
+        {
+          img: '../../images/home/ser_3.jpg',
+          title: '商标变更',
+          info: '疑难问题对症下药',
+          price: '800',
+          next: '联系客服',
+          type: 2,
+          url: 'xxx'
+        },
+
+        {
+          img: '../../images/home/ser_5.jpg',
+          title: '商标更正 ',
+          info: '疑难问题对症下药',
+          price: '800',
+          type: 2,
+          next: '联系客服',
+          url: 'xxx'
+        },
+        {
+          img: '../../images/home/ser_8.jpg',
+          title: '出具商标证明',
+          info: '疑难问题对症下药',
+          price: '500',
+          type: 2,
+          next: '联系客服',
+          url: 'xxx',
+          bottom: true
+        },
+      ],
+      questionList: [  //疑难服务
+        {
+          img: '../../images/home/service_3.png',
+          title: '驳回复审',
+          info: '商标疑难<br/>对症下药',
+          price: '3550',
+          type: 2,
+          next: '联系客服',
+          url: 'xxx'
+        },
+        {
+          img: '../../images/home/ser_14.jpg',
+          title: '异议答辩',
+          info: '疑难问题对症下药',
+          price: '3500',
+          type: 2,
+          next: '联系客服',
+          url: 'xxx'
+        },
+        {
+          img: '../../images/home/ser_10.jpg',
+          title: '异议申请 ',
+          price: '3500',
+          type: 2,
+          next: '联系客服',
+          url: 'xxx'
+        },
+        {
+          img: '../../images/home/ser_12.jpg',
+          title: '无效宣告申请',
+          info: '疑难问题对症下药',
+          price: '3750',
+          type: 2,
+          next: '联系客服',
+          url: 'xxx'
+        },
+        {
+          img: '../../images/home/ser_15.jpg',
+          title: '撤三答辩',
+          info: '疑难问题对症下药',
+          price: '3000',
+          type: 2,
+          next: '联系客服',
+          url: 'xxx'
+        },
+        {
+          img: '../../images/home/ser_11.jpg',
+          title: '撤三申请',
+          info: '疑难问题对症下药',
+          price: '1500',
+          type: 2,
+          next: '联系客服',
+          url: 'xxx'
+        },
+        {
+          img: '../../images/home/ser_13.jpg',
+          title: '驳回复审答辩 ',
+          info: '疑难问题对症下药',
+          price: '2800',
+          type: 2,
+          next: '联系客服',
+          url: 'xxx'
+        },
+        {
+          img: '../../images/home/ser_16.jpg',
+          title: '无效宣告答辩',
+          info: '疑难问题对症下药',
+          price: '4000',
+          type: 2,
+          next: '联系客服',
+          url: 'xxx'
+        },
+      ],
+    }
+
+    methods = {
+      checkDetailFn (index) {  //推荐服务查看详细信息
+        this.currentService = index;
+      },
+      checkQUstionLinkFn (index) {
+        this.currentQues = index;
+      },
+      goDetailPageFn (id) {   //跳转服务详情页
+        let url_ = '';
+        if (id == -1) {
+          url_ = 'pages/home/homePage'
+        }
+        else{
+          url_ = `pages/home/detail?id=${id}`
+        }
+        wx.navigateToMiniProgram({
+          appId: 'wxd3395f89f8ce776a',
+          path: url_,
+          envVersion: 'trial',
+          success(res) {
+            // 打开成功
+          }
+        })
+      },
+    }
+
+    async onShow () { // 在Page和Component共用的生命周期函数
+      let self = this;
+
+      self.loaded();
+      try {
+        wepy.removeStorageSync('createOrderData');
+        wepy.removeStorageSync('customerData');
+      } catch (e) {
+      }
+      await self.loadInit();
+
+    }
+
+
+    // 初始化 检查登录态
+    async loadInit(){
+    	await interfaces.checkLogin()
+    }
+
+    mixins = [base];
+    config = {
+      navigationBarTitleText: '服务'
+    };
+
+
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  $itemHeight: 190rpx;
+  @keyframes moveDown {
+    0% {
+      transform: translateY(-100rpx);
+      opacity: 0.1;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  .service_page{
+    font-family: PingFangSC-Regular;
+    min-height: 100%;
+    .ser_title {
+      width: 750rpx;
+      height: 82rpx;
+      line-height: 82rpx;
+      background: #fff;
+      padding-left: 30rpx;
+      box-sizing: border-box;
+      .line {
+        height: 30rpx;
+        width: 4rpx;
+        background: #4272FF;
+        display: inline-block;
+        vertical-align: middle;
+      }
+      .text {
+        margin-left: 15rpx;
+        font-size: 30rpx;
+        color: #333333;
+        height: 82rpx;
+        line-height: 82rpx;
+        display: inline-block;
+        vertical-align: middle;
+      }
+    }
+    .ser_box {
+      border-top: 1px solid #eee;
+      background: #fff;
+      overflow: hidden;
+      display: flex;
+      flex-flow: column wrap;
+      justify-content: space-between;
+      width: 750rpx;
+      height: 570rpx;
+      .ser_item {
+        width: calc(750rpx / 3);
+        height: 190rpx;
+        padding-top: 40rpx;
+        text-align: center;
+        box-sizing: border-box;
+        border-right: 1px solid #eee;
+        border-bottom: 1px solid #eee;
+        overflow: hidden;
+        image {
+          width: 48rpx;
+          height: 48rpx;
+        }
+        .moveDown {
+          animation: moveDown 0.3s linear;
+        }
+        .type_name {
+          font-size: 28rpx;
+          color: #333333;
+          margin: 5rpx auto;
+        }
+        .price {
+          font-family: PingFangSC-Regular;
+          font-size: 30rpx;
+          color: #333333;
+          margin-bottom: 10rpx;
+        }
+        .detail_link {
+          font-size: 30rpx;
+          color: #4272FF;
+          margin-bottom: 30rpx;
+        }
+        .type_info {
+          opacity: 0.76;
+          font-size: 26rpx;
+          color: #4272FF;
+          margin-bottom: 30rpx;
+        }
+        .info {
+          opacity: 0.76;
+          font-size: 24rpx;
+          color: #333;
+          margin: 0 auto;
+          width: 168rpx;
+        }
+      }
+      .ser_two {
+        height: 380rpx;
+        padding-top: 66rpx;
+      }
+      .ser_bottom {
+        border-bottom: none;
+      }
+      .ser_first {
+        height: 380rpx;
+        padding-top: 87rpx;
+      }
+    }
+    .banner {
+      width: 100%;
+      height: 250rpx;
+      margin-bottom: 20rpx;
+      margin-top: 20rpx;
+      position: relative;
+      image {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        left:0;
+        top:0;
+      }
+      .text {
+        position: absolute;
+        left: 50rpx;
+        top: 128rpx;
+        font-size: 24rpx;
+        color: #666666;
+      }
+    }
+  }
+</style>

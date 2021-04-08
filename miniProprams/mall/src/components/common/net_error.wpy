@@ -1,0 +1,50 @@
+<template>
+  <view class="net_error" wx:if="{{show}}">
+    <view class="err_img">
+      <image src="/images/icons/sleep.png"/>
+      <view class="tip">程序猿睡着了，<text @tap="refresh">刷新</text>叫他起床~</view>
+    </view>
+  </view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  
+  export default class NetError extends wepy.component {
+    props = {
+      show: {
+        type: Boolean,
+        default: false
+      }
+    };
+    methods = {
+      refresh() {
+        this.$emit('refreshed');
+      }
+    };
+    watch = {
+      show(){
+        
+      }
+    }
+    mixins = [base];
+    components = {
+    };
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .net_error{
+    min-height: 100%;display: flex;align-items: center;justify-content: center;
+    .err_img{
+      text-align: center;
+      image{width:340rpx;height: 340rpx;margin-bottom: 60rpx;}
+      .tip{
+        text-align: center;color: #8795A8;font-size: $text-nm;
+        text{color: #2F80F6;}
+      }
+    }
+
+  }
+</style>

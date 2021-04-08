@@ -1,0 +1,50 @@
+<template>
+  <view class="exact_search_box">
+    <ExactSearchTop :content.sync="content" @setValue.user="setValue" :showResult.sync="showResult"></ExactSearchTop>
+  </view>
+</template>
+
+<script>
+	import wepy from 'wepy';
+	import base from '../../mixins/base';
+	import input from '../../mixins/input';
+	import ExactSearchTop from '../../components/search/exactSearchTop'
+	import Tips from '../../utils/Tips';
+  import qs from 'qs'
+  export default class exactSearch extends wepy.page {
+  	components = {
+      ExactSearchTop,
+    };
+    def = {
+      content:'',
+      showResult: false,
+    };
+    data = {...this.def};
+    async onShow () {
+    	this.showResult = false;
+    	//this.content = this.$route.query.content;
+      /*this.$refs.ipt.focus();
+      this.$store.commit('updateSelectedTM', {
+        selectedTMArr: []
+      });*/
+    }
+    methods = {
+      setValue(v) {
+      	this.content = v;
+      	console.log(this.content)
+      	this.$apply();
+      }
+    };
+    config = {
+      navigationBarTitleText: '精确商标查询'
+    };
+    mixins = [base, input];
+  }
+</script>
+
+<style lang='scss'>
+  @import "../../styles/variable";
+  .exact_search_box {
+  	height: 100%;background-color: #fff;
+  }
+</style>

@@ -1,0 +1,116 @@
+<style lang="scss">
+		@import "./styles/base";
+		@import "./styles/sebe";
+		@import "styles/weui";
+		@import "./styles/weui-extend";
+</style>
+
+<script>
+	import wepy from 'wepy';
+	import interfaces from './interfaces';
+	import 'wepy-async-function';
+	const miniAppType = 3; // 2 微商城小程序 3 推单助手小程序
+
+	export default class extends wepy.app {
+		constructor() {
+			super();
+			// 注册中间件
+			this.use('requestfix');
+			this.use('promisify');
+			this.intercept('request', {
+				config(p) {
+					p.header = interfaces.createAuthHeader();
+					console.log('p.header:', p.header)
+					return p;
+				}
+			});
+			this.intercept('uploadFile', {
+				config(p) {
+					p.header = interfaces.createAuthHeader();
+					return p;
+				},
+				success(p) {
+					return p.data;
+				}
+			});
+		}
+
+		async onLaunch() {
+			// interfaces.checkLogin();
+		}
+
+		syncStoreConfig(obj, key) {
+			const value = wepy.getStorageSync(obj[key]);
+			if (value !== '') {
+				wepy.$instance.globalData.auth[key] = value;
+			}
+		}
+
+		globalData = {
+			auth: {},
+			miniAppType: miniAppType, // 2 微商城小程序 3 推单助手小程序
+			sessionId: '',
+			cartUrl: 'https://testcart.ipsebe.com',
+			userUrl: 'https://testuser.ipsebe.com',
+			wxUrl: 'https://testwechat.ipsebe.com',
+			baseUrl: 'https://testwechat.ipsebe.com',
+			version: 'v1.0.0'
+		};
+		config = {
+			pages: [
+
+				// 推单部分
+				'pages/home/index',
+				'pages/login/login',
+				'pages/createOrder/createOrder',
+				'pages/createOrder/chooseBusiness',
+				'pages/createOrder/confirm',
+				'pages/oldCustomer/oldCustomer',
+				'pages/placeUrl/placeUrl',
+
+				// 我的部分
+				'pages/homePage/homePage',
+				'pages/homePage/personalInfo',
+				// 订单信息
+				'pages/singleRecode/singleLists',
+				'pages/singleRecode/singleDetail',
+				// 客户信息（增删改查）
+				'pages/customer/customerAdd',
+				'pages/customer/customerList',
+				// 跳转至单独修改页面，备注修改
+				'pages/customer/customerChange',
+				// 昵称，手机号，企业名单独修改部分
+				'pages/homePage/nicknameModify',
+				// 订单记录
+				'pages/orderRecord/recordLists',
+				'pages/orderRecord/recordDetail',
+
+			],
+			window: {
+				backgroundTextStyle: 'dark',
+				backgroundColor: '#f8f8f8',
+				navigationBarBackgroundColor: '#2F80F6'
+			},
+			tabBar: {
+				color: '#515F71',
+				selectedColor: '#2F80F6',
+				borderStyle: 'black',
+				backgroundColor: '#ffffff',
+				list: [
+					{
+						iconPath: 'images/tab/index.png',
+						selectedIconPath: 'images/tab/index_active.png',
+						pagePath: 'pages/home/index',
+						text: '推单'
+					},
+					{
+						iconPath: 'images/tab/my.png',
+						selectedIconPath: 'images/tab/my_active.png',
+						pagePath: 'pages/homePage/homePage',
+						text: '我的'
+					}
+				]
+			}
+		};
+	}
+</script>

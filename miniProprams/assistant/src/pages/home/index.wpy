@@ -1,0 +1,137 @@
+<template>
+  <view class="index" wx:if="{{init && !isErr}}" style="background: url(https://sebe360test.oss-cn-beijing.aliyuncs.com/F16675849D7FA5D256E966D7DE0A4D0D.png) no-repeat center center #fff;background-size: 750rpx 908rpx;">
+    <view class="slogan">
+      <text>让创新保护不再困难</text>
+    </view>
+    <view class="lamp" @tap="goCustomer">创建订单</view>
+    <view class="lamp lamp1"></view>
+    <view class="lamp lamp2"></view>
+  </view>
+  <NetError :show="isErr"/>
+</template>
+<script>
+  import wepy from 'wepy';
+  import auth from '../../api/auth';
+  import base from '../../mixins/base';
+  import NetError from '../../components/common/net_error';
+  import FormTips from '../../components/weui/tips';
+  import Tips from '../../utils/Tips';
+  import interfaces from '../../interfaces'
+  // import WxUtils from '../../utils/WxUtils';
+  export default class Login extends wepy.page {
+    def = {
+      init: false,
+      isErr: false,
+    };
+    data = {...this.def};
+
+    async onShow () {
+    	this.loaded();
+    	try {
+    		wepy.removeStorageSync('createOrderData');
+			  wepy.removeStorageSync('customerData');
+			} catch (e) {
+			}
+    	await this.loadInit();
+    }
+
+    // 初始化 检查登录态
+    async loadInit(){
+    	await interfaces.checkLogin()
+    }
+
+    methods = {
+      goCustomer() {
+      	if (!wepy.getStorageSync('key')) {
+	        wepy.navigateTo({
+	          url: '../login/login'
+	        });
+        }else{
+        	wepy.navigateTo({
+	          url: '../createOrder/createOrder'
+	        });
+        }
+      },
+    };
+    mixins = [base];
+    config = {
+      navigationBarTitleText: '推单助手'
+    };
+    components = {
+      Tips: FormTips,
+      NetError: NetError
+    };
+    onShareAppMessage () {
+      const title = '拾贝推单助手';
+      const url = '/pages/home/index';
+      return Tips.share(title, url, title);
+    }
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .index{
+    min-height: 100%;
+    position: relative;
+    .slogan{
+      border-bottom: 1px solid #E5E5E5;
+      height: 50rpx;text-align: center;
+      margin: 0 40rpx;
+      text{
+        width: 306rpx;letter-spacing: 10rpx;height: 50rpx;display: block;position: relative;
+        padding: 0 40rpx;margin: 0 auto;background-color: #FFF;
+        bottom: -30rpx;
+        font-size: $text-xs;
+        color: #8795A8;
+      }
+    }
+    .lamp {
+      position:absolute;
+      top:50%;left:50%;
+      width: 272rpx;
+      height: 272rpx;
+      line-height: 272rpx;
+      text-align: center;
+      margin-left: -136rpx;
+      margin-top: -136rpx;
+      border-radius: 50%;
+      font-size: 36rpx;
+      color: #fff;
+      opacity: 0.8;
+      background-image: linear-gradient(147deg, #0096FF 0%, #2F80F6 100%);
+      z-index: 3;
+    }
+    .lamp1 {
+      animation: breath1 2.5s ease-in-out infinite normal; /*无限循环 反向动画*/
+      z-index: 2;
+    }
+    .lamp2 {
+      animation: breath 2.5s ease-in-out infinite normal; /*无限循环 反向动画*/
+      z-index: 1;
+    }
+    @keyframes breath1 {
+      0% {
+        opacity: 0.8;
+        transform: scale(1);
+      }
+      100% {
+        opacity: 0;
+        box-shadow: 0 -2rpx 14rpx 0;
+        transform: scale(1.216);
+      }
+    }
+    @keyframes breath {
+      0% {
+        opacity: 0.8;
+        transform: scale(1);
+      }
+      100% {
+        opacity: 0;
+        box-shadow: 0 -2rpx 14rpx 0;
+        transform: scale(1.433);
+
+      }
+    }
+  }
+</style>

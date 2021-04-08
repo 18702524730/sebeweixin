@@ -1,0 +1,550 @@
+<template>
+	<Tips />
+	<view class="homepage" wx:if="{{init}}">
+		<!-- 账户正常时 -->
+		<view wx:if="{{!isDisabled}}" class="scroll">
+			<view class="homepage_top">
+				<view class="homepage_tit">
+					<view class="homepage_list">
+						<view class="hello">hello，{{userData.truename || (userData.member_id ? '贝贝' : '请登录')}}</view>
+						<text class="prompt" wx:if="{{!userData.member_id}}">登录后可查看用户订单信息</text>
+						<text class="prompt" wx:else>拾贝微商城 | 掌上知识产权服务平台</text>
+					</view>
+					<image class="photo" wx:if="{{userData.member_id}}" src="{{userData.avatar}}" />
+					<image class="photo photo1" wx:else src="/images/icons/p.png" />
+				</view>
+			</view>
+			<button wx:if="{{!isLogin}}" type="primary" open-type="getUserInfo" @getuserinfo="getUserInfo" class="btn_auth">小程序授权</button>
+			<view wx:if="{{orderType==1 && !loading && shops.data && shops.data.length<=0}}" class="list_null">
+				<image src="/images/login/null.png" alt="" />
+				<text>暂无订单</text>
+			</view>
+			<block wx:else>
+			<view class="order_tabs">
+				<view class="tab" :class="{'cur':orderType==1}" @tap="orderTypeChange(1)">订单</view>
+				<view class="tab" :class="{'cur':orderType==2}" @tap="orderTypeChange(2)">商标</view>
+			</view>
+			<view class="order_list mb30" wx:if="{{orderType==1}}">
+				<repeat for="{{shops.data}}" key="index" index="index" item="item">
+					<view class="order_detail" @tap="goDetail({{item}})">
+						<view class="order_top">
+							<text>订单号：{{item.order_fictitious_sn}}</text>
+							<text class="fr">{{item.create_time}}</text>
+						</view>
+						<view class="order_tit mt30">{{item.orderName}}</view>
+						<view class="order_bottom">
+							<text>合计：</text>
+							<text :class="{'no_btn_txt':item.order_state==0}">¥{{item.amount || '0'}}.00</text>
+							<button wx:if="{{item.order_state == -1}}" class="off_btn fr" plain="true">已关闭</button>
+							<button wx:if="{{item.order_state == 0 && item.channel_code != 'ali'}}" class="no_btn fr" plain="true" @tap.stop="showAgreement({{item}})">去付款</button>
+							<button wx:if="{{item.order_state == 1}}" class="pay_btn fr" plain="true">已付款</button>
+							<button wx:if="{{item.order_state == 2}}" class="pay_btn fr" plain="true">已完成</button>
+						</view>
+					</view>
+				</repeat>
+			</view>
+			<view class="order_list tm_list mb30" wx:if="{{orderType==2}}">
+				<repeat for="{{tmListData.elements}}" key="index" index="index" item="item">
+					<view class="order_detail" @tap="goTmDetail({{item}})">
+						<view class="order_top">
+							<text>服务单号：{{item.order_sn}}</text>
+							<text class="fr">{{item.create_time}}</text>
+						</view>
+						<view class="order_tit mt30">
+							<text wx:if="{{item.orderInformation}}">{{item.orderInformation.trademarkName}}</text>
+							<text wx:else>{{item.orderName}}</text>
+							<text>{{item.order_feedback_state}}</text>
+						</view>
+						<view class="order_bottom">
+							<text wx:if="{{item.orderInformation}}">{{item.orderInformation.intCls}}</text>
+							<text wx:else>未填写大类</text>
+						</view>
+					</view>
+				</repeat>
+				<view wx:if="{{!loading && tmListData.elements && tmListData.elements.length==0}}" class="list_null">
+					<image src="/images/login/null.png" alt="" />
+					<text>暂无订单</text>
+				</view>
+			</view>
+			<view wx:if="{{gifInfo}}" class="bottom_gif row-center">
+				<image src="/images/gif/homePage.gif" />
+				<text>加载中...</text>
+			</view>
+			<view class="footer" wx:if="{{nullInfo}}">到底啦~</view>
+			</block>
+		</view>
+
+		<!-- 账户冻结时 -->
+		<view wx:else>
+			<view class="homepage_top">
+				<view class="homepage_tit">
+					<view class="homepage_list">
+						<view class="prompt">您的账号存在异常</view>
+						<view class="prompt">请先联系4000-315-426解除异常</view>
+					</view>
+					<image class="photo" wx:if="{{!userData.member_id}}" src="{{userData.avatar}}" />
+					<image class="photo" wx:else src="{{userData.avatar}}" />
+				</view>
+			</view>
+			<view class="list_null">
+				<image src="/images/login/null.png" alt="" />
+				<text>账号异常</text>
+			</view>
+		</view>
+	</view>
+	<ServiceAgreement :show.sync="showServiceAgreement" @back.user="hideServiceAgreement" :orderData.sync="orderData" @paySuccess.user="paySuccess"/>
+	<view class="account_error" wx:if="{{isDisabled && showError}}">
+		<view class="mask" capture-catch:tap="donot"></view>
+		<view class="content">
+			<view class="tip">您的账号出现异常，请先联系客服解除异常</view>
+			<view class="tel">4000-315-426</view>
+			<view class="contact">立即联系客服</view>
+			<image src="/images/icons/close2.png" @tap="hideError"></image>
+		</view>
+	</view>
+</template>
+<script>
+	import wepy from 'wepy';
+	import auth from '../../api/auth';
+	/*
+	过滤器
+	 */
+	import Lang from '../../utils/Lang';
+
+	import base from '../../mixins/base';
+	import input from '../../mixins/input';
+	import Data from '../../utils/tmTypeData'
+
+	import order from '../../api/order';
+	import Tips from '../../utils/Tips';
+	import interfaces from '../../interfaces'
+	import ServiceAgreement from '../../components/confirm/serviceAgreement';
+	import FormTips from '../../components/weui/tips';
+
+	export default class orderList extends wepy.page {
+		components = {
+			ServiceAgreement: ServiceAgreement,
+			Tips: FormTips,
+		};
+		def = {
+			isDisabled: false, // 账户冻结时使用
+			showError: false,
+			showServiceAgreement: false,
+			orderData: {},
+			init: true,
+			orderBool: false,
+			shops: {
+				data:[]
+			}, //订单列表数据
+			scollBool: true,
+			userData: {},
+			page: 1,
+			nullInfo: false,
+			gifInfo: false,
+			orderType: 1, //1 订单 2 商标
+			tmListData: {
+				elements: []
+			}, //商标列表数据
+			loading: true,
+			isAuth: false,
+			isLogin: false,
+		};
+		data = {...this.def};
+		async onShow () {
+			if (this.init) {
+				return;
+			}
+			await this.loadInit();
+		}
+		onUnload () {
+			this.init = false;
+		}
+		onHide () {
+			this.init = false;
+		}
+		onLoad (option) {
+			let orderType = option.orderType;
+			this.orderType = orderType ? orderType - 0 : 1;
+			console.log('this.orderType', this.orderType)
+			this.loadInit();
+			this.$apply();
+		}
+
+		// 初始化 检查登录态
+		async loadInit(){
+			let isAuth = await interfaces.getAuthSetting('userInfo');
+	    this.isAuth = isAuth;
+	    const sessionRes = await interfaces.checkLogin();
+	    this.isLogin = sessionRes.isLogin;
+			console.log('sessionRes__', sessionRes)
+	    console.log('isAuth__', isAuth)
+			if (sessionRes.code == '10013') {
+				this.isDisabled = true;
+				this.showError = true;
+				this.$apply();
+				this.loaded();
+				return;
+			}
+			const userData = wepy.getStorageSync('auth');
+			this.userData = userData || {};
+			console.log('this.userData:', this.userData)
+			if (this.isLogin) {
+				if (this.orderType == 1) {
+					await this.getOrderList();
+				} else if (this.orderType == 2){
+					await this.getTmList();
+				}
+			}else{
+				this.shops = {
+					data: []
+				}
+				this.$apply();
+			}
+			this.loaded();
+		}
+
+		// 获取订单列表
+		async getOrderList () {
+			try {
+				this.loading = true;
+				this.$apply();
+				let infoLists = await order.orderLists(1, true);
+				this.loading = false;
+				if (infoLists.status == 401) {
+					await this.methods.reLogin();
+					this.getOrderList();
+					return;
+				}
+				this.shops = Lang.TimeToDay(infoLists);
+				if(this.shops.total > 5){
+					this.gifInfo = true;
+					this.nullInfo = false;
+				}
+				this.page = 1;
+				this.$apply();
+			} catch (e) {
+				this.loading = false;
+				this.shops = {
+					data:[]
+				};
+				// 401时，重新登录
+				if (e.status == 401) {
+					this.methods.reLogin();
+				}
+			} finally {
+				this.$apply();
+				Tips.loaded();
+			}
+		}
+		// 获取商标列表
+		async getTmList () {
+			try {
+				this.loading = true;
+				this.$apply();
+				let infoLists = await order.tmLists(1, true);
+				this.loading = false;
+				if (infoLists.status == 401) {
+					await this.methods.reLogin();
+					this.getTmList();
+					return;
+				}
+				infoLists.elements.forEach(function(item) {
+					item.create_time = Lang.TimeDaySeconds(item.create_time);
+					if (item.orderInformation && item.orderInformation.intCls) {
+						var cls = item.orderInformation.intCls;
+						item.orderInformation.intCls = (cls < 10 ? '0' + cls : cls) + '-' + Data.cateIdData[cls-1].goodsname;
+					}
+				});
+				this.tmListData = infoLists;
+				if(this.tmListData.total_elements > 5){
+					this.gifInfo = true;
+					this.nullInfo = false;
+				}
+				this.page = 1;
+				this.$apply();
+			} catch (e) {
+				this.loading = false;
+				this.tmListData = {
+					elements:[]
+				};
+				// 401时，重新登录
+				if (e.status == 401) {
+					this.methods.reLogin();
+				}
+			} finally {
+				this.$apply();
+				this.loaded();
+				Tips.loaded();
+			}
+		}
+		/**
+		 * 加载更多
+		 * @param  {[type]} e [description]
+		 * @return {[type]}   [description]
+		 */
+		async onReachBottom(e) {
+			/*
+			计算总页数，判断当前页数是否超出，小程序不能在dom中调用函数，需要请求成功后遍历ok后才能输出
+			 */
+			if (this.orderType == 1) {
+				let pageAll = this.shops.total / 5;
+				let self = this;
+				self.gifInfo = true;
+				if(this.page < pageAll) {
+					self.page += 1;
+					let lists = ''
+					lists = await order.orderLists(self.page, true);
+					for(var i = 0; i < Lang.TimeToDay(lists).data.length; i++){
+						self.shops.data.push(lists.data[i]);
+					}
+					self.gifInfo = false;
+				} else {
+					self.gifInfo = false;
+					this.nullInfo = true;
+				}
+			} else if(this.orderType == 2){
+				let pageAll = this.tmListData.total_elements / 5;
+				let self = this;
+				self.gifInfo = true;
+				if(this.page < pageAll) {
+					self.page += 1;
+					let lists = ''
+					lists = await order.tmLists(self.page, true);
+					for(var i = 0; i < lists.elements.length; i++){
+						var item = lists.elements[i];
+						item.create_time = Lang.TimeDaySeconds(item.create_time);
+						if (item.orderInformation && item.orderInformation.intCls) {
+							var cls = item.orderInformation.intCls;
+							item.orderInformation.intCls = (cls < 10 ? '0' + cls : cls) + '-' + Data.cateIdData[cls-1].goodsname;
+						}
+						self.tmListData.elements.push(item);
+					}
+					self.gifInfo = false;
+				} else {
+					self.gifInfo = false;
+					this.nullInfo = true;
+				}
+			}
+			this.$apply();
+		}
+		methods = {
+			async getUserInfo(e) {
+	      console.log('target', e);
+	      let userInfo = e.detail.userInfo;
+	      if (this.isLogin) {
+      		this.loadInit();
+        	return false;
+      	}
+	      if (this.isAuth && !this.isLogin) {
+      		wepy.navigateTo(
+						{
+							url: '/pages/login/login'
+						}
+					);
+	      }
+	      if (userInfo) {
+	        await interfaces.setValidSession();
+	        await interfaces.getUserInfoByUser(e.detail);
+	        this.isAuth = interfaces.getAuthSetting('userInfo');
+	        const sessionRes = await interfaces.checkLogin();
+			    this.isLogin = sessionRes.isLogin;
+			    console.log('isAuth', this.isAuth)
+					console.log('sessionRes', sessionRes)
+					this.$apply();
+	        if (this.isLogin) {
+	        	this.loadInit();
+	        }else{
+	        	wepy.navigateTo(
+							{
+								url: '/pages/login/login'
+							}
+						)
+	        }
+	      }else{
+	      }
+	    },
+			hideError() {
+				this.showError = false;
+				this.$apply();
+			},
+			donot() {},
+			orderTypeChange(type) {
+				if (this.orderType == type) {
+					return;
+				}
+				this.orderType = type;
+				this.gifInfo = false;
+				this.nullInfo = false;
+				this.page = 1;
+				this.$apply();
+				if (type == 1) {
+					Tips.loading();
+					this.getOrderList({});
+				} else if(type == 2){
+					Tips.loading();
+					this.getTmList({});
+				}
+				
+			},
+			goLogin() {
+				wepy.redirectTo(
+					{
+						url: '/pages/login/login'
+					}
+				);
+			},
+			async reLogin() {
+				let sessionRes = await interfaces.reLogin();
+				if (!sessionRes.memberDto) {
+					wepy.redirectTo(
+						{
+							url: '/pages/login/login'
+						}
+					);
+				}
+			},
+			paySuccess(){
+				this.methods.hideServiceAgreement.bind(this)();
+				Tips.loading();
+				this.getOrderList();
+			},
+			showAgreement(item) {
+				var ret = {
+					phone: item.buyer_mobile,
+					order_fictitious_sn: item.order_fictitious_sn,
+					payment_sn: item.payment_sn,
+					amount: item.amount,
+					service: item.orderName,
+					order_sn: item.orderSns,
+				}
+				this.orderData = ret;
+				this.showServiceAgreement = true;
+				this.$apply();
+			},
+			hideServiceAgreement() {
+				this.showServiceAgreement = false;
+				this.$apply();
+			},
+			loadMore() {
+			},
+			goDetail(data) {
+				wepy.navigateTo(
+					{
+						url: '/pages/order/orderDetail?orderFictitiousSn=' + data.order_fictitious_sn
+					}
+				)
+			},
+			goTmDetail(data) {
+				if (!data.orderInformation) {
+					this.tips('商家还未反馈服务单信息！');
+					return;
+				}
+				wepy.navigateTo(
+					{
+						url: '/pages/order/trademarkDetail?orderSn=' + data.order_sn
+					}
+				)
+			},
+			async getPhoneNumber(e) {
+				console.log(e)
+				let sessionId = wepy.getStorageSync('sessionId');
+				let phoneData = await order.decodePhoneNumber(sessionId, e.detail.encryptedData, e.detail.iv);
+				this.loaded();
+				wepy.setStorageSync('phoneNumber', phoneData.phoneNumber);
+				wepy.redirectTo(
+					{
+						url: '/pages/login/login'
+					}
+				);
+			}
+		};
+		config = {
+			navigationBarTitleText: '拾贝微商城'
+		};
+		mixins = [base, input];
+		onShareAppMessage () {
+			const title = '拾贝微商城';
+			const url = '/pages/order/orderList';
+			return Tips.share(title, url, title);
+		}
+	}
+</script>
+
+<style lang="scss">
+@import "../../styles/variable";
+.homepage{
+	box-sizing:border-box;min-height:100%;background-color: #F8F8F8;
+	.scroll{width:100%; min-height:100%;}
+	.homepage_top{box-sizing:border-box;height:170rpx;width:100%;background:linear-gradient(180deg,rgba(16,174,255,1) 0%,rgba(61,149,250,1) 100%);
+		.homepage_tit{height:170rpx;width:100%;position: relative;
+			.photo{position: absolute;top:15rpx;left:26rpx;width:128rpx;height:128rpx;background:rgba(216,216,216,1);border-radius:70rpx;border:4rpx solid rgba(255,255,255,0.3);box-sizing:border-box;}
+			.photo1{border: 0;}
+			.homepage_list{width:550rpx;margin-left: 170rpx;padding-top: 39rpx;box-sizing:border-box;
+				.hello{font-size:32rpx;color:#fff;line-height:45rpx;font-weight: 600;}
+				.prompt{font-size:24rpx;color:#fff;line-height:33rpx;margin-top: 5rpx;}
+			}
+		}
+	}
+	.btn_auth{position: absolute;left: 0;top: 0;right: 0;height:100%;background-color: #fff;opacity: 0;}
+	.list_null{background: #F8F8F8;position: absolute;left:0;top: 170rpx;right: 0;bottom: 0;display: flex;justify-content: center;flex-direction: column;align-items: center;background-color: #fff;
+		image{width:422rpx;height:334rpx;}
+		text{display:block;font-size:$text-xs;color:#999;}
+	}
+	.order_tabs{
+		width: 100%;height: 80rpx;background-color: #fff;display: flex;justify-content: center;align-items: center;
+		.tab{
+			font-size:28rpx;height: 80rpx;line-height: 80rpx;width: 50%;text-align: center;
+			&.cur{color: #10AEFF; font-weight: 600;}
+			&:last-child{border-left: 1px solid #eee;}
+		}
+	}
+	// 订单和商标公用
+	.order_list{width:100%;
+		.order_detail{width:100%;height:267rpx;background: #FFFFFF;margin-top:20rpx;padding:30rpx;box-sizing:border-box;
+			.order_top{font-size:$text-xs;color: #999999;padding-bottom:30rpx;border-bottom:1rpx dashed #ddd;
+				text{color: #999999;line-height:33rpx;}
+			}
+			.order_tit{
+				font-size:$text-nm;color: #333333;line-height:40rpx;width:630rpx;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;
+			}
+			.order_bottom{font-size:$text-nm;color: #999999;align-items:center;overflow: hidden;padding-top:20rpx;box-sizing:border-box;
+				text{font-size:$text-nm;color:#888;text-align: left;line-height:40rpx;}
+				.no_btn_txt{color: #F64744;}
+				button{width:140rpx;height:60rpx;border-radius: 6rpx;background-color:#fff;line-height:60rpx;align-items:center;text-align:center;padding:0;margin-top: -5rpx;font-size:$text-sm;box-sizing:border-box;}
+				.no_btn{color: #F64744;border:1rpx solid #F64744;}
+				.pay_btn{color: #09BB07;text-align: right;}
+				.off_btn{color: #ccc;text-align: right;}
+			}
+			.fr{float:right;}
+		}
+		.list_null{top: 250rpx;}
+	}
+	.tm_list{
+		.order_detail{
+			.order_tit{
+				width:auto;display: flex;flex-direction: row;align-items: center;justify-content: space-between;
+				text{
+					font-size: 28rpx;color: #333;
+					&:last-child{font-size: 26rpx;color: #09BB07;}
+				}
+			}
+		}
+	}
+	.bottom_gif{text-align:center;padding-bottom:20rpx;
+		image{width:70rpx;height:70rpx;}
+		text{font-size: $text-nm;color:#b3bfd0;}
+	}
+	.footer{color:#999;font-size:$text-sm;text-align:center;padding-bottom: 30rpx;}
+}
+.account_error{
+	position: fixed;top: 0;left: 0;height: 100%;width: 100%;
+	.mask{position: fixed;top: 0;left: 0;height: 100%;width: 100%;background-color: rgba(0, 0, 0, 0.5);}
+	.content{
+		padding-top: 70rpx;width:610rpx;height:349rpx;background:rgba(255,255,255,1);border-radius:6rpx;box-sizing: border-box;position: fixed;left:50%;top: 50%;margin-top: -175rpx;margin-left: -305rpx;
+		.tip{height:42rpx;font-size:28rpx;color: #333;text-align: center;}
+		.tel{margin-top: 15rpx;height:42rpx;font-size:34rpx;font-weight: 600;text-align: center;}
+		.contact{margin: 40rpx auto 0;width:530rpx;height:90rpx;background:linear-gradient(90deg,rgba(16,174,255,1) 0%,rgba(61,149,250,1) 100%);border-radius:45rpx;font-size:30rpx;line-height: 90rpx;text-align: center;color: #fff;}
+		image{position: relative;left:260rpx;top:100rpx;width: 90rpx;height: 90rpx;}
+	}
+}
+</style>

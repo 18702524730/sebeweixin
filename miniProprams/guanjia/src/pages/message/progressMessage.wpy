@@ -1,0 +1,188 @@
+<template>
+	<view class="my_message" wx:if="{{init && !isErr}}" style="background: #f8f8f8;">
+
+		<!-- 商标列表 -->
+		<brandList :show.sync="isLogin" :selectEditType.sync="editType" :resultList.sync="resultList" :noMoreData.sync="noMoreData" :loading.sync="loading" :showType.sync="brandShowType" :messageType.sync="messageType"   />
+
+    <!-- 未登录空页面 -->
+    <nullLogin wx:if="{{ !isLogin && init }}" />
+
+    <!-- 底部 -->
+    <footerNav :active.sync="footerActive" :updateNum="updateNum" />
+
+		<NetError :show="isErr"  />
+
+	</view>
+</template>
+
+<script>
+
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import NetError from '../../components/common/net_error';
+  import FormTips from '../../components/weui/tips';
+  import Tips from '../../utils/Tips';
+  import interfaces from '../../interfaces';
+  import searchLine from '../../components/search/searchLine';
+  import myCompany from '../../components/home/companyList';
+  import brandList from '../../components/brandList/brandList';
+  import homeApi from '../../api/home';
+  import footerNav from '../../components/common/footer_nav';  //底部导航
+  import nullLogin from '../../components/common/null_login';  //未登录空页面
+
+
+  export default class progressMessage extends wepy.page {
+  	components = {
+      Tips: FormTips,
+  		searchLine,
+  		brandList,
+  		NetError,
+      footerNav,
+      nullLogin
+  	}
+
+  	data = {
+      isLogin: false,  //是否登录
+      footerActive: 3,  //底部导航高亮下标
+  		init: false,
+      isErr: false,
+      editType: 0,  //是否可编辑 0.不可以 1.取消托管 2.设置核心商标 3.添加企业 4.删除
+      showStatus: true,
+      companyList: [],
+      resultList: [],
+
+      activeIndex: 0,
+      sliderOffset: 0,
+      sliderLeft: 0,
+      myEmptyObj: {
+        title: '管家在手，商标无忧',
+        urlText: '回到首页',
+        urlLink: '/'
+      },
+      swiperOne: {
+        circular: true, //衔接滑动
+        indicatorDots: false,  //是否显示面板指示点
+        autoplay: false,
+        duration: 300,  //滑动动画时长
+        previousMargin: '20rpx',
+        nextMargin: '20rpx'
+      },
+      selectCompanyData: {},  //选中的公司数据
+      brandShowType: 1,  //消息形式展现
+      messageType: 1,  //消息展示类型
+
+      loading: false, //结果加载状态控制
+      selectStatus: 0,  //全部
+      noMoreData: false,  //上啦加载更多数据
+      page: 1,  //当前页数
+      msgId: '',  //消息ID
+      tmId: '',  //商标ID
+      updateNum: false,  //是否更新导航栏消息数量
+  	}
+
+    onReachBottom (e) {
+      if (!this.noMoreData) {
+        let isLoadMore = true;
+        this.methods.getLawMsgFn.bind(this)(this.content, isLoadMore);  //查询已托管商标列表
+      }
+    }
+
+    methods = {
+
+      callFn () {
+        wepy.makePhoneCall({
+          phoneNumber: '15168455893'
+        })
+      },
+
+      async getLawMsgFn (id, isLoadMore) {   //查询法律消息列表
+        let self = this;
+        if (isLoadMore) {
+          self.page += 1
+        }
+        else {
+          self.page = 1
+        }
+        let params = {
+          newsType: 1, //2商标进展（状态更新）
+          page: self.page,
+          size: 3
+        }
+        if(self.tmId) {
+          params.trademarkId = self.tmId
+        }
+        self.loading = true;
+        try {
+          let resp = await homeApi.findNews(params);
+          self.loaded();
+          self.updateNum = true;
+          self.$invoke('footerNav', 'statisticsNews', '');
+          let docs = resp.data || [];
+          let allPage = Math.ceil(resp.total/params.size);  //最大页数
+          self.loading = false;
+          if (self.page == allPage || allPage==1 || docs.length==0) {
+            self.noMoreData = true;
+          }
+          else if(self.page < allPage){
+            self.noMoreData = false;
+          }
+          if (docs.length > 0) {
+            docs.forEach( (item) => {
+              item.newsContent = JSON.parse(item.newsContent)
+            })
+          }
+          if (isLoadMore) {
+            self.resultList = self.resultList.concat(docs);  //托管商标列表
+          }
+          else {
+            self.resultList = docs;  //托管商标列表
+          }
+          self.$apply();
+          //self.$broadcast('changeResultList', self.resultList);
+        }
+        catch (e) {}
+      }
+    };
+
+  	async onLoad (opts) {
+      if (opts.tmId) {
+        this.tmId = opts.tmId;  //商标ID
+      }
+      this.methods.getLawMsgFn.bind(this)();
+      let data = await interfaces.checkLogin();
+      let key = wepy.getStorageSync('key');
+      if (data.isLogin && key) {
+        this.isLogin = true;
+      }
+      else {
+        this.isLogin = false;
+        this.loaded();  //初始化加载完成（当没有登录的时候）
+      }
+      this.$apply();
+    }
+
+  	async onShow () {
+    	
+    }
+
+    mixins = [base];
+    config = {
+      navigationBarTitleText: '商标进展'
+    };
+
+  }
+
+</script>
+
+<style lang="scss">
+	@import "../../styles/variable";
+  @import "../../styles/pub";
+	.my_message {
+		min-height: 100%;
+    .tm_item:first-child {margin-top:0;}
+
+  }
+
+
+
+</style>

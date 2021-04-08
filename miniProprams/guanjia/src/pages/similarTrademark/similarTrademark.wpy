@@ -1,0 +1,394 @@
+<template>
+<Tips />
+  <view class="similar" style="overflow:{{overflow ? 'hidden' : ''}};">
+    <view>
+      <trademarkTit :trademarkInfo.sync="trademarkInfo" :showName="showName" :stateType="stateType" @overLimit.user="overLimit" @search.user="search"/>
+    </view>
+    <!-- <view class="law_state row-center">
+      <text class="inline">法律状态：{{trademarkInfo.currentStatus}}</text>
+    </view> -->
+    <stateTypeDetail class="stateH" :show.sync="toggleStatus" :topH="topH" :imgB="imgB" @confirmData.user="confirmData" :windowH.sync="windowH" :typeDetail.sync="typeDetail"/>
+    <searchResult class="mb100" :show.sync="resultVisible" :resultList.sync="resultList" :selectMode.sync="selectMode" :noMoreData.sync="noMoreData" :loading.sync="loading" enterBool="enterBool" @select.user="selectTm"/>
+    <view class="footer weui-flex" wx:if="{{!selectMode && resultList.length}}">
+       <view class="vip_phone weui-flex__item row-center" @tap="contact">
+        <image class="mt15" src="/images/icons/phone_white.png"/>
+        <text>联系我的VIP专属顾问</text>
+       </view>
+       <view class="host" @tap="toTrustee">去托管</view>
+    </view>
+    <view class="footer_trustee" wx:if="{{selectMode}}">
+      <view class="row-center selected">
+        <text>您已选择</text>
+        <text>{{selectedTMArr.length}}个商标</text>
+      </view>
+      <button class="im_btn" @tap="imiTrustee">立即托管</button>
+    </view>
+  </view>
+  <confirmM :showModal.sync="showModal" :title.sync="modalTitle" :content.sync="modalContent" :options.sync="modalOptions" />
+  <confirm1 :showModal.sync="showModal1" :title.sync="modalTitle1" :content.sync="modalContent1" :minorContent.sync="minorContent1" :options.sync="modalOptions1" @confirmBtn.user="contact"/>
+</template>
+<script>
+  import wepy from 'wepy';
+  import auth from '../../api/auth';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import Tips from '../../utils/Tips';
+  import searchApi from '../../api/search';
+  import stateTypeDetail from '../../components/stateType/stateTypeDetail';
+  import searchResult from '../../components/search/searchApproximate';
+  import trademarkTit from '../../components/trademark/trademarkTit';
+  import confirmM from '../../components/common/confirm_model';
+  const app = getApp();
+
+  export default class similarTrademark extends wepy.page {
+    components = {
+      stateTypeDetail:stateTypeDetail,
+      trademarkTit:trademarkTit,
+      searchResult:searchResult,
+      confirmM,
+      confirm1:confirmM,
+    };
+    def = {
+      trademarkInfo:{},
+      stateType:true,
+      overflow:'',
+      enterBool:true,
+      showName:true,
+      toggleStatus:true,
+      topH:0,
+      imgB:true,
+
+      resultVisible:true,
+      selectMode: false, //可选择状态
+      resultList: [], //结果数据
+      noMoreData: false, //上拉加载无更多数据
+      loading: false, //结果加载状态控制
+
+      untrusteeship:'',
+      searchType:'',
+      intCls:'',
+      page:1,
+
+      titList:{},
+      selectedTMArr:[],//选择的托管商标
+      windowH:0,
+      typeDetail:'',
+
+      showModal: false, //弹出对话框
+			modalTitle: '托管成功！',
+			modalContent: '已将该商标所属企业添加至“关注企业”中',
+			modalOptions:{
+				showCancel: false,
+				confirmText: '知道了'
+			},
+
+      showModal1:false,
+      modalTitle1: '您的商标托管数量不足<br>已托管<b style="font-weight:normal;color:#F64744;">@@@</b>个，托管上限<b style="font-weight:normal;color:#F64744;">###</b>个',
+      modalContent1: '您可前往拾贝网（www.ipsebe.com）升级会员扩展数量或咨询客服',
+      minorContent1:'注意：已托管数量包括拾贝网用户中心数据',
+      modalOptions1:{
+        showCancel: false,
+        confirmText: '咨询客服'
+      },
+      dataInfo:{}
+    };
+    data = {...this.def};
+    async onLoad(option) {
+      this.dataInfo = JSON.parse (option.dataInfo);
+      let result = await auth.trademarkDetail(JSON.parse (option.dataInfo));
+      let self = this;
+      if(option.typeDetail){//企业详情->商标详情->近似商标
+        this.typeDetail = option.typeDetail;
+      }
+      this.titList = result.data;
+      this.trademarkInfo = {
+        tmImg:this.titList.tmImg,
+        tmName:this.titList.tmName,
+        appDate:this.titList.appDate,
+        intCls:this.titList.intCls,
+        regNo:this.titList.regNo,
+        applicantCn:this.titList.applicantCn,
+        currentStatus:this.titList.currentStatus,
+        applicantOther2:this.titList.applicantOther2,
+        state:this.titList.state
+      }
+      wx.getSystemInfo({
+        success: function(res) {
+          self.windowH = res.windowHeight;
+          console.log(self.windowH)
+          self.$apply();
+        }
+      })
+      this.methods.query.bind(this)({
+        isLoadMore: false
+      });
+      this.$apply();
+    }
+    onReachBottom(e){
+    	if (!this.noMoreData) {
+	      this.methods.query.bind(this)({
+	        isLoadMore: true
+	      });
+	    }
+    }
+    async onShow () {
+      let self = this;
+    	app.aldstat.sendEvent('近似商标页面');
+      let similarTrademarkInfo = wepy.getStorageSync('similarTrademarkInfo');
+      let result = {};
+      if(similarTrademarkInfo){
+        result = await auth.trademarkDetail(JSON.parse (similarTrademarkInfo));
+        wepy.setStorageSync('similarTrademarkInfo', '');
+      }
+      this.titList = result.data;
+      this.trademarkInfo = {
+        tmImg:this.titList.tmImg,
+        tmName:this.titList.tmName,
+        appDate:this.titList.appDate,
+        intCls:this.titList.intCls,
+        regNo:this.titList.regNo,
+        applicantCn:this.titList.applicantCn,
+        currentStatus:this.titList.currentStatus
+      }
+      wx.getSystemInfo({
+        success: function(res) {
+          self.windowH = res.windowHeight;
+          console.log(self.windowH)
+          self.$apply();
+        }
+      })
+      this.methods.query.bind(this)({
+        isLoadMore: false
+      });
+      this.$apply();
+    }
+
+    methods = {
+    	overLimit(data){
+      	this.modalTitle1 = this.modalTitle1.replace('@@@', data.used).replace('###', data.usable);
+      	this.showModal1 = true;
+      	this.$apply();
+    	},
+      async search(){
+        let result = await auth.trademarkDetail(this.dataInfo);
+        this.titList = result.data;
+        this.trademarkInfo = {
+          tmImg:this.titList.tmImg,
+          tmName:this.titList.tmName,
+          appDate:this.titList.appDate,
+          intCls:this.titList.intCls,
+          regNo:this.titList.regNo,
+          applicantCn:this.titList.applicantCn,
+          currentStatus:this.titList.currentStatus,
+          applicantOther2:this.titList.applicantOther2,
+          state:this.titList.state
+        }
+        console.log(this.trademarkInfo)
+        this.$apply();
+      },
+      // 去托管
+      toTrustee(){
+        this.selectMode = true;
+        console.log(this.selectedTMArr)
+        this.$apply();
+      },
+      // 立即托管
+      async imiTrustee(){
+        console.log(this.selectedTMArr)
+        if (!this.selectedTMArr.length) {
+          this.tips('请选择要托管的商标');
+          return;
+        }
+        let trademarkKey = [];
+        let intCls = [];
+        this.selectedTMArr.forEach((item) => {
+          trademarkKey.push(item.applicantOther2);
+          intCls.push(item.intCls);
+        });
+        let data = {
+          trademarkKey: trademarkKey.join(),
+          intCls: intCls.join()
+        };
+        try {
+          let resp = await searchApi.addStewardTm(data);
+          if (resp.status == 201) {
+            this.showModal = true;
+            this.selectMode = false;
+      			this.selectedTMArr = [];
+      			wepy.setStorageSync('selectedTMArr', []);
+      			this.methods.query.bind(this)({
+			    		noShowLoading: true
+			    	});
+            this.$apply();
+          }else if(resp.status == 401){
+            wepy.navigateTo({
+              url: '/pages/login/login'
+            });
+          }else if(resp.status == 409){
+          	this.modalTitle1 = this.modalTitle1.replace('@@@', resp.msg.used).replace('###', resp.msg.usable);
+          	this.showModal1 = true;
+          	this.$apply();
+          }else if(!resp.status){
+            Tips.success('托管成功');
+            this.selectMode = false;
+      			this.selectedTMArr = [];
+      			wepy.setStorageSync('selectedTMArr', []);
+      			this.methods.query.bind(this)({
+			    		noShowLoading: true
+			    	});
+			    	this.$apply();
+          }
+        }
+        catch(e){
+          Tips.error('托管失败');
+        }
+      },
+    //选择托管的商标回调
+      selectTm(arr){
+        this.selectedTMArr = arr;
+        this.$apply();
+      },
+      contact(){
+        //调取电话信息
+        wepy.makePhoneCall({
+          phoneNumber: '15168455893'
+        })
+      },
+      confirmData(data){
+        console.log('选择状态',data)
+        if(data.dataInfo){
+          this.intCls = data.dataInfo;
+        }
+        if(data.host){
+          this.untrusteeship = data.host;
+        }else{
+          this.untrusteeship = 0;
+        }
+        if(data.law || data.law == 0){
+          this.status = data.law;
+        }else{
+          this.status = '';
+        }
+        this.$apply();
+        this.methods.query.bind(this)({
+          isLoadMore: false
+        });
+      },
+      async query(params = {}){
+        if (!this.selectMode) {
+          wepy.setStorageSync('selectedTMArr', []);
+        }
+        console.log(this.titList,'ceshi')
+        if(!this.titList.tmName){
+          this.resultList = [];
+          return;
+        }
+        let self = this;
+        if (params.isLoadMore) {
+          this.page += 1;
+        }else{
+          this.page = 1;
+          this.selectMode = false;
+    			this.selectedTMArr = [];
+					wepy.setStorageSync('selectedTMArr', []);
+    			this.$apply();
+        }
+        if(!self.status && self.status != 0){
+          self.status = '';
+        }
+        let data = {
+          keyword: self.titList.tmName,
+          untrusteeship:self.untrusteeship,//商标托管状态
+          status:self.status,
+          intCls:self.intCls,
+          page:self.page,
+          size:10
+        }
+        if (data.page == 4) {
+        	app.aldstat.sendEvent('近似商标页面滚动3页以上');
+        }
+        try {
+          let result = await auth.markSimilar(data, params.noShowLoading);
+          let docs = result.data;
+          docs.forEach((item, i) => {
+            item.isAdded = false;//用于判断是否被勾选
+            item.tm_name_temp = item.tmName;
+          })
+
+          if (params.isLoadMore) {
+            if (docs.length < 10) {
+              this.noMoreData = true;
+            }else{
+              this.noMoreData = false;
+            }
+            console.log(docs)
+            this.resultList = this.resultList.concat(docs);
+          }else{
+            if (docs.length < 10) {
+              this.noMoreData = true;
+            }else{
+              this.noMoreData = false;
+            }
+            this.resultList = docs;
+          }
+          this.$apply();
+        }
+        catch(e){
+          Tips.error('未查询到近似商标信息');
+        }
+        console.log(self.resultList)
+        this.$apply();
+      },
+      clickFixed(){
+        // this.top = this.oldScrollTop;
+        this.overflow = "hidden";
+        this.clickFixed = true;
+        console.log(11111111)
+        this.$apply();
+      },
+      shutDown(){
+        this.clickFixed = false;
+        this.overflow = "";
+        this.$apply();
+      }
+    };
+    watch = {
+
+    };
+    mixins = [input,base];
+    config = {
+      navigationBarTitleText: '近似商标',
+      onReachBottomDistance: 100,
+      enablePullDownRefresh: false,
+    };
+  }
+</script>
+
+<style lang="scss">
+@import "../../styles/variable";
+.similar{background-color:#f8f8f8;width:750rpx;height:100%;
+  .law_state{width:750rpx;height:54rpx;background-image: linear-gradient(90deg, #4272FF 0%, #237CFF 100%);
+    text{font-size: $text-xs;color: #FFFFFF;width:710rpx;line-height: 33rpx;}
+  }
+  .footer{width:750rpx;height:94rpx;box-shadow: 0 -10rpx 24rpx 0 rgba(66,114,255,0.07);position: fixed;bottom:0;
+    .vip_phone{background-image: linear-gradient(90deg, #4272FF 0%, #237CFF 100%);}
+    .host{width:180rpx;text-align:center;line-height:94rpx;color:#333;font-size:$text-lg;background-color:#fff;}
+    view{
+      image{width:60rpx;height:60rpx;}
+      text{color:#fff;font-size:$text-lg;}
+    }
+  }
+  .stateH{height:90rpx;position: relative;z-index:1;}
+  .footer_trustee{
+    position: fixed;bottom: 0;left: 0;height: 206rpx;background-color: #fff;box-shadow: 0 -10px 30px 0 rgba(47,128,246,0.09);
+    width:100%;text-align:center;
+    .selected{
+      padding:25rpx 0; height: 42rpx;text-align: center;font-size: 30rpx;color: #666666;
+      text:last-child{color:#FF9A2F; }
+    }
+    button{width:690rpx;height:90rpx;border-radius: 8rpx;margin:0 auto;color:#fff;line-height:90rpx;background-image: linear-gradient(90deg, #4272FF 0%, #237CFF 100%);font-size: 34rpx;}
+  }
+}
+
+.mb100{margin-bottom:100rpx;}
+</style>

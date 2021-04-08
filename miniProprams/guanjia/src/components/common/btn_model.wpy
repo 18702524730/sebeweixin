@@ -1,0 +1,190 @@
+<template>
+  <view class="modal-mask" @tap="hideModal" catchtouchmove="preventTouchMove" wx:if="{{ myModal.showModal }}"></view>
+    <view class="mymodal-dialog" wx:if="{{ myModal.showModal }}">
+      <view class="modal-title">{{ myModal.title }}</view>
+      <view class="modal-info">{{ myModal.info }}</view>
+      <view class="modal-content">
+        <view class="modal-input">
+          <view wx:for="{{ myModal.content }}" wx:key="this" class="btn {{ item.active ? 'active' : '' }}"  @tap="selectThisFn({{ index }})">{{ item.name }}</view>
+        </view>
+      </view>
+      <view class="modal-footer">
+        <view style="color: {{ myModal.cancelColor }}" class="btn-cancel" @tap="hideModal" data-status="cancel">{{ myModal.cancelText }}</view>
+        <view style="color: {{ myModal.disabled ? myModal.disabledColor : myModal.confirmColor }}" class="btn-confirm" @tap="confirm" data-status="confirm">{{ myModal.confirmText }}</view>
+      </view>
+    </view>
+  </view>
+
+</template>
+
+<script>
+  import wepy from 'wepy'
+  export default class modal extends wepy.component {
+    events = {
+      // 接收父级广播过来的参数
+      'changeModal': (v) => {
+        this.myModal = v;
+      }
+    }
+
+    props = {
+      myModal: {
+        type: Object,
+        default: {
+          showModal: false,
+          title: '标题',
+          info: '说明',
+          content: [],
+          showCancel: true,
+          disabled: true, //默认两个按钮都不选中，确实按钮禁用
+          disabledColor: '#ccc',
+          cancelText: '取消',
+          cancelColor: '#000000',
+          confirmText: '确定',
+          confirmColor: '#3CC51F'
+        },
+        twoWay: true
+      }
+    };
+
+    data = {
+      selectData: {}  //选择的数据
+    }
+
+    async onLoad () { // 在Page和Component共用的生命周期函数
+      this.selectData = this.myModal.content[0];
+    }
+
+    reset(){
+    	this.myModal.showModal = false;
+      this.myModal.content.forEach( (item) => {
+        item.active = false;
+      });
+      this.myModal.disabled = true;
+    }
+
+    methods = {
+      //对话框取消按钮点击事件
+      hideModal () {
+        this.$emit('hideModal');
+        this.reset();
+      },
+      // 成功回调
+      confirm() {
+      	if (this.myModal.disabled) {return}
+        this.$emit('confirm', this.selectData);
+      	this.reset();
+      },
+      // 选择操作类型
+      selectThisFn(index) {
+        this.myModal.content.forEach( (item) => {
+          item.active = false;
+        })
+        this.myModal.content[index].active = true;
+        this.myModal.disabled = false;
+        this.selectData = this.myModal.content[index];
+      }
+    }
+    watch = {
+    	'myModal.confirmColor'(){
+
+    	}
+    }
+
+
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .modal-mask {
+    width: 100%;
+    height: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    z-index: 9000;
+    color: #fff;
+  }
+  .mymodal-dialog {
+    width: 600rpx;
+    min-height: 290rpx;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    margin-left: -300rpx;
+    transform: translateY(-50%);
+    z-index: 9001;
+    background: #fff;
+    border-radius: 10rpx;
+    .modal-title {
+      padding-top: 50rpx;
+      font-size: 36rpx;
+      color: #000;
+      text-align: center;
+    }
+    .modal-info {
+      font-family: PingFangSC-Regular;
+      font-size: 30rpx;
+      color: #666666;
+      text-align: center;
+      margin: 18rpx auto 30rpx auto;
+    }
+    .modal-content {
+      padding: 0 50rpx 30rpx 50rpx;
+      .modal-input {
+        display: flex;
+        flex-wrap: wrap;
+        background: #fff;
+        border-radius: 4rpx;
+        font-size: 28rpx;
+        .btn {
+          width: 460rpx;
+          height: 80rpx;
+          line-height: 80rpx;
+          background: #FFFFFF;
+          border: 1px solid #E5E5E5;
+          border-radius: 100px;
+          margin: 0 auto 20rpx auto;
+          font-family: PingFangSC-Regular;
+          font-size: 30rpx;
+          color: #666666;
+          text-align: center;
+        }
+        .active {
+          background: #EEF2FF;
+          color: #4272FF;
+          border: 1px solid #EEF2FF;
+        }
+      }
+    }
+    .modal-footer {
+      display: flex;
+      flex-direction: row;
+      height: 100rpx;
+      border-top: 1px solid #E5E5E5;
+      font-size: 34rpx;
+      line-height: 100rpx;
+      .btn-cancel {
+        width: 50%;
+        text-align: center;
+        font-size: 36rpx;
+        border-right: 1px solid #E5E5E5;
+      }
+      .btn-confirm {
+        width: 50%;
+        font-size: 36rpx;
+        text-align: center;
+      }
+    }
+  }
+
+
+
+
+
+
+
+</style>

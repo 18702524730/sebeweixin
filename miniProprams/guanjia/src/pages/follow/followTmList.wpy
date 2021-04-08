@@ -1,0 +1,548 @@
+<template>
+  <!-- 自定义弱提示框-成功 -->
+  <successTips />
+  <!-- 自定义弱提示框-失败 -->
+  <Tips />
+
+  <view class="enterprise">
+    <!-- 筛选条件 -->
+    <view class="status_type">
+      <view class="msg_type">
+        <view class="li" wx:for="{{ conditionList }}" wx:key="{{ index }}" :class="{'active': item.id==selectTypeTabId}" @tap="selectTypeTabFn({{ item }})"><text class="t_name">{{ item.name }} {{ item.num }}</text></view>
+      </view>
+    </view>
+
+    <!-- 商标列表-->
+    <searchResult class="{{trusteeImiVisible ? 'bottomPadding' : ''}}"  :optionType.sync="optionType" :topPadding.sync=" :enterBool="enterBool" topPadding" :show.sync="resultVisible" :resultList.sync="resultList" :searchType.sync="searchType" :selectMode.sync="selectMode" :noMoreData.sync="noMoreData" :loading.sync="loading" :showCompany.sync="showCompany" @selectList.user="selectTmFn" @addHost.user="addHostFn" @deleteHost.user="deleteHostFn" @isCore.user="isCoreFn" />
+
+
+    <!-- 底部按钮 -->
+    <view class="bottom_btn_box" >
+      <view class="btn lef" @tap="oprationFn()">取消监测</view>
+      <view class="btn " @tap="goSearchPageFn">继续添加商标</view>
+    </view>
+    <view class="bottom_option" wx:if="{{ selectMode }}">
+      <view class="btn lef" @tap="cancelFn">取消</view>
+      <view class="btn right" @tap="deleteHostTmFn">取消检测({{ coreNum }})</view>
+    </view>
+
+  </view>
+
+  <!-- 托管异常 -->
+  <confirm1 :showModal.sync="showModal1" :title.sync="modalTitle1" :content.sync="modalContent1" :minorContent.sync="minorContent1" :options.sync="modalOptions1" @confirmBtn.user="contact"/>
+
+  <!-- 设置企业 -->
+  <btnmodal :myModal.sync="modalObj" @selectItem.user="selectItem" @hideModal.user="hideModal" @confirm.user="confirm"></btnmodal>
+
+  <!-- 设置成功模态框 -->
+  <successModel :myModal.sync="sucModalObj" @confirm.user="sucConfirmFn" @hideModal.user="sucHideModalFn" />
+
+
+</template>
+<script>
+  import wepy from 'wepy';
+  import auth from '../../api/auth';
+  import searchApi from '../../api/search';
+  import homeApi from '../../api/home';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import stateTypeDetail from '../../components/stateType/stateTypeDetail';
+  import searchResult from '../../components/search/searchResult';
+  import btnmodal from '../../components/common/btn_model';
+  import successModel from '../../components/common/success_model';
+  import confirm from '../../components/common/confirm_model';
+  import Tips from '../../utils/Tips';
+  import successTips from '../../components/weui/success_tips';
+  import failTips from '../../components/weui/tips';
+  const app = getApp();
+
+  export default class followTmList extends wepy.page {
+    components = {
+      Tips: failTips,
+      successTips,
+      stateTypeDetail:stateTypeDetail,
+      searchResult:searchResult,
+      btnmodal,
+      confirm,
+      confirm1: confirm,
+      successModel
+    };
+    def = {
+      conditionList: [
+        {name: '全部', id: ''},
+        {name: '待审中', id: 1},
+        {name: '已初审', id: 4},
+        {name: '已驳回', id: 3},
+        {name: '已注册', id: 2},
+        {name: '已销亡', id: 5}
+      ],
+      selectTypeTabId: '',
+      hostType:'',//是否为未托管
+      windowH:0,//屏幕高度
+
+      companyName:'',
+      companyId: '',
+
+      enterBool:true,  //是企业详情
+      noMoreData: false,//上拉加载无更多数据
+      host:true,//托管状态，企业详情页独有
+      typeTab: true,
+      init: false,
+      isErr: false,
+      TypeisErr:true,
+      styleType:false,
+      resultList:[],
+      overflow:'',
+
+      clickFixed:false,//点击固定定位
+      isFixed: false, //固定头部标志
+      oldScrollTop: 0, //上一次滚动的scrollTop值
+      top: 0,  //固定头部时的top值
+      enterpriseInfo:{},
+
+      page: 1, //当前页码
+      size: 10, //每页数量
+      searchType: 3, //搜索类型 1 商标名称、 2注册号、3申请人
+      intCls:'',//筛选商标大类
+      loading:false,
+      untrusteeship:'',
+      status:'',
+      CompanyInfo:{},
+
+      modalObj: {
+        showModal: false,
+        title: '设置企业',
+        info: '请将此企业设置为',
+        content: [
+          {name:'我的企业', active: false},
+          {name:'关注企业', active: false}
+        ],
+        showCancel: true,
+        cancelText: '取消',
+        cancelColor: '#000000',
+        confirmText: '确定',
+        confirmColor: '#4272FF'
+      },
+
+      total:0,//商标总数量
+      applicationType:'',//托管类型，默认我的关注
+      enterpriseBol:false,//企业详情不为空
+      isOneBondAllTrademarkinfo:0,//是否一键托管
+      BondAllTrademark:false,
+      enterprise:'', //企业id
+
+      optionType: 0,  //操作类型 1.取消核心商标 2.设置核心商标 3.取消托管
+
+      resultVisible: false, //控制查询结果的显示
+      trusteeImiVisible: false, //控制立即托管的显示
+      topPadding: 220, //搜索结果容器的padding-top
+      selectMode: false, //可选择状态
+      showCompany: true,  //商标信息是否展示企业信息
+      coreNum: 0,  //核心商标数量
+      selectList: [],  //选择的商标列表
+      sucModalObj: {
+        showModal: false,
+        title: '设置成功',
+        info: '',
+        content: '"<span style="color:#4272FF;">杭州拾贝知识产权服务有限公司</span>"已成功设置为核心商标',
+        disabled: false, //默认两个按钮都不选中，确实按钮禁用
+        disabledColor: '#ccc',
+        showCancel: true,
+        cancelText: '继续添加',
+        cancelColor: '#000000',
+        confirmText: '去首页',
+        confirmColor: '#4272FF'
+      }
+    };
+    data = {...this.def};
+
+    // 上啦加载更多
+    onReachBottom (e) {
+      if (!this.noMoreData) {
+        let isLoadMore = true;
+        this.methods.query.bind(this)({isLoadMore: isLoadMore});
+      }
+    }
+
+    async onLoad() {
+      this.loading = true;
+      this.methods.query.bind(this)({});   //查询列表
+      this.methods.statisticsTrademarkFn.bind(this)();  //查询各个分类的数量
+      this.$apply();
+    }
+    onShow() {
+
+    }
+
+    methods = {
+      // 取消检测 
+      async deleteHostTmFn () {
+        let list = this.selectList.map(function(item){
+          return item.id
+        })
+        let params = {
+          trademarkIds: list,
+        }
+        try {
+          let resp = await searchApi.deleteStewardTm(params);
+          this.selectMode = false;
+          this.methods.query.bind(this)({});
+          this.$apply();
+        }
+        catch(e){
+          Tips.error('取消托管失败');
+        }
+      },
+      // 选择分类
+      selectTypeTabFn (item) {
+        this.selectTypeTabId = item.id;
+        this.methods.query.bind(this)({});
+        this.$apply();
+      },
+      // 查询所有分类
+      async statisticsTrademarkFn () {
+        let self = this;
+        let params = {
+          stewardSubjectId: '',
+          applicationType: 2
+        }
+        try {
+          let typeList = await homeApi.statisticsTrademark(params, true);
+          self.conditionList.forEach(function(item){
+            item.num = typeList[item.name]
+            if (item.name == '全部' ) {
+              if (item.num > 999){
+                item.num = '999+'
+              }
+            }
+            else{
+              if (item.num > 99) {
+                item.num = '99+'
+              }
+            }
+          })
+          console.log(self.conditionList)
+          self.$apply();
+        }
+        catch(e){}
+      },
+      // 立即注册商标
+      goSearchPageFn () {
+        wepy.navigateTo({
+          url: '/pages/search/search'
+        })
+      },
+      // 继续添加
+      sucHideModalFn () {
+        this.modalObj.showModal = false;
+        if (this.optionType == 2) {
+          this.methods.findStewardTrademarkFn.bind(this)(false);
+        }
+        else{
+          this.methods.findStewardTrademarkFn.bind(this)(false, 1);
+        }
+      },
+      // 处理选择的列表
+      selectTmFn (data) {
+        this.coreNum = data.length
+        this.selectList = data;
+      },
+      // 取消核心商标
+      async cancelCoreFn () {
+        let self = this;
+        let list = self.selectList.map(function(item){
+          return item.id
+        })
+        let params = {
+          stewardSubjectId: self.stewardSubjectId,
+          trademarkIds: list
+        }
+        let resp = await homeApi.deleteCoreStewardTrademarkinfo(params);
+        let nameList = self.selectList.map( (item) =>{
+          return item.tmName
+        })
+        self.sucModalObj.title = '取消成功';
+        self.sucModalObj.content = '"<span style="color:#4272FF;">'+ nameList.join('、') +'</span>"已取消核心商标'
+        self.sucModalObj.cancelText = '继续设置';
+        self.sucModalObj.confirmText = '去首页';
+        self.sucModalObj.showModal = true;  //设置成功弹窗
+        self.selectList = [];  //清空已选择列表
+        wepy.removeStorageSync('selectTmList');  //清除已选择的商标
+        self.$apply();
+      },
+      // 添加托管
+      async addHostFn (data) {
+        console.log(data)
+        let params = {
+          applicationType: data.applicationType,  //1.我的企业 2.竞品企业
+          trademarkKey: data.applicantOther2,
+          intCls: data.intCls+''
+        }
+        if (data.hostType) {
+          params.applicationType = data.hostType;
+        }
+        let typeName_ = '';  //1.我的商标 2.竞品商标
+        if (data.applicationType == 1) {
+          typeName_ = '"我的商标"';
+        }
+        else if (data.applicationType == 2) {
+          typeName_ = '"竞品商标"';
+        }
+        try {
+          let resp = await searchApi.addStewardTm(params);
+          if (resp.status == 201) {
+            this.showModal = true;
+            this.selectMode = false;
+            this.selectedTMArr = [];
+            wepy.setStorageSync('selectedTMArr', []);
+            this.trusteeImiVisible = false;
+            this.trusteeVisible = true;
+            this.methods.query.bind(this)({
+              noShowLoading: true
+            });
+          }else if(resp.status == 401){
+            wepy.navigateTo({
+              url: '/pages/login/login'
+            });
+          }else if(resp.status == 409){
+            this.modalTitle1 = this.modalTitle1.replace('@@@', resp.msg.used).replace('###', resp.msg.usable);
+            this.showModal1 = true;
+            this.$apply();
+          }else if(!resp.status){
+            this.successTips('成功设置为'+typeName_);
+            this.selectMode = false;
+            this.trusteeImiVisible = false;
+            this.trusteeVisible = true;
+            this.resultList.forEach( (item) => {  //更新视图，不刷新接口
+              if (item.applicantOther2 == data.applicantOther2) {
+                item.state = 1;
+              }
+            })
+          }else{
+            Tips.error('网络异常，请稍后重试');
+          }
+          this.$apply();
+        }
+        catch(e){
+          console.log(e)
+          Tips.error('网络异常，请稍后重试');
+        }
+      },
+      // 取消托管
+      async deleteHostFn (data) {
+        console.log(data)
+        let params = {
+          trademarkIds: [].concat(data.id),
+        }
+        try {
+          let resp = await searchApi.deleteStewardTm(params);
+          this.resultList.forEach( (item) => {
+            if (item.id == data.id) {
+              item.state = 0;
+            }
+          })
+          this.$apply();
+        }
+        catch(e){
+          Tips.error('取消托管失败');
+        }
+      },
+      // 取消 
+      cancelFn () {
+        this.selectMode = false;
+        this.coreNum = 0;
+        this.selectList = [];  //情况选择的商标
+        this.$apply();
+      },
+      // 底部导航操作
+      oprationFn () {
+        this.selectMode = true;
+        this.$apply();
+      },
+      async ToMap(){
+        try{
+          let jwd = await auth.getXY(this.enterpriseInfo.dom);
+          wepy.navigateTo({
+            url: `/pages/map/map?&content=${this.enterpriseInfo.dom}&latitude=${jwd.lat}&longitude=${jwd.lng}`
+          })
+        }
+        catch(e){
+        }
+      },
+      callPhone(){
+        //调取电话信息
+        wepy.makePhoneCall({
+          phoneNumber: this.enterpriseInfo.tel
+        })
+      },
+      //咨询客服
+      contact(){
+      	wepy.makePhoneCall({
+          phoneNumber: '15168455893'
+        })
+      },
+      selectItem(data){//设置企业弹框,默认为关注企业，传值关注企业的值
+        this.modalObj.showModal = false;
+        this.$apply();
+      },
+      hideModal(){//关闭企业弹框
+        this.modalObj.showModal = false;
+        this.$apply();
+      },
+      async query(params = {}){
+        let self = this;
+        if (params.isLoadMore) {
+          this.page += 1;
+        }else{
+          this.page = 1;
+        }
+        if(!self.status && self.status != 0){
+          self.status = '';
+        }
+        let data = {
+          applicationType: 2,  //竞品
+          stewardSubjectId: '',//企业id
+          page:self.page,
+          status: self.selectTypeTabId,//商标状态
+          size: 5
+        }
+        try {
+          let listData_ = await homeApi.findStewardTrademark(data, true);
+          let docs = listData_.data || [];
+          let allPage = Math.ceil(listData_.total/data.size);  //最大页数
+          self.loading = false;
+          if (self.page == allPage || allPage==1 || docs.length==0) {
+            self.noMoreData = true;
+          }
+          else if(self.page < allPage){
+            self.noMoreData = false;
+          }
+          if (params.isLoadMore) {
+            self.resultList = self.resultList.concat(listData_.data);  //托管商标列表
+          }
+          else {
+            self.resultList = docs;  //托管商标列表
+          }
+          this.resultVisible = true;  //展示商标列表
+          // self.$broadcast('changeResultList', self.resultList);
+          if(self.passEditType == 2) {
+            self.editType = 2;
+          }
+          self.passEditType = 0;  //默认执行一次之后清空参数
+          self.$apply();
+        }
+        catch(e){
+          console.log('错误码',e)
+          Tips.modal('您的操作过于频繁，请稍后再试。')
+          this.loading = false;
+        }
+        this.$apply();
+      },
+      preventdefault(){},
+      async tabType(index) {
+        if(index == 1){
+          this.typeTab = true;
+        }else if(index == 2){
+         this.typeTab = false;
+        }
+        this.numindex = index;
+        this.$apply();
+      },
+      fixedClick(){
+        this.clickFixed = true;
+        this.$apply();
+      },
+      shutDown(){
+        this.clickFixed = false;
+        this.$apply();
+      }
+    };
+    mixins = [base, input];
+    config = {
+      navigationBarTitleText: '全部已监测商标',
+      onReachBottomDistance: 100,
+      enablePullDownRefresh: false,
+    };
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  @import "../../styles/pub";
+.enterprise{height:100%;background-color:#f8f8f8;
+  .common_search {margin-bottom: 100rpx;}
+  .status_type {
+    width:100%; background:#fff; height:auto;
+    .msg_type {
+      width: 100%; background: #fff; display: flex; justify-content:flex-start; align-items:center; flex-wrap: wrap; padding-top:30rpx; padding-bottom:10rpx;
+      .li {
+        width: 33%; text-align: center; box-sizing:border-box; margin-bottom: 20rpx;
+        .t_name {color: #666; font-size: 28rpx; height: 50rpx; line-height: 50rpx; width: 150rpx; display: inline-block;}
+        &.active {
+          .t_name {background: #4272FF; border-radius: 30rpx; color: #fff;}
+        }
+      }
+    }
+  }
+  .enter_tit{position: fixed;top: 0;z-index: 1;}
+  .lists{margin-top:464rpx}
+  .topPixed{top:0}
+  .pixed{position: fixed;z-index:1;}
+  .head{width:750rpx;height:260rpx;background-image: linear-gradient(180deg, #4272FF 3%, #238DFF 97%);padding:30rpx;box-sizing:border-box;
+    .head_left{width:180rpx;height:180rpx;border-radius:90rpx;background-color:#fff;position: relative;overflow-x: hidden;
+      image{width:180rpx;height:180rpx;}
+      view{background:rgba(0,0,0,0.5);position: absolute;width:180rpx;height:54rpx;bottom:0;color:#fff;font-size:$text-xxs;border-radius:250%;text-align:center;padding-top: 9rpx;box-sizing:border-box;line-height:30rpx;}
+    }
+    .head_right{font-size:0;position: relative;
+      .enterprise_name{color:#fff;font-size: $text-lg;line-height:45rpx;width:690rpx;height:45rpx;display:block;}
+      .mt12{margin-top: 12rpx;}
+      .enterprise_info{font-size: $text-xs;color: #CDDAFF;line-height:37rpx;}
+      .faren{width:500rpx;text-overflow:ellipsis;word-break:keep-all;white-space:nowrap;overflow:hidden;}
+      .mark{
+        text{padding:0 18rpx;background: #4272FF;border-radius: 100rpx;color:#fff;font-size: $text-xxs;height:42rpx;line-height:42rpx;display:inline-block;text-align:center;}
+        .entstatus{width:110rpx;box-sizing:border-box;}
+        .application{width:134rpx;box-sizing:border-box;}
+      }
+      .setup{width:174rpx;height:54rpx;background-image: linear-gradient(-90deg, #FFBE4C 20%, #FF9C52 99%);border-radius: 100rpx 0 0 100rpx;color:#fff;position: absolute;right:-30rpx;bottom:75rpx;}
+      .hosting{width:174rpx;height:54rpx;background-image: linear-gradient(-90deg, #FFBE4C 20%, #FF9C52 99%);border-radius: 100rpx 0 0 100rpx;color:#fff;position: absolute;right:-30rpx;bottom:6rpx;}
+    }
+  }
+  .mb120{margin-bottom: 120rpx;}
+  .tab{height:90rpx;background-color:#fff;border-bottom:1rpx solid #e5e5e5;width:750rpx;
+    .bdc{border-bottom:4rpx solid #2F80F6;color: #2F80F6;}
+    view{text-align: center;line-height:94rpx;box-sizing:border-box;color: #515F71;font-size: $text-nm;}
+  }
+  .enterprise_data{box-sizing:border-box;padding-top:350rpx;box-sizing:border-box;
+    .enterprise_detail{font-size:0;box-sizing:border-box;background-color:#fff;padding:30rpx 30rpx 0;
+      .tit{line-height:40rpx;font-size:$text-nm;color: #666666;}
+      .txt{color: #999999;line-height:46rpx;font-size:$text-sm;
+        text{color: #999999;font-size:$text-xxs;}
+      }
+    }
+    .contact{background-color:#fff;padding:0 30rpx;
+      .bdb{border-bottom:1rpx solid #e5e5e5;}
+      .contact_lists{height:100rpx;line-height:100rpx;
+        image{width:34rpx;height:34rpx;}
+        >view{
+          view{font-size:$text-nm;color: #666666;
+            text{font-size:$text-nm;color: #999999;width:443rpx;display:inline-block;white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+            image{width:14rpx;height:25rpx;}
+          }
+        }
+      }
+    }
+    .prompt{color: #999999;text-align: center;font-size: $text-xs;height:73rpx;line-height:73rpx;background-color:#f8f8f8;width:750rpx; margin-bottom:100rpx;}
+    .enterprise_null{text-align:center;padding-top: 50rpx;
+      view{font-size:$text-nm;color:#999;line-height:40rpx;}
+      image{width:422rpx;height:384rpx;}
+    }
+  }
+  .bottom_btn_box {
+    .btn {width:50%;}
+  }
+  // .bottom_option {
+  //   .lef {width:50%; text-align:center; color: #333; box-sizing:border-box; border-right:1px solid #E5E5E5; padding:0;}
+  //   .right {width:50%; background:#fff; color:#333;}
+  // }
+}
+</style>

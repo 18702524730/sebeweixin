@@ -1,0 +1,42 @@
+<script>
+  import wepy from 'wepy';
+  import Tips from '../utils/Tips';
+  export default class companyMix extends wepy.mixin {
+    loaded() {
+      this.init = true;
+      this.$apply();
+      Tips.loaded();
+    }
+    // 卸载清理
+    onUnload() {
+      Object.assign(this, this.def);
+    }
+
+    methods = {
+      getBrandListFn () {
+        console.log(this)
+      },
+      selectTypeDataFn (v) {    // 选择的类型
+        console.log(v);
+        console.log(this)
+        this.resultList = [];
+      },
+      selectCompanyFn (obj) {   //选择的公司信息
+        console.log(obj)
+      },
+      oprationFn (type) {   //底部操作 1.取消托管 2.设置核心商标 3.添加企业 
+        let self = this;
+        if (type == 3) {
+          wepy.navigateTo({
+            url: 'pages/'
+          });
+        }
+        else {
+          self.editType = type;
+        }
+      }
+    }
+
+
+  }
+</script>

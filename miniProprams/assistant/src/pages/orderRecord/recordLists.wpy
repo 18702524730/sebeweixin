@@ -1,0 +1,175 @@
+<template>
+<view class="records" wx:if="{{init}}">
+  <scroll-view bindscrolltolower="lower" scroll-y=true lower-threshold="100" style="height: 100%;" wx:if="{{yearsLists && yearsLists.length}}">
+    <repeat for="{{yearsLists}}" key="index" index="index" item="item">
+      <view class="time_year" wx:if="{{item.list && item.list.length}}">{{item.year}}年</view>
+      <view class="record_info_lists" wx:if="{{item.list && item.list.length}}">
+        <repeat for="{{item.list}}" key="num" index="num" item="item">
+            <view class="record_info weui-flex" :class="{'mt25':num,'btc':num>0}" @tap="goDetail({{item}})">
+              <view class="record_lists weui-flex__item">
+                <view class="weui-flex">
+                  <view class="timer">{{item.createTime}}</view>
+                  <view class="info weui-flex__item">订单号：{{item.orderFictitiousSn}}</view>
+                </view>
+                <view class="weui-flex mt20">
+                  <view class="timer">{{item.hourminutes}}</view>
+                  <view class="info weui-flex__item">{{item.productNames}}</view>
+                </view>
+              </view>
+              <view class="icon">
+                <image src="/images/icons/right.png">
+              </view>
+            </view>
+        </repeat>
+      </view>
+    </repeat>
+  </scroll-view>
+
+  <view class="record_null" wx:else>
+    <image src="/images/login/null.png">
+    <text class="mt10">暂无成单记录</text>
+    <view class="go_single" @tap="goSingle">
+      <image src="/images/icons/money.png">
+      我要推单
+    </view>
+  </view>
+</view>
+
+</template>
+<script>
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import records from '../../api/records';
+  import filters from '../../utils/filters';
+  export default class orderList extends wepy.page {
+    def = {
+      infoList: false,
+      totalsize: 1,
+      page: 1,
+      recordInfo: [],
+      yearsLists: [
+        {
+          year: 2018,
+          list: []
+        }
+      ],
+      init: false
+    };
+    data = {...this.def};
+    async onLoad () {
+
+      let newLists = {};
+      try{
+        let recordLists = await records.recordLists(1, true);
+        this.recordInfo = recordLists.data || [];
+        this.loaded();
+        this.totalsize = recordLists.totalsize
+        newLists = await filters.pushTime(recordLists.data);
+      }catch(err){
+      	this.loaded();
+        this.recordInfo = [];
+      }
+      console.log(newLists.length)
+      if(!newLists.length){
+        this.yearsLists = [];
+        this.$apply();
+        return;
+      }
+      newLists.forEach((item,index)=>{
+        let ret = false;
+        this.yearsLists.forEach((data,num)=>{
+          if(item.years == data.year){
+            ret = true;
+            data.list.push(item);
+          }
+        })
+        if(!ret){
+          this.yearsLists.push({
+            year:item.years,
+            list: [item]
+          })
+        }
+      	console.log(111111,this.yearsLists)
+      })
+
+      this.$apply();
+    }
+    async onReachBottom(e) {
+      let pageAll = this.totalsize / 10;
+      let self = this;
+      if(this.page < pageAll) {
+        self.page += 1;
+        let lists = await records.recordLists(self.page);
+        let newLists = await filters.pushTime(lists.data);
+        newLists.forEach((item,index)=>{
+          let ret = false;
+          this.yearsLists.forEach((data,num)=>{
+            if(item.years == data.year){
+              ret = true;
+              data.list.push(item);
+            }
+          })
+          if(!ret){
+            this.yearsLists.push({
+              year:item.years,
+              list: [item]
+            })
+          }
+        })
+        self.$apply();
+      } else {
+      console.log(333)
+        self.nullInfo = true;
+      }
+    }
+    methods = {
+      goSingle() {
+        wepy.switchTab(
+          {
+            url: '/pages/home/index'
+          }
+        )
+      },
+      lower() {
+        console.log(555555)
+      },
+      goDetail(data) {
+        console.log(data)
+        wepy.navigateTo(
+          {
+            url: '/pages/orderRecord/recordDetail?id='+data.id
+          }
+        )
+      }
+    };
+    config = {
+      navigationBarTitleText: '成单记录'
+    };
+    mixins = [base];
+  }
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.records{padding-top:30rpx;background-color:#f8f8f8;height:100%;box-sizing:border-box;}
+.time_year{color: #B3BFD0;font-size: $text-nm;width:690rpx;margin:0 auto;padding-left: 30rpx;}
+.record_info_lists{width:690rpx;background: #FFFFFF;box-shadow: 0 6rpx 12rpx 0 rgba(47,128,246,0.09);border-radius: 8rpx;padding:30rpx;box-sizing:border-box;margin:20rpx auto 30rpx;
+  .btc{border-top:1rpx solid #E5E5E5;padding-top: 30rpx;}
+  .record_info{
+    .icon{line-height:100rpx;
+      image{width:14rpx;height:25rpx;}
+    }
+    .record_lists{
+      .timer{color: #B3BFD0;font-size: $text-nm;width:100rpx;text-align: left;line-height: 40rpx;}
+      .info{width:440rpx;font-size: $text-nm;color: #515F71;line-height: 40rpx;overflow: hidden;text-overflow:ellipsis;white-space: nowrap;padding-right: 20rpx;}
+    }
+  }
+}
+.record_null{text-align: center;margin-top: 270rpx;
+  >image{width:422rpx;height:384rpx;}
+  text{display:block;color: #999999;font-size: $text-nm;}
+  .go_single{width:220rpx;height:70rpx;background-image: linear-gradient(-90deg, #FF9500 4%, #FFA200 100%);box-shadow: 0 8rpx 16rpx 0 rgba(0,89,135,0.06);border-radius: 100rpx;line-height:70rpx;color:#FFF;margin:40rpx auto 0;text-align: center;font-size: $text-lg;
+    image{width:38rpx;height:44rpx;vertical-align: middle;}
+  }
+}
+.btn{width:690rpx;height:96rpx;background-image: linear-gradient(147deg, #0096FF 0%, #2F80F6 100%);box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.30);border-radius: 8rpx;color:#fff;margin:0 auto;border:0rpx;font-size: $text-xxl;text-align: center;line-height:94rpx;}
+</style>

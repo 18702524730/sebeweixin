@@ -1,0 +1,169 @@
+<template>
+  <view class="alreadyConfirm">
+    <view class="mid">
+      <image class="already" src="/images/confirm/already.png" />
+      <text class="status">订单已经完成确认</text>
+      <text class="jump">点击查看当前订单</text>
+    </view>
+    <!-- <text class="tips">未登录的用户系统将为您跳转至登录页面</text> -->
+  </view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import auth from '../../api/auth';
+  import confirm from '../../api/confirm';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  // import FormTips from '../../components/weui/tips';
+  // import VCode from '../../components/weui/vcode';
+  import Tips from '../../utils/Tips';
+  import WxUtils from '../../utils/WxUtils';
+  import Event from '../../utils/Event';
+
+  import Validate from '../../components/confirm/validate';
+  import RegisterAgreement from '../../components/confirm/registerAgreement';
+  import ServiceAgreement from '../../components/confirm/serviceAgreement';
+
+  const singH = 57;
+  const num = 6;
+  const ID = 35
+  export default class Confirm extends wepy.page {
+    def = {
+      init: false,
+      loginMassage: {},
+      isNeedValidate: false,
+      showRegAgreement: false,
+      showServiceAgreement: false,
+      isWrap: true,
+      maxH: singH * num,
+      orderInfo: {},
+      phone: ''
+    };
+    data = {...this.def};
+    async onLoad () {
+      //const loginRes = await wepy.login();
+      /*this.orderInfo = await confirm.getInfo(ID);
+      console.log(this.orderInfo)
+      if (this.orderInfo.errorCode == '4003') {
+      	wx.navigateTo({
+          url: '/pages/confirm/alreadyConfirm'
+        });
+        return;
+      }
+      this.phone = this.orderInfo.customer.applyPhone;
+      console.log(this.orderInfo.customer.applyPhone)
+      this.$apply();*/
+      this.loaded();
+      // Tips.loading();
+      /* try {
+        const loginCode = auth.getConfig('login_code');
+        console.debug(`login_code: ${loginCode}`);
+        if (loginCode != null) {
+          const result = await auth.check(loginCode);
+          if (result == 'SUCCESS') {
+            const shopId = auth.getConfig('shop_id');
+            console.debug(`shop_id: ${shopId}`);
+            if (shopId != null) {
+              this.$switch('home');
+            } else {
+              this.$redirect('shops');
+            }
+          }
+        } else {
+          WxUtils.checkSDK();
+        }
+        console.debug(`login_fail: ${loginCode}`);
+      } catch (e) {
+        await auth.removeConfig('login_code');
+      } finally {
+        this.loaded();
+      } */
+    }
+    methods = {
+      toggle(){
+        let len = this.orderInfo.asistantList.length;
+        var isWrap = this.maxH == singH * num;
+        this.maxH = isWrap ? singH * len : singH * num;
+        this.isWrap = !isWrap;
+        this.$apply();
+        console.log(this.maxH);
+      },
+      showRegAgreement(){
+        this.showRegAgreement = true;
+      },
+      showAgreement() {
+        this.showServiceAgreement = true;
+      },
+      back() {
+        this.isNeedValidate = false;
+      },
+      hideRegisterAgreement() {
+        this.showRegAgreement = false;
+      },
+      hideServiceAgreement() {
+        this.showServiceAgreement = false;
+        if (this.isSelf) {
+
+        }
+      },
+      async confirm({detail}) {
+        // this.orderInfo.belong = 1;
+        if (this.orderInfo.belong === 1) {
+          let createR;
+          try {
+            let data = {
+              asistantOrderCustomerId: ID,
+              resourceType: 2 // 1 pc 2 小程序端
+            };
+            createR = await confirm.createOrder(data);
+            Event.emit(Event.SERVICE_AGREEMENT_UPDATE, createR.order_sn);
+            this.showAgreement();
+          } catch (err) {
+            if (err.serverCode == 10501) {
+              createR = err.serverData.login_code;
+              Tips.loaded();
+              await Tips.modal('提示');
+            } else {
+              this.tips(err.message);
+              return;
+            }
+          } finally {
+	          this.loaded();
+	        }
+        }else{
+          this.isNeedValidate = true;
+        }
+      },
+    };
+    onShareAppMessage () {
+      const title = '微信拾贝商城';
+      const url = '/pages/home/index';
+      return Tips.share(title, url, title);
+    }
+    mixins = [input, base];
+    config = {
+      navigationBarTitleText: '订单确认'
+    };
+    components = {
+      // Tips: FormTips,
+      // VCode: VCode,
+      Validate: Validate,
+      RegisterAgreement: RegisterAgreement,
+      ServiceAgreement: ServiceAgreement
+    };
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .alreadyConfirm{
+    position: relative;box-sizing: border-box;width: 100%;min-height: 100%;background-image: linear-gradient(-180deg, #10AEFF 0%, #78F3E3 54%, #52E5BB 100%);display: flex;align-items: center;justify-content: center;
+    .mid{
+      text-align: center;
+      .already{width: 220rpx;height: 438rpx;display: block;margin: 0 auto 50rpx;}
+      .status{font-size: $text-lg;color: #FFFFFF;line-height: 42rpx;display: block;margin-bottom: 10rpx;}
+      .jump{font-size: $text-sm;color: #FFFFFF;line-height: 37rpx;}
+    }
+    .tips{position: fixed;bottom: 30rpx;font-size: $text-xs;color: #FFFFFF;line-height: 33rpx;font-family: $font-family;}
+  }
+</style>

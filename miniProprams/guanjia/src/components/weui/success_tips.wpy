@@ -1,0 +1,50 @@
+<template>
+  <view class="weui-successtips " wx:if="{{display}}" ><image class="img" src="../../images/icons/success.png"></image><text class="text">{{message}}</text></view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  export default class successTips extends wepy.component {
+    data = {
+      display: false,
+      message: '',
+      timeoutId: null
+    };
+    methods = {
+      show(message) {
+        this.display = true;
+        this.message = message;
+        if (this.timeoutId) {
+          clearTimeout(this.timeoutId);
+          this.timeoutId = null;
+        }
+        this.timeoutId = setTimeout(() => {
+          this.display = false;
+          this.timeoutId = null;
+          this.$apply();
+        }, 3000);
+      }
+    }
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  @keyframes moveUp {
+    from {
+      bottom: -30rpx;
+      opacity: 0;
+    }
+    to {
+      bottom: 120rpx;
+      opacity: 1;
+    }
+  }
+  .weui-successtips{
+    width:426rpx; line-height: 60rpx; background:rgba(0,0,0,.7); border-radius:50rpx; text-align:center; position:fixed; bottom: 120rpx; transform: translateZ(0); left: 162rpx; z-index: 5000; animation: moveUp 0.3s linear; animation-fill-mode: forwards;  
+    .text {font-size: 28rpx; color:#fff; vertical-align:middle;}
+    .img {
+      width:32rpx; height:25rpx; margin-right: 10rpx; vertical-align:middle;
+    }
+  }
+</style>

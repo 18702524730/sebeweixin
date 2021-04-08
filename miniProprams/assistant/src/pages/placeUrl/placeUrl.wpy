@@ -1,0 +1,115 @@
+<template>
+  <view class="place">
+    <view class="place_info">
+    	<image class="index" src="/images/placeUrl/index.png" @tap="gotoIndex">
+    	<view class="row-center card">
+      	<image class="{{imgLoaded? 'normal': 'loading'}}" src="{{imgUrl}}">
+      </view>
+      <view class="prompt mt20">卡片生成后，请长按卡片分享给邀请人</view>
+      <view class="btn {{imgLoaded? '': 'disabled'}}" @tap="createShareCard">生成推单卡片</view>
+      <view class="copy weui-flex">
+        <view class="copy_txt weui-flex__item">电脑端链接：{{pcUrl}}</view>
+        <view class="txt_copy" @tap="setClipboardData">复制</view>
+      </view>
+      <view class="prompt mt20">链接请在PC电脑端打开，PC支持对公支付，链接72小时内有效</view>
+      <view class="order" @tap="view">查看生成的订单</view>
+      <view class="footer"></view>
+    </view>
+    <canvas canvas-id="mycanvas" class="mycanvas"></canvas>
+    <image src="/images/placeUrl/place.png">
+  </view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import ShareCard from '../../utils/ShareCard';
+  import Tips from '../../utils/Tips';
+  import FormTips from '../../components/weui/tips';
+  export default class Confirm extends wepy.page {
+  	components = {
+      Tips: FormTips,
+    };
+    def = {
+    	imgLoaded: false,
+    	imgUrl: '/images/placeUrl/loader.gif',
+    	pcUrl:'',
+    	id:''
+    };
+    data = {...this.def};
+    async onLoad (options) {
+    	options = options.id ? options : {id: '00'+options.detailId+'0000'};
+    	this.pcUrl = `${wepy.$instance.globalData.cartUrl}/shop/pages/sureOrder.html?id=${options.id}`
+    	this.id = options.id;
+			this.$apply();
+    }
+    onShow(){
+    	var self = this;
+    	ShareCard.initShare(this.id, function(url){
+				self.imgLoaded = true;
+				self.imgUrl = url;
+				self.$apply();
+			});
+			this.$apply();
+    }
+    methods = {
+    	gotoIndex(){
+    		wepy.switchTab({
+          url: '/pages/home/index'
+        })
+    	},
+    	createShareCard(){
+    		if (!this.imgLoaded) {return;}
+    		let bgPath = '/images/placeUrl/card_bg.jpg'
+    		let text = '请长按识别二维码，确认订单信息'
+    		let imgPath = '/images/placeUrl/card_bg.jpg'
+    		ShareCard.canavsToImg();
+    	},
+    	view(){
+    		wepy.navigateTo({
+          url: '/pages/singleRecode/singleDetail?id='+ this.id.slice(2).slice(0,-4) + '&fromCard=true'
+        })
+    	},
+    	setClipboardData(){
+    		var self = this;
+    		wx.setClipboardData({
+				  data: self.pcUrl,
+				  success: function(res) {
+				  	Tips.toast('复制成功')
+				    wx.getClipboardData({
+				      success: function(res) {
+				        console.log(res.data) // data
+				      }
+				    })
+			    }
+				})
+			}
+    }
+    config = {
+      navigationBarTitleText: '下单链接'
+    };
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+  .place{height:100%;position: relative;
+    >image{width:750rpx;height:100%;position: absolute;top:0;z-index:1;}
+    .place_info{z-index:10;width:690rpx;background-color:#fff;box-shadow: 0 30rpx 56rpx 0 rgba(61,82,190,0.17);border-radius: 8rpx;position: absolute;left:30rpx;top:60rpx;text-align: center;padding-top:100rpx;box-sizing:border-box;font-size:0;padding-bottom: 30rpx;
+      .card{
+      	height:440rpx;
+      	.normal{width:440rpx;height:440rpx;}
+      	.loading{width:64rpx;height:64rpx;}
+      }
+      .index{position: absolute;right: 20rpx; top: 0;width:60rpx;height:90rpx;}
+      .btn{width:570rpx;height:94rpx;background-image: linear-gradient(147deg, #0096FF 0%, #2F80F6 100%);box-shadow: 0 8rpx 16rpx 0 rgba(47,128,246,0.30);border-radius: 8rpx;margin:20rpx auto 0;color:#fff;line-height:94rpx;font-size:$text-xxl;}
+      .disabled{background:#ccc;box-shadow:none;}
+      .copy{background: #F7FBFF;border: 1rpx solid #DEE9F7;border-radius: 8rpx;padding:30rpx;box-sizing:border-box;width:570rpx;margin:40rpx auto 0;
+        .copy_txt{width:470rpx;overflow: hidden;text-overflow:ellipsis;white-space: nowrap;font-size:$text-nm;text-align: left;color: #515F71;}
+        .txt_copy{font-size: $text-nm;color: #2F80F6;}
+      }
+      .prompt{font-size: 20rpx;color: #B3BFD0;}
+      .order{font-size:  $text-nm;color: #2F80F6;margin-top: 60rpx;line-height:40rpx;}
+    }
+    .footer{width:620rpx;height:40rpx;background: #FFFFFF;box-shadow: 0 10rpx 24rpx 0 rgba(64,85,196,0.14);border-radius: 0 0 8rpx 8rpx;z-index:10;position: absolute;bottom:-38rpx;left:30rpx;opacity:0.35}
+  }
+  .mycanvas{width:750rpx;height: 750rpx;position: absolute;top: -2000px;left: 0;z-index: 10}
+</style>

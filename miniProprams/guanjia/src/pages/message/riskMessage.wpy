@@ -1,0 +1,346 @@
+<template>
+	<view class="my_message" wx:if="{{init && !isErr}}" style="background: #f8f8f8;">
+
+    <view class="top_nav_wrap">
+      <view class="page page_tag">
+        <view class="page__bd">
+            <view class="weui-tab">
+                <view class="weui-navbar">
+                    <block wx:for="{{tabs}}" wx:key="*this">
+                        <view id="{{index}}" class="weui-navbar__item {{index == selectTab ? 'weui-bar__item_on' : ''}}" @tap="selectTabFn({{ index }})">
+                            <view class="weui-navbar__title">{{item.name}}</view>
+                        </view>
+                    </block>
+                    <view class="weui-navbar__slider" style="left: {{sliderLeft}}rpx; transform: translateX({{sliderOffset}}rpx); -webkit-transform: translateX({{sliderOffset}}rpx);"></view>
+                </view>
+            </view>
+        </view>
+      </view>
+      <!-- <view class="top_tab">
+        <view class="tab_item" wx:for="{{ tabs }}" wx:key="{{ index }}" :class="{'active': index==selectTab}" @tap="selectTabFn({{ index }})"><text class="tab_name">{{ item.name }}</text></view>
+      </view> -->
+      <view class="msg_type">
+        <view class="li" wx:for="{{ typeTab }}" wx:key="{{ index }}" :class="{'active': item.id==selectTypeTabId}" @tap="selectTypeTabFn({{ item }})"><text class="t_name">{{ item.name }}<text class="red_dot" wx:if="{{ item.num && item.id!=selectTypeTabId }}"></text></text></view>
+      </view>
+    </view>
+
+		<!-- 商标列表 -->
+		<brandList :show.sync="isLogin" :selectEditType.sync="editType" :resultList.sync="resultList" :noMoreData.sync="noMoreData" :loading.sync="loading" :showType.sync="brandShowType" :messageType.sync="messageType" :selectTypeTabId.sync="selectTypeTabId"/>
+
+    <!-- 未登录空页面 -->
+    <nullLogin wx:if="{{ !isLogin }}" />
+
+    <!-- 底部 -->
+    <footerNav :active.sync="footerActive" />
+
+		<NetError :show="isErr"  />
+
+	</view>
+</template>
+
+<script>
+
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import NetError from '../../components/common/net_error';
+  import FormTips from '../../components/weui/tips';
+  import Tips from '../../utils/Tips';
+  import interfaces from '../../interfaces';
+  import brandList from '../../components/brandList/brandList';
+  import homeApi from '../../api/home';
+  import footerNav from '../../components/common/footer_nav';  //底部导航
+  import nullLogin from '../../components/common/null_login';  //未登录空页面
+
+  const tablistOne = [
+    {name: '待续展', id: 4},
+    {name: '待变更', id: 1},
+    {name: '待监测', id: 5},
+  ];
+
+  const tablistTwo = [
+    {name: '异议风险', id: 2},
+    {name: '撤三风险', id: 3}
+  ];
+
+  export default class riskMessage extends wepy.page {
+  	components = {
+      Tips: FormTips,
+  		brandList,
+  		NetError,
+      footerNav,
+      nullLogin
+  	}
+
+  	data = {
+      isLogin: false,  //是否登录
+      footerActive: 2,  //底部导航高亮下标
+  		init: false,
+      isErr: false,
+      editType: 0,  //是否可编辑 0.不可以 1.取消托管 2.设置核心商标 3.添加企业 4.删除
+      showStatus: true,
+      companyList: [],
+      resultList: [],
+
+      sliderOffset: 0,
+      sliderLeft: 0,
+      tabs: [
+        {name: '紧急待办', id:1},
+        {name: '潜在隐患', id:2},
+      ],
+      selectTab: 0,
+      typeTab: tablistOne,
+      selectTypeTabId: 4,
+      myEmptyObj: {
+        title: '管家在手，商标无忧',
+        urlText: '回到首页',
+        urlLink: '/'
+      },
+      swiperOne: {
+        circular: true, //衔接滑动
+        indicatorDots: false,  //是否显示面板指示点
+        autoplay: false,
+        duration: 300,  //滑动动画时长
+        previousMargin: '20rpx',
+        nextMargin: '20rpx'
+      },
+      selectCompanyData: {},  //选中的公司数据
+      brandShowType: 1,  //消息形式展现
+      messageType: 2,  //消息展示类型
+
+      current: 0,
+      placeholder: '搜索托管中的企业或商标',
+      searchType: -1,  //搜索类型
+      content: '',
+      autoFocus: false,
+
+      loading: false, //结果加载状态控制
+      selectStatus: 0,  //全部
+      noMoreData: false,  //上啦加载更多数据
+      page: 1,  //当前页数
+      msgId: '',  //消息ID
+      tmId: '',  //商标ID
+      allNum: {},  //所有未读数量
+  	}
+
+    onReachBottom (e) {
+      if (!this.noMoreData) {
+        let isLoadMore = true;
+        this.methods.getLawMsgFn.bind(this)(this.selectTypeTabId, isLoadMore);  //查询已托管商标列表
+      }
+    }
+
+    methods = {
+      // 切换顶部tab
+      selectTabFn (index) {
+        this.selectTab = index;
+        this.sliderOffset = 690 / this.tabs.length * index ;
+        if (index==0) {
+          this.typeTab = tablistOne;
+        }
+        else if (index == 1) {
+          this.typeTab = tablistTwo;
+          this.typeTab.forEach( item => {
+            item.num = this.allNum[item.id]
+          })
+        }
+        this.selectTypeTabId = this.typeTab[0].id;
+        this.$apply();
+      },
+      // 切换类型导航
+      selectTypeTabFn (item) {
+        this.selectTypeTabId = item.id;
+      },
+      callFn () {
+        wepy.makePhoneCall({
+          phoneNumber: '15168455893'
+        })
+      },
+      //  查询未读消息数量
+      async getStasticTypeNumFn () {
+        let parms = {
+          newsType: 2,  //我的
+          newsState: 0,  //未读
+        }
+        let self = this;
+        try {
+          let resp = await homeApi.statisticsNewsTypeClass(parms);
+          self.allNum = resp;
+          let hasTypeOne = true;
+          for (var i=0; i<self.typeTab.length; i++) {
+            let item = self.typeTab[i];
+            item.num = resp[item.id]
+          }
+          for (var i=0; i<self.typeTab.length; i++) {
+            let item = self.typeTab[i];
+            if (item.num > 0) {
+              hasTypeOne = true;
+              self.selectTypeTabId = item.id;
+              self.methods.getLawMsgFn.bind(self)(self.selectTypeTabId);
+              return
+            }
+            else{
+              console.log(999)
+              hasTypeOne = false
+            }
+          }
+          if (!hasTypeOne) {
+            self.selectTab = 1;
+            self.sliderOffset = 690 / self.tabs.length * self.selectTab ;
+            self.typeTab = tablistTwo;
+            for (var i=0; i<self.typeTab.length; i++) {
+              let item = self.typeTab[i];
+              if (item.num > 0) {
+                self.selectTypeTabId = item.id;
+                self.methods.getLawMsgFn.bind(self)(self.selectTypeTabId);
+                return
+              }
+              else{
+                self.selectTypeTabId = self.typeTab[0].id;
+                self.methods.getLawMsgFn.bind(self)(self.selectTypeTabId);
+              }
+            }
+          }
+          self.$apply();
+        }
+        catch(e) {}
+      },
+      async getLawMsgFn (id, isLoadMore) {   //查询法律消息列表
+        let self = this;
+        let type_ = parseInt(self.activeIndex) + parseInt(1)
+        if (isLoadMore) {
+          self.page += 1
+        }
+        else {
+          self.page = 1
+        }
+        let params = {
+          newsType: 2, //2风险预警
+          typeClassification: id, //1变更风险,2被异议风险，3被撤三风险，4到期风险,5相同近似
+          page: self.page,
+          size: 3
+        }
+        if(self.tmId) {
+          params.trademarkId = self.tmId
+        }
+        self.loading = true;
+        try {
+          let resp = await homeApi.findNews(params);
+          self.$invoke('footerNav', 'statisticsNews', '');  //更新底部导航最新未读消息数量
+          self.loaded();
+          let docs = resp.data || [];
+          let allPage = Math.ceil(resp.total/params.size);  //最大页数
+          self.loading = false;
+          if (self.page == allPage || allPage==1 || docs.length==0) {
+            self.noMoreData = true;
+          }
+          else if(self.page < allPage){
+            self.noMoreData = false;
+          }
+          if (isLoadMore) {
+            self.resultList = self.resultList.concat(docs);  //托管商标列表
+          }
+          else {
+            self.resultList = docs;  //托管商标列表
+          }
+          self.$apply();
+          //self.$broadcast('changeResultList', self.resultList);
+        }
+        catch (e) {}
+      }
+    };
+
+    watch = {
+    	selectTypeTabId(){
+    		this.methods.getLawMsgFn.bind(this)(this.selectTypeTabId);
+    	}
+    }
+
+  	async onLoad (opts) {
+      let self = this;
+  		self.selectTab = opts.selectTab || 0;
+      self.tmId = opts.tmId;  //商标ID
+      // tab切换初始化
+      wx.getSystemInfo({
+        success: function(res) {
+          self.sliderLeft = (690 / self.tabs.length - 112) / 2 ;
+          self.sliderOffset = 690 / self.tabs.length * self.selectTab ;
+        }
+      });
+      self.selectTypeTabId = opts.selectTypeTabId || self.selectTypeTabId;
+      self.methods.getStasticTypeNumFn.bind(self)();  //查询未读数量
+      let data = await interfaces.checkLogin();
+      let key = wepy.getStorageSync('key');
+      if (data.isLogin && key) {
+        self.isLogin = true;
+      }
+      else {
+        self.isLogin = false;
+        this.loaded();  //初始化加载完成（当没有登录的时候）
+      }
+      self.$apply();
+    }
+
+  	async onShow () {
+
+    }
+
+    mixins = [base];
+    config = {
+      navigationBarTitleText: '风险预警'
+    };
+
+  }
+
+</script>
+
+<style lang="scss">
+	@import "../../styles/variable";
+  @import "../../styles/pub";
+	.my_message {
+    height: 100%;
+    .top_nav_wrap {
+      width: 100%; height: 200rpx; background: #fff;
+      .top_tab {
+        margin: 0 30rpx; height: 100rpx; line-height: 100rpx; background: #fff; display: flex; justify-content:space-around; align-items:center; border-bottom: 1px solid #eee;
+        .tab_item {
+          width: 50%; text-align: center;
+          .tab_name {color: #666; font-size: 28rpx; }
+          &.active {
+            .tab_name {color: #4272FF; height: 60rpx; line-height: 60rpx; border-bottom: 4rpx solid #4272FF; display: inline-block;}
+          }
+        }
+      }
+      .page_tag {
+        height: 100rpx; width: 690rpx; margin:0 auto; border-bottom: 1px solid #eee; 
+        .weui-navbar {
+          border:none;
+          .weui-navbar__item {
+            height:60rpx; line-height:60rpx; padding: 20rpx 0 0 0;
+            .weui-navbar__title {font-size:28rpx; color:#666;}
+          };
+          .weui-bar__item_on {
+            .weui-navbar__title {color: #4272FF;}
+          }
+          .weui-navbar__slider {width: 112rpx; height:4rpx; background:linear-gradient(180deg,rgba(66,114,255,1),rgba(41,136,255,1),rgba(35,141,255,1));}
+        }
+      }
+      .msg_type {
+        height: 100rpx; line-height: 100rpx; background: #fff; display: flex; justify-content:space-around; align-items:center;padding: 0 30rpx;
+        .li {
+          width: 33%; text-align: center; height: 100rpx; box-sizing:border-box;
+          .t_name {
+            color: #666; font-size: 28rpx; height: 50rpx; line-height: 50rpx; padding:0 40rpx;display: inline-block;
+            .red_dot {width:14rpx; height:14rpx; border-radius:50%; display:inline-block; background:#F43631; margin-left:10rpx; margin-bottom:4rpx;}
+          } 
+          &.active {
+            .t_name {background: #4272FF; border-radius: 30rpx; color: #fff;}
+          }
+        }
+      }
+    }
+
+  }
+
+
+
+</style>

@@ -1,0 +1,107 @@
+<template>
+  <view class="serach_box" id="searchbox">
+    <view class="searchbox" style="width: {{ autoFocus ? '606rpx' : '100%'}}">
+    	<image src="/images/search/s.png"></image>
+      <input type="text" placeholder-class="placeholder" disabled="{{ isDisabled }}" placeholder="{{placeholder}}" id="keyword" value="{{content}}" maxlength="40" focus="{{autoFocus}}" @input="myInput" @confirm="search" @focus="focusAction" @blur="blurAction" style="width: {{!autoFocus && richText ? '400rpx' : '480rpx'}}" confirm-type="search" />
+      <rich-text wx:if="{{!autoFocus && content && richText}}" class="resultNum" nodes="{{richText}}"></rich-text>
+      <view wx:if="{{content && autoFocus}}" class="cancel" @tap="clear">
+      	<image src="/images/search/del2.png"></image>
+      </view>
+    </view>
+    <view class="search_text" style="display: {{ autoFocus ? 'inline-block' : 'none'}}" @tap="search">搜索</view>
+  </view>
+</template>
+
+<script>
+	import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import qs from 'qs'
+	export default class searchBox extends wepy.component {
+    props = {
+    	placeholder: String,
+      content: {
+        type: String,
+        default: '',
+        twoWay: true
+      },
+      autoFocus: {
+      	type: Boolean,
+        default: false,
+        twoWay: true
+      },
+      richText: { //搜索结果总数
+      	type: String,
+        default: '',
+        twoWay: true
+      },
+      isDisabled: {
+        type: Boolean,
+        default: false
+      }
+    };
+    data = {
+    };
+    onLoad(){
+    	//console.log(this.content)
+    }
+		methods = {
+			blurAction(e){
+				this.$emit('blurAction');
+			},
+			focusAction(e){
+				this.autoFocus = true;
+				this.$emit('focusAction');
+				this.$apply();
+			},
+			myInput(e) {
+        const fieldName = e.currentTarget.id;
+        this.content = e.detail.value;
+        this.$apply();
+      },
+      search(){
+        var str = this.content;
+        if (!str || !(str+'').trim()) {
+          Tips.error('请输入商标名称')
+          return;
+        }
+        this.richText = '';
+        this.$apply();
+        this.$emit('query');
+      },
+      clear() {
+        console.log(55)
+      	this.content = '';
+      	this.richText = '';
+      	this.$apply();
+      },
+    };
+    watch = {
+    	/*content(){
+    		console.log(this.content)
+    	}*/
+    }
+    mixins = [base];
+	}
+</script>
+
+<style lang='scss'>
+  @import "../../styles/variable";
+  .serach_box{
+  	width:690rpx; height:68rpx; position: relative;z-index: 2; box-sizing: border-box; margin:20rpx 30rpx; overflow:hidden;
+    .searchbox{
+      position: relative;display: flex;flex-direction: row; align-items: center;width: 606rpx; height: 68rpx;padding:13rpx 0;box-sizing: border-box;border-radius: 50rpx; padding-left: 20rpx;color:#999;background-color: #fff; float: left; transition: all 0.5s;
+      image{display: inline-block;width: 30rpx;height: 30rpx;margin-right: 20rpx;}
+      input{display: inline-block;height: 42rpx;line-height: 42rpx;border:0;background-color: transparent;font-size: 30rpx;color: #333;vertical-align: middle;}
+      .placeholder{color: #999;}
+      .cancel{
+      	position: absolute;right: 20rpx; top:13rpx;width: 42rpx;height: 42rpx;line-height: 42rpx;font-size: 30rpx;color:#999;text-align: right;
+      	image{width: 21rpx;height: 21rpx;margin-right: 0;}
+      }
+      .resultNum{
+      	position: absolute;right: 20rpx; top:13rpx;height: 42rpx;line-height: 42rpx;font-size: 26rpx;color:#999;
+      	text{color: #10AEFF;}
+      }
+    }
+    .search_text {display:none; font-size: 32rpx; height: 68rpx; line-height: 68rpx; color: #fff; margin-left: 20rpx; float: left; font-family: 'PingFangSC'; transition: all 0.5s;}
+  }
+</style>

@@ -1,0 +1,69 @@
+<template>
+  <map id="map" longitude="{{markers[0].longitude}}" latitude="{{markers[0].latitude}}" scale="18" bindcontroltap="controltap" markers="{{markers}}" bindmarkertap="markertap" bindregionchange="regionchange" show-location style="width: 100%; height: 100%;"></map>
+</template>
+<script>
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  export default class homePage extends wepy.page {
+    components = {
+    };
+
+    def = {
+      markers: [{
+        iconPath: "/images/icons/map.png",
+        id: 0,
+        latitude: 0,
+        longitude: 0,
+        width: 30,
+        height: 30,
+        callout: { 
+          content: "",  
+          color: "#666666",  
+          fontSize: "12",   
+          borderRadius: 5,  
+          bgColor: "#ffffff",  
+          padding: "10",  
+          display:"ALWAYS",
+          padding:5,
+          textAlign:'left'
+        }
+      }]
+    }
+    data = {...this.def};
+    async onLoad(option){
+      this.markers[0].callout.content = option.content;
+      this.markers[0].latitude = Number(option.latitude);
+      this.markers[0].longitude = Number(option.longitude);
+      let self = this;
+      if(40 >= this.markers[0].callout.content.length > 20){
+        let address01 = self.markers[0].callout.content.substring(0,20);
+        let address02 = self.markers[0].callout.content.substring(20);
+        let address = address01 + '\n' + address02;
+        this.markers[0].callout.content = address;
+        this.$apply();
+      }else if(this.markers[0].callout.content.length > 40){
+        let address01 = self.markers[0].callout.content.substring(0,20);
+        let address02 = self.markers[0].callout.content.substring(20,40);
+        let address = address01 + '\n' + address02 + '...';
+        this.markers[0].callout.content = address;
+        this.$apply();
+      }
+      console.log('企业地址详情',this.markers[0])
+      this.$apply();
+    }
+    methods = {
+    };
+
+    mixins = [base];
+
+    config = {
+      navigationBarTitleText: '企业地址详情',
+      onReachBottomDistance: 100,
+      enablePullDownRefresh: false,
+    };
+  }
+</script>
+
+<style lang="scss">
+  @import "../../styles/variable";
+</style>

@@ -1,0 +1,122 @@
+<template>
+<Tips />
+<view class="query">
+  <view class="query_all">
+    <view class="query_top">
+      <view class="top_one"></view>
+      <view class="top_two"></view>
+    </view>
+    <image src="/images/query/bottom.png" alt="">
+    <view class="info">
+      <image src="/images/query/Tramicon.png" alt="">
+      <view class="ipt">
+        <image src="/images/query/cx.png" alt="">
+        <input type="text" placeholder="请输入商标名称" style="color:#666" value="{{content}}" @input="myInput" @confirm="approximate(true)">
+      </view>
+      <view class="query_btn" @tap="approximate(true)">立即查询</view>
+      <text>搜索指定内容</text>
+      <!-- 列表 -->
+      <view class="tradmark_list weui-flex">
+        <view class="weui-flex__item" @tap="approximate(false)">近似商标</view>
+        <view class="accurate weui-flex__item" @tap="accurate">精确商标</view>
+        <!-- <view class="trm_img weui-flex__item" @tap="goImage">
+          图形商标
+          <image src="/images/query/hot.png" alt="">
+        </view> -->
+      </view>
+      <view class="btm_txt">www.ipsebe.com</view>
+    </view>
+  </view>
+</view>
+</template>
+<script>
+  import wepy from 'wepy';
+  import auth from '../../api/auth';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+
+  import FormTips from '../../components/weui/tips';
+
+  export default class tradmarkQuery extends wepy.page {
+    def = {
+      content: ''
+    };
+    data = {...this.def};
+    methods = {
+      myInput(e) {
+        this.content = e.detail.value;
+        this.$apply();
+      },
+      goImage() {
+        wepy.navigateTo(
+          {
+            url: '/pages/imgSearch/imgCrop'
+          }
+        )
+      },
+      approximate(bool) {
+        let self = this;
+        if (bool == 'true') {
+          if (self.content) {
+            wepy.navigateTo(
+              {
+                url: `/pages/affinitySearch/searchResult?content=${self.content}&showResult=true`
+              }
+            )
+          } else {
+            self.tips('请输入商标名称');
+          }
+        } else {
+          wepy.navigateTo(
+            {
+              url: '/pages/affinitySearch/searchResult'
+            }
+          )
+        }
+      },
+      accurate() {
+        wepy.navigateTo(
+          {
+            url: '/pages/exactSearch/searchResult'
+          }
+        )
+      }
+    };
+    config = {
+      navigationBarTitleText: '商标查询'
+    };
+    mixins = [input,base];
+    components = {
+     Tips: FormTips
+    };
+  }
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.query{width:750rpx;height:100%;background-color:#f8f8f8;
+  .query_all{height:100%;position: relative;
+    .query_top{width:750rpx;position: absolute;bottom:276rpx;top:0;background-image: linear-gradient(-180deg, #10AEFF 0%, #48A3FB 100%);padding-top: 60rpx;box-sizing:border-box;
+      .top_one{width:577rpx;opacity: 0.5;border-radius: 16rpx 16rpx 0 0;background: #FFFFFF;height:60rpx;margin:0rpx auto 0;}
+      .top_two{width:633rpx;opacity: 0.8;border-radius: 16rpx 16rpx 0 0;background: #FFFFFF;height:34rpx;margin:-32rpx auto 0;box-sizing:border-box;}
+    }
+    .info{width:700rpx;background-color:#fff;border-radius: 16rpx;position: absolute;top:118rpx;left:25rpx;text-align: center;padding-top:94rpx;box-sizing:border-box;bottom:60rpx;box-shadow: 0 20rpx 30rpx 0 rgba(0,89,135,0.06);
+      >image{width:358rpx;height:77rpx;}
+      .ipt{position: relative;box-sizing:border-box;width:630rpx;margin:90rpx auto 30rpx;
+        input{border: 1rpx solid #DDDDDD;width:628rpx;height:94rpx;padding-left: 68rpx;padding-right: 20rpx;box-sizing:border-box;font-size:$text-lg;text-align: left;margin:0 auto;}
+        image{width:29rpx;height:30rpx;position: absolute;left:19rpx;top:32rpx;}
+      }
+      .query_btn{width:630rpx;height:94rpx;background-image: linear-gradient(135deg, #10AEFF 0%, #3D95FA 100%);border-radius: 6rpx;text-align: center;font-size:36rpx;color:#fff;line-height:94rpx;margin:0 auto 0;box-sizing:border-box;}
+      text{text-align: center;width:700rpx;display:block;color: #999;font-size:$text-lg;margin-top: 90rpx;box-sizing:border-box;margin-bottom: 45rpx;}
+      .tradmark_list{width:484rpx;margin:0 auto;
+        .accurate{border-left:1rpx solid #666;}
+        .trm_img{position:relative;
+          image{width:65rpx;height:43rpx;position: absolute;top:-46rpx;right:30rpx;}
+        }
+        view{text-align:center;line-height:30rpx;color: #666666;font-size:$text-lg;}
+      }
+      .btm_txt{color: #999999;text-align:center;font-size:$text-xs;position: absolute;bottom:40rpx;width:700rpx;text-align: center;left:0rpx;}
+    }
+    >image{width:750rpx;height:216rpx;position: absolute;bottom:62rpx;}
+  }
+}
+</style>

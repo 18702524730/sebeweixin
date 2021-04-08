@@ -1,0 +1,173 @@
+<template>
+	<Tips />
+  <view class="report_in">
+  	<image src="/images/my/bg.jpg" style="width: 750rpx;height: 1207rpx;"/>
+  	<view class="column-center container">
+  		<image src="/images/my/title.png" style="width: 619rpx;height: 80rpx;"	/>
+	  	<text class="sec_til">大数据分析  助力品牌起航</text>
+	  	<view class="form_list">
+	  		<form @submit="submit">
+			  	<view class="form tm_name">
+				  	<view><text>*</text>商标名称</view>
+				  	<input id="name" value="{{input.name}}" maxlength="30" type="text" @focus="focusPhone" @blur="input" bindinput="input" placeholder="请输入商标名称，如拾贝" />
+				  </view>
+				  <view class="form tm_name">
+				  	<view><text>*</text>联系电话</view>
+				  	<input id="phone" value="{{input.phone}}" maxlength="14" type="number" cursor-spacing="30" @focus="focusCode" @blur="input" bindinput="input" placeholder="接收分析报告，仅官方可见"/>
+				  </view>
+				  <view class="form tm_name">
+				  	<view>商标类别</view>
+				  	<input style="width:380rpx;" id="cateId" disabled="true" value="{{input.cateId}}" placeholder="请选择您想注册的商标类别" @tap="choose"/>
+				  	<view class="choose" @tap="choose">选择</view>
+				  </view>
+				  <button class="submit_btn" plain="true" @tap="submit">立即生成商标注册查询报告</button>
+			  </form>
+		  </view>
+	  </view>
+  </view>
+  <selectBig :show.sync="visible" @confirm.user="confirm"/>
+  <noRegister :showModal.sync="showModal"/>
+</template>
+<script>
+  import wepy from 'wepy';
+  import qs from 'qs';
+  import auth from '../../api/auth';
+  import FormTips from '../../components/weui/tips';
+  import base from '../../mixins/base';
+  import input from '../../mixins/input';
+  import Tips from '../../utils/Tips';
+  import interfaces from '../../interfaces'
+  import selectBig from '../../components/report/selectBig'
+  import noRegister from '../../components/report/noRegistered'
+  import reportApi from '../../api/report';
+  const app = getApp();
+
+  export default class reportInPage extends wepy.page {
+  	components = {
+  		Tips: FormTips,
+  		selectBig,
+  		noRegister
+    };
+    def = {
+    	showModal: false,
+    	visible: false
+    };
+    data = {...this.def};
+    async onLoad () {
+    	app.aldstat.sendEvent('商标报告查询信息输入页');
+    	const userData = wepy.getStorageSync('auth');
+    	this.input.phone = userData.phone;
+    	this.$apply();
+    }
+    onUnload () {
+    	this.init = false;
+    }
+    onHide () {
+    	this.init = false;
+    }
+
+    methods = {
+    	confirm(data){
+    		console.log(data)
+    		this.input.cateId = data.nameArr.join('、');
+    		this.input.intCls = data.arr.join() || '';
+    		this.visible = false;
+    		this.$apply();
+    	},
+    	choose(){
+    		this.visible = true;
+    		this.$apply();
+    	},
+    	async submit(){
+    		if (!this.isValid()) {
+					return;
+				}
+				app.aldstat.sendEvent('生成商标注册查询报告');
+				let d = {
+					trademarkName: this.input.name,
+					phone: this.input.phone,
+					intCls: this.input.intCls || ''
+				}
+				try{
+					let resp = await reportApi.makeTadeMarkReport(d);
+					if (resp.registered==0) {
+						this.showModal = true;
+						this.$apply();
+					}else if(resp.status){
+						Tips.error('系统繁忙');
+					}else{
+						wepy.navigateTo({
+							url: '/pages/my/report?' + qs.stringify(d)
+						});
+					}
+				}
+				catch(e){
+					console.log(e)
+					this.tips(e);
+				}
+    	}
+    };
+    /**
+		 * 校验表单提交
+		 */
+		isValid() {
+			if (this.isEmpty(this.input.name)) {
+				this.tips('请输入商标名称');
+				return false;
+			}
+			if (!this.isPhoneValid(this.input.phone)) {
+				return false;
+			}
+			return true;
+		}
+		/**
+		 * 校验电话号码
+		 */
+		isPhoneValid(phone) {
+			if (this.isEmpty(phone)) {
+				this.tips('请输入联系电话');
+				return false;
+			}
+			const reg = /^[0-9]*[\+\-]?[0-9]+$/;
+			if (!reg.test(phone)) {
+				this.tips('请输入正确的手机或电话');
+				return false;
+			}
+			return true;
+		}
+    config = {
+      navigationBarTitleText: '信息录入'
+    };
+    mixins = [input, base];
+    onShareAppMessage () {
+      const title = '拾贝商标管家';
+      const url = '/pages/home/home';
+      return Tips.share(title, url, title);
+    }
+  }
+</script>
+
+<style lang="scss">
+@import "../../styles/variable";
+.report_in{
+	position: relative;box-sizing:border-box;height: 100%;background-color: #815AFF;
+	.container{
+		position: absolute;top: 0;width: 100%;
+		image{margin-top: 100rpx;}
+		.sec_til{font-size: 32rpx;color: #FFFFFF;}
+		.form_list{
+			margin-top: 50rpx;padding-top: 40rpx;width: 490rpx;
+			.form{
+				position: relative;border-bottom: 1px solid #E5E5E5;padding-bottom: 20rpx;
+				view{
+					height: 42rpx;margin-top: 30rpx;font-size: 30rpx;color: #2A2A2A;
+					text{color: #F64744;font-size: 30rpx;}
+				}
+				input{height: 40rpx;margin-top: 20rpx;font-size: 28rpx;color: #999999;}
+				.choose{position: absolute;bottom:23rpx;right: 0;z-index: 2;width: 100rpx;height: 50rpx;line-height: 50rpx;font-size: 26rpx;border: 1px solid #4272FF;border-radius: 6rpx;color: #4272FF;background-color: #fff;padding:0;text-align: center;}
+			}
+			.submit_btn{margin-top: 50rpx;background-image: linear-gradient(90deg, #425DFF 0%, #715BFF 98%);border-radius: 100rpx;font-size: 30rpx;color: #FFFFFF;}
+		}
+	}
+}
+</style>

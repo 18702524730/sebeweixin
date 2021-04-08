@@ -1,0 +1,706 @@
+<template>
+<Tips />
+<view class="wx-content-info">
+  <view class="crop_tit">滑动手机，裁切图片</view>
+  <view class="crop_prompt mt30 mb40">背景越简洁，搜索准确度越精准哦~</view>
+  <view class="null_img" wx:if="{{!imageSrc}}" @tap="upImg"></view>
+  <view wx:if="{{imageSrc}}" class="wx-corpper" style="width:{{cropperInitW}}rpx;height:{{cropperInitH}}rpx;background:#000;margin:0 auto;">
+    <view class="wx-corpper-content" style="width:{{cropperW}}rpx;height:750rpx;left:{{cropperL}}rpx;top:{{cropperT}}rpx">
+      <image src="{{imageSrc}}" style="width:{{imgW}}rpx;height:{{imgH}}rpx;margin:{{maT + 15}}rpx auto 0;" mode="{{imgType}}"></image>
+      <view class="wx-corpper-crop-box" bindtouchstart="contentStartMove" bindtouchmove="contentMoveing" style="width:{{cutW}}rpx;height:{{cutH}}rpx;left:{{cutL}}rpx;top:{{cutT}}rpx;margin-left:100rpx;margin-top:{{maT + 15}}rpx;">
+        <view class="wx-cropper-view-box">
+          <!-- <view class="wx-cropper-viewer">
+            <image src="{{imageSrc}}" style="width:{{cropperW}}rpx;height:{{cropperH}}rpx;left:{{cropperL - cutL}}rpx;top:{{cropperT - cutT}}rpx"></image>
+          </view> -->
+          <view class="wx-cropper-dashed-h"></view>
+          <view class="wx-cropper-dashed-v"></view>
+          <view class="wx-cropper-line-t" data-drag="top" catchtouchstart="dragStart" catchtouchmove="dragMove"></view>
+          <view class="wx-cropper-line-r" data-drag="right" catchtouchstart="dragStart" catchtouchmove="dragMove"></view>
+          <view class="wx-cropper-line-b" data-drag="bottom" catchtouchstart="dragStart" catchtouchmove="dragMove"></view>
+          <view class="wx-cropper-line-l" data-drag="left" catchtouchstart="dragStart" catchtouchmove="dragMove"></view>
+          <!-- <view class="wx-cropper-point point-t" data-drag="top" catchtouchstart="dragStart" catchtouchmove="dragMove"></view> -->
+          <view class="wx-cropper-point point-tr" data-drag="topTight"></view>
+          <!-- <view class="wx-cropper-point point-r" data-drag="right" catchtouchstart="dragStart" catchtouchmove="dragMove"></view> -->
+          <view class="wx-cropper-point point-rb" data-drag="rightBottom" catchtouchstart="dragStart" catchtouchmove="dragMove"></view>
+          <!-- <view class="wx-cropper-point point-b" data-drag="bottom" catchtouchstart="dragStart" catchtouchmove="dragMove"></view> -->
+          <view class="wx-cropper-point point-bl" data-drag="bottomLeft"></view>
+          <!-- <view class="wx-cropper-point point-l" data-drag="left" catchtouchstart="dragStart" catchtouchmove="dragMove"></view> -->
+          <view class="wx-cropper-point point-lt" data-drag="leftTop"></view>
+        </view>
+      </view>
+    </view>
+    <!-- <view class="wx-cropper-drag-box"></view> -->
+  </view>
+  <canvas canvas-id="myCanvas" style="position:absolute;border: 1px solid red; width:{{imageW}}rpx;height:{{imageH}}rpx;top:-9999px;left:-9999px;"></canvas>
+  <view bindtap="getImageInfo" class="img_btn">立即查询</view>
+  <view class="btm_prompt mt20">苹果手机拍照选图功能仅支持IOS9以上版本</view>
+</view>
+<view wx:if="{{isShowImg}}" @tap="ShowImg" class="crop_bg">
+  <image @tap="ShowImg" src="https://sebe360test.oss-cn-beijing.aliyuncs.com/A55E17F058C0BB1B70FB152FFCA9DB2A.png"></image>
+</view>
+
+</template>
+<script>
+  import wepy from 'wepy';
+  import base from '../../mixins/base';
+  import FormTips from '../../components/weui/tips';
+  import input from '../../mixins/input';
+  // 手机的宽度
+  var windowWRPX = 750;
+  // 拖动时候的 pageX
+  var pageX = 0;
+  // 拖动时候的 pageY
+  var pageY = 0;
+
+  var pixelRatio = wepy.getSystemInfoSync().pixelRatio;
+
+  // 调整大小时候的 pageX
+  var sizeConfPageX = 0;
+  // 调整大小时候的 pageY
+  var sizeConfPageY = 0;
+
+  var initDragCutW = 0;
+  var initDragCutL = 0;
+  var initDragCutH = 0;
+  var initDragCutT = 0;
+
+  // 移动时 手势位移与 实际元素位移的比
+  var dragScaleP = 2;
+  export default class tradmarkQuery extends wepy.page {
+    components = {
+      Tips: FormTips
+    };
+    /**
+     * 页面的初始数据
+     */
+    def= {
+      imgType:'',
+      imgW:550,
+      imgH:550,
+      maT:0,
+
+      // imageSrc:'https://sebe360test.oss-cn-beijing.aliyuncs.com/E86381B714BFF2B250D4038FDA72BC1C.jpg',
+      // imageSrc: 'https://sebe360test.oss-cn-beijing.aliyuncs.com/26E78BC581D678D961B69A1C55621977.png',
+      imageSrc:'',
+      isShowImg: false,
+      // 初始化的宽高
+      cropperInitW: 750,
+      cropperInitH: 620,
+      // 动态的宽高
+      cropperW: windowWRPX,
+      cropperH: windowWRPX,
+      // 动态的left top值
+      cropperL: 0,
+      cropperT: 0,
+
+      // 图片缩放值
+      scaleP: 0,
+      imageW: 0,
+      imageH: 0,
+
+      // 裁剪框 宽高
+      cutW: 0,
+      cutH: 0,
+      cutL: 0,
+      cutT: 0,
+    };
+    data= {...this.def};
+    async onReady() {
+      let self = this
+
+      let imgShow = wepy.getStorageSync('ShowImg');
+      if(imgShow){
+        this.isShowImg = false;
+      }else{
+        this.isShowImg = true;
+      }
+      this.$apply();
+    }
+    methods = {
+      upImg() {
+        let self = this;
+        // wepy.showLoading({
+        //   title: '图片加载中...',
+        // })
+        wepy.chooseImage({
+          count: 1, // 默认9
+          sizeType: ['original', 'compressed'], // 可以指定是原图还是压缩图，默认二者都有
+          sourceType: ['album', 'camera'], // 可以指定来源是相册还是相机，默认二者都有
+        })
+        .then(function (res) {
+          // 返回选定照片的本地文件路径列表，tempFilePath可以作为img标签的src属性显示图片
+          let tempFilePaths = res.tempFilePaths[0];
+          console.log('图片信息',tempFilePaths)
+          self.imageSrc = tempFilePaths;
+          wepy.getImageInfo({
+            src: self.imageSrc
+          })
+          .then(function(res) {
+            let innerAspectRadio = res.width / res.height;
+            // 根据图片的宽高显示不同的效果   保证图片可以正常显示
+            // 横条型图片
+            if (innerAspectRadio >= 1) {
+              self.cropperW = windowWRPX;
+              self.cropperH = windowWRPX / innerAspectRadio;
+              // 裁剪框  宽高  
+              self.cutW = 550;
+              self.cutH = 550 / innerAspectRadio;
+              self.imgH = 550 / innerAspectRadio;
+              self.maT = Math.ceil((550 - 550/innerAspectRadio) / 2);
+              // 图片缩放值
+              self.scaleP = res.width * pixelRatio / windowWRPX;
+              // 图片原始宽度 rpx
+              self.imageW = res.width * pixelRatio;
+              self.imageH = res.height * pixelRatio;
+              self.imgType = 'widthFix';
+              self.$apply();
+              console.log(self.imageH)
+            }else{
+              // 竖条型图片
+              self.cropperH = windowWRPX;
+              // 裁剪框  宽高  hb 
+              self.cutW = 550*innerAspectRadio;
+              // self.cutH = windowWRPX / innerAspectRadio - 200;
+              self.cutH = 550;
+              self.cutL = Math.ceil((550 - 550*innerAspectRadio) / 2);
+              // 图片缩放值
+              self.scaleP = res.width * pixelRatio / windowWRPX;
+              // 图片原始宽度 rpx
+              self.imageW = res.width * pixelRatio;
+              self.imageH = res.height * pixelRatio;
+              self.imgType = 'aspectFit';
+              self.$apply();
+              console.log('图片尺寸',self.data)
+            }
+            // self.isShowImg = true
+            self.$apply();
+            // console.log(self.isShowImg)
+            // wepy.hideLoading();
+          });
+        })
+        
+      },
+      ShowImg() {
+        wepy.setStorage({
+          key:"ShowImg",
+          data:"true"
+        });
+        let imgShow = wepy.getStorageSync('ShowImg');
+        if(imgShow){
+          this.isShowImg = false;
+        }else{
+          this.isShowImg = true;
+        }
+        this.$apply();
+      },
+      // 拖动时候触发的touchStart事件
+      contentStartMove (e) {
+        // console.log(e,this.isShowImg)
+        pageX = e.touches[0].pageX
+        pageY = e.touches[0].pageY
+      },
+
+      // 拖动时候触发的touchMove事件
+      contentMoveing (e) {
+        console.log(1111111)
+        let self = this
+        self.cutL + (e.touches[0].pageX - pageX);
+        let dragLengthX = (pageX - e.touches[0].pageX) * dragScaleP
+        let dragLengthY = (pageY - e.touches[0].pageY) * dragScaleP
+        let minX = Math.max(self.cutL - (dragLengthX), 0)
+        let minY = Math.max(self.cutT - (dragLengthY), 0)
+        let maxX = 550 - self.cutW;
+        let maxY = 550 - self.cutH;
+        this.cutL = Math.min(maxX, minX);
+        this.cutT = Math.min(maxY, minY);
+        console.log(`${maxX} ----- ${minX}`)
+        pageX = e.touches[0].pageX;
+        pageY = e.touches[0].pageY;
+        this.$apply();
+      },
+      // 获取图片
+      getImageInfo () {
+        console.log()
+        if(!this.imageSrc){
+          this.tips('请先上传图片');
+          return;
+        }
+        let self = this;
+        wepy.showLoading({
+          title: '图片生成中...',
+        });
+        // 将图片写入画布
+        const ctx = wepy.createCanvasContext('myCanvas')
+        // ctx.drawImage(res.tempFilePath)
+        ctx.drawImage(self.imageSrc)
+        
+        ctx.draw(true, () => {
+          // 获取画布要裁剪的位置和宽度   均为百分比 * 画布中图片的宽度    保证了在微信小程序中裁剪的图片模糊  位置不对的问题
+          let canvasW = (self.cutW / self.imgW) * (self.imageW / pixelRatio);
+          let canvasH = (self.cutH / self.imgH) * (self.imageH / pixelRatio);
+          let canvasL = (self.cutL / self.imgW) * (self.imageW / pixelRatio);
+          let canvasT = (self.cutT / self.imgH) * (self.imageH / pixelRatio);
+          console.log(`宽:${canvasW} --- 高: ${canvasH} --- x轴: ${canvasL} --- canvasT: ${canvasT} -------- self.imageW: ${self.imageW}  ------- self.imageH: ${self.imageH} ---- pixelRatio ${pixelRatio}`)
+          wepy.canvasToTempFilePath({
+            x: canvasL,
+            y: canvasT,
+            width: canvasW,
+            height: canvasH,
+            destWidth: canvasW,
+            destHeight: canvasH,
+            canvasId: 'myCanvas'
+          })
+          .then(function (res) {
+              console.log(res)
+              // 成功获得地址的地方
+              let tempFilePaths = res.tempFilePath;
+              let userUrl = wepy.$instance.globalData.userUrl;
+              console.log('图片生成地址',tempFilePaths);
+              wepy.uploadFile({
+                url: `https://testuser.ipsebe.com/api/file/upload`,
+                filePath: tempFilePaths,
+                name: 'Filedata'
+              })
+              .then(function(data){
+                console.log('图片上传',JSON.parse(data).url);
+                wepy.hideLoading();
+                wepy.navigateTo(
+                  {
+                    url: '/pages/imgSearch/searchResult?img='+JSON.parse(data).url
+                  }
+                )
+              })
+            })
+        })
+      },
+
+      // 设置大小的时候触发的touchStart事件
+      dragStart(e) {
+        console.log(99999999)
+        let self = this;
+        sizeConfPageX = e.touches[0].pageX;
+        sizeConfPageY = e.touches[0].pageY;
+        initDragCutW = self.cutW;
+        initDragCutL = self.cutL;
+        initDragCutT = self.cutT;
+        initDragCutH = self.cutH;
+        this.$apply();
+      },
+
+      // 设置大小的时候触发的touchMove事件
+      dragMove (e) {
+        console.log(99999999)
+        let self = this;
+        let dragType = e.target.dataset.drag;
+        console.log(e)
+        switch (dragType) {
+          case 'right':
+            let dragLength = (sizeConfPageX - e.touches[0].pageX) * dragScaleP;
+            if (initDragCutW >= dragLength) {
+              // 如果 移动小于0 说明是在往下啦  放大裁剪的高度  这样一来 图片的高度  最大 等于 图片的top值加 当前图片的高度  否则就说明超出界限
+              if (dragLength < 0 && initDragCutL + self.cutW < 550) {
+                self.cutW = initDragCutW - dragLength;
+                self.$apply();
+              }
+              // 如果是移动 大于0  说明在缩小  只需要缩小的距离小于原本裁剪的高度就ok
+              if (dragLength > 0) {
+                self.cutW = initDragCutW - dragLength;
+                self.$apply();
+              }
+              else {
+                return
+              }
+            } else {
+              return
+            }
+            break;
+          case 'left':
+            dragLength = (dragLength = sizeConfPageX - e.touches[0].pageX) * dragScaleP;
+            console.log(dragLength)
+            if (initDragCutW >= dragLength && initDragCutL > dragLength) {
+              if (dragLength < 0 && Math.abs(dragLength) >= initDragCutW) return
+              self.cutL = initDragCutL - dragLength;
+              self.cutW = initDragCutW + dragLength;
+              self.$apply();
+            } else {
+              return;
+            }
+            break;
+          case 'top':
+            dragLength = (sizeConfPageY - e.touches[0].pageY) * dragScaleP
+            if (initDragCutH >= dragLength && initDragCutT > dragLength) {
+              if (dragLength < 0 && Math.abs(dragLength) >= initDragCutH) return
+              self.cutT = initDragCutT - dragLength;
+              self.cutH = initDragCutH + dragLength;
+              self.$apply();
+            } else {
+              return;
+            }
+            break;
+          case 'bottom':
+            dragLength = (sizeConfPageY - e.touches[0].pageY) * dragScaleP;
+            // 必须是 dragLength 向上缩小的时候必须小于原本的高度
+            if (initDragCutH >= dragLength) {
+              // 如果 移动小于0 说明是在往下啦  放大裁剪的高度  这样一来 图片的高度  最大 等于 图片的top值加 当前图片的高度  否则就说明超出界限
+              if (dragLength < 0 && initDragCutT + self.cutH < 550) {
+                self.cutH = initDragCutH - dragLength;
+                self.$apply();
+              }
+              // 如果是移动 大于0  说明在缩小  只需要缩小的距离小于原本裁剪的高度就ok
+              if (dragLength > 0) {
+                self.cutH = initDragCutH - dragLength;
+                self.$apply();
+              }
+              else{
+                return
+              }
+            } else {
+              return
+            }
+            break;
+          case 'rightBottom':
+            let dragLengthX = (sizeConfPageX - e.touches[0].pageX) * dragScaleP
+            let dragLengthY = (sizeConfPageY - e.touches[0].pageY)  * dragScaleP
+            if (initDragCutH >= dragLengthY && initDragCutW >= dragLengthX) {
+              // bottom 方向的变化
+              if ((dragLengthY < 0 && initDragCutT + self.cutH < 550) || (dragLengthY > 0)) {
+                self.cutH = initDragCutH - dragLengthY;
+                self.$apply();
+              }
+              // right 方向的变化
+              if ((dragLengthX < 0 && initDragCutL + self.cutW < 550) || (dragLengthX > 0)) {
+                self.cutW = initDragCutW - dragLengthX;
+                self.$apply();
+              }
+              else {
+                return
+              }
+            } else {
+              return
+            }
+            break;
+          default:
+            break;
+        }
+      }
+    };
+    config = {
+      navigationBarTitleText: '图形商标'
+    };
+    mixins = [input,base];
+  }
+</script>
+<style lang="scss">
+@import "../../styles/variable";
+.crop_tit{font-size: 40rpx;color: #666666;text-align: center;line-height:56rpx;margin-top:90rpx;}
+.crop_prompt{font-size: $text-lg;color: #999999;text-align: center;line-height:42rpx;}
+.btm_prompt{font-size: $text-xs;color: #999999;text-align: center;line-height:33rpx;}
+.null_img{width:550rpx;height:550rpx;background:url('https://sebe360test.oss-cn-beijing.aliyuncs.com/258B72981C6A4B9391C9BADE0CF56590.png') no-repeat;background-size:550rpx;margin:0 auto 0;}
+.crop_bg{width:100%;height:100%;background-color: rgba(0,0,0,0.5);position: absolute;top:0;left:0;text-align: center;
+  image{width:378rpx;height:203rpx;margin-top:450rpx;}
+}
+.img_btn{
+  background-image: linear-gradient(135deg, #10AEFF 0%, #3D95FA 100%);
+  border-radius: 6rpx;
+  width:550rpx;
+  height:94rpx;
+  color:#fff;
+  font-size: 36rpx;
+  line-height: 94rpx;
+  text-align: center;
+  margin:60rpx auto 0;
+}
+/* pages/wx-cropper/index.wxss */
+.wx-content-info{
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color:#f8f8f8;
+}
+
+.wx-corpper{
+  position: relative;
+  overflow: hidden;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  box-sizing: border-box;
+}
+
+.wx-corpper-content{
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background:#f8f8f8 url('https://sebe360test.oss-cn-beijing.aliyuncs.com/13AC39B07BE13FEB6C352B2E5E5E03E2.png') no-repeat;
+  background-size:550rpx;
+  background-position:100rpx 15rpx;
+}
+
+.wx-corpper-content image {
+  display: block;
+  width: 100%;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 100%;
+  min-height: 0 !important;
+  max-height: none !important;
+  image-orientation: 0deg !important;
+}
+
+/* 移动图片效果 */
+.wx-cropper-drag-box{
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  cursor: move;
+  background: rgba(0,0,0,0.6);
+  z-index: 1;
+}
+
+/* 内部的信息 */
+.wx-corpper-crop-box{
+  position: absolute;
+  width: 500rpx;
+  height: 500rpx;
+  background: rgba(255,255,255,0.3); 
+  z-index: 2;
+}
+
+.wx-corpper-crop-box .wx-cropper-view-box {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  outline: 1px solid #69f;
+  outline-color: rgba(102, 153, 255, .75);
+}
+
+/* 横向虚线 */
+.wx-cropper-dashed-h{
+  position: absolute;
+  top: 33.33333333%;
+  left: 0;
+  width: 100%;
+  height: 33.33333333%;
+  border-top: 1px dashed rgba(255,255,255,0.5);
+  border-bottom: 1px dashed rgba(255,255,255,0.5);
+}
+
+/* 纵向虚线 */
+.wx-cropper-dashed-v{
+  position: absolute;
+  left: 33.33333333%;
+  top: 0;
+  width: 33.33333333%;
+  height: 100%;
+  border-left: 1px dashed rgba(255,255,255,0.5);
+  border-right: 1px dashed rgba(255,255,255,0.5);
+}
+
+/* 四个方向的线  为了之后的拖动事件*/
+.wx-cropper-line-t{
+  position: absolute;
+  display: block;
+  width: 100%;
+  background-color: #69f;
+  top: 0;
+  left: 0;
+  height: 1px;
+  opacity: 0.1;
+  cursor: n-resize;
+}
+
+.wx-cropper-line-t::before{
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0rpx;
+  width: 100%;
+  -webkit-transform: translate3d(0,-50%,0);
+  transform: translate3d(0,-50%,0);
+  bottom: 0;
+  height: 41rpx;
+  background: transparent;
+  z-index: 11;
+}
+
+.wx-cropper-line-r{
+  position: absolute;
+  display: block;
+  background-color: #69f;
+  top: 0;
+  right: 0px;
+  width: 1px;
+  opacity: 0.1;
+  height: 100%;
+  cursor: e-resize;
+}
+.wx-cropper-line-r::before{
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 41rpx;
+  -webkit-transform: translate3d(-50%,0,0);
+  transform: translate3d(-50%,0,0);
+  bottom: 0;
+  height: 100%;
+  background: transparent;
+  z-index: 11;
+}
+
+.wx-cropper-line-b{
+  position: absolute;
+  display: block;
+  width: 100%;
+  background-color: #69f;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  opacity: 0.1;
+  cursor: s-resize;
+}
+
+.wx-cropper-line-b::before{
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0rpx;
+  width: 100%;
+  -webkit-transform: translate3d(0,-50%,0);
+  transform: translate3d(0,-50%,0);
+  bottom: 0;
+  height: 41rpx;
+  background: transparent;
+  z-index: 11;
+}
+
+.wx-cropper-line-l{
+  position: absolute;
+  display: block;
+  background-color: #69f;
+  top: 0;
+  left: 0;
+  width: 1px;
+  opacity: 0.1;
+  height: 100%;
+  cursor: w-resize;
+}
+.wx-cropper-line-l::before{
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 41rpx;
+  -webkit-transform: translate3d(-50%,0,0);
+  transform: translate3d(-50%,0,0);
+  bottom: 0;
+  height: 100%;
+  background: transparent;
+  z-index: 11;
+}
+
+.wx-cropper-point{
+  width: 24rpx;
+  height: 24rpx;
+  background-color: #69f;
+  opacity: .75;
+  position: absolute;
+  z-index: 3;
+  border-radius:24rpx;
+  opacity:0.8;
+}
+
+.point-t{
+  top: -3px;
+  left: 50%;
+  margin-left: -3px;
+  cursor: n-resize;
+}
+
+.point-tr{
+  top: -12rpx;
+  left: 100%;
+  margin-left: -12rpx;
+  cursor: n-resize;
+}
+
+.point-r{
+  top: 50%;
+  left:100%;
+  margin-left: -3px;
+  margin-top: -3px;
+  cursor: n-resize;
+}
+
+.point-rb{
+  left: 100%;
+  top: 100%;
+  -webkit-transform: translate3d(-50%,-50%,0);
+  transform: translate3d(-50%,-50%,0);
+  cursor: n-resize;
+  width: 24rpx;
+  height: 24rpx;
+  background-color: #69f;
+  position: absolute;
+  z-index: 1112;
+  opacity: 1;
+  border-radius:24rpx;
+  opacity:0.8;
+}
+
+.point-b{
+  left:50%;
+  top: 100%;
+  margin-left: -3px;
+  margin-top: -3px;
+  cursor: n-resize;
+}
+
+.point-bl{
+  left:0%;
+  top: 100%;
+  margin-left: -12rpx;
+  margin-top: -12rpx;
+  cursor: n-resize;
+}
+
+.point-l{
+  left:0%;
+  top: 50%;
+  margin-left: -3px;
+  margin-top: -3px;
+  cursor: n-resize;
+}
+
+.point-lt{
+  left:0%;
+  top: 0%;
+  margin-left: -12rpx;
+  margin-top: -12rpx;
+  cursor: n-resize;
+}
+
+/* 裁剪框预览内容 */
+.wx-cropper-viewer{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.wx-cropper-viewer image{
+  position: absolute;
+  z-index: 2;
+}
+</style>
